@@ -1,7 +1,7 @@
 /**
  * 单只持仓所属市场及交易时段（北京时间）。
  */
-import { beijingParts, beijingWeekday } from './time.js';
+import { beijingMinutesOfDay, beijingParts, beijingWeekday } from './time.js';
 import { isLikelyKoreanHolding } from './quotes.js';
 
 /** @typedef {'cn'|'hk'|'us'|'jp'|'kr'|'tw'|'gold_cn'|'other'} HoldingMarket */
@@ -16,23 +16,23 @@ function isWeekday(date) {
   return wd >= 1 && wd <= 5;
 }
 
-/** A 股：9:30–11:30、13:00–15:00 */
+/** A 股：9:30–11:30、13:00–15:00（收市时刻起不含） */
 export function isCnHoldingMarketOpen(date = new Date()) {
   if (!isWeekday(date)) return false;
-  const mins = minutesOfDay(beijingParts(date));
+  const mins = beijingMinutesOfDay(date);
   return (
-    (mins >= 9 * 60 + 30 && mins <= 11 * 60 + 30) ||
-    (mins >= 13 * 60 && mins <= 15 * 60)
+    (mins >= 9 * 60 + 30 && mins < 11 * 60 + 30) ||
+    (mins >= 13 * 60 && mins < 15 * 60)
   );
 }
 
-/** 港股：9:30–12:00、13:00–16:00 */
+/** 港股：9:30–12:00、13:00–16:00（收市时刻起不含） */
 export function isHkMarketOpen(date = new Date()) {
   if (!isWeekday(date)) return false;
-  const mins = minutesOfDay(beijingParts(date));
+  const mins = beijingMinutesOfDay(date);
   return (
-    (mins >= 9 * 60 + 30 && mins <= 12 * 60) ||
-    (mins >= 13 * 60 && mins <= 16 * 60)
+    (mins >= 9 * 60 + 30 && mins < 12 * 60) ||
+    (mins >= 13 * 60 && mins < 16 * 60)
   );
 }
 
@@ -46,14 +46,14 @@ export function isJpMarketOpen(date = new Date()) {
   );
 }
 
-/** 韩股：8:00–14:30（首尔 9:00–15:30 KST） */
+/** 韩股：8:30–14:30 北京时间（首尔 9:30–15:30 KST） */
 export function isKrMarketOpen(date = new Date()) {
   if (!isWeekday(date)) return false;
   const mins = minutesOfDay(beijingParts(date));
-  return mins >= 8 * 60 && mins <= 14 * 60 + 30;
+  return mins >= 8 * 60 + 30 && mins <= 14 * 60 + 30;
 }
 
-/** 美股：21:30–次日 04:00 北京时间 */
+/** 美股：21:30–次日 04:00 北京时间（正盘） */
 export function isUsHoldingMarketOpen(date = new Date()) {
   const wd = beijingWeekday(date);
   const mins = minutesOfDay(beijingParts(date));
@@ -62,6 +62,65 @@ export function isUsHoldingMarketOpen(date = new Date()) {
   if (mins >= eveningStart) return wd >= 1 && wd <= 5;
   if (mins < morningEnd) return wd >= 2 && wd <= 6;
   return false;
+}
+
+/** @typedef {'premarket'|'regular'|'afterhours'|'closed'} UsSessionPhase */
+
+/**
+ * 美股交易阶段（北京时间，固定窗口近似美东 DST）
+ * @param {Date} [date]
+ * @returns {UsSessionPhase}
+ */
+export function getUsSessionPhase(date = new Date()) {
+  const wd = beijingWeekday(date);
+  const mins = minutesOfDay(beijingParts(date));
+  const premarketStart = 16 * 60;
+  const eveningStart = 21 * 60 + 30;
+  const morningEnd = 4 * 60;
+  const afterhoursEnd = 8 * 60;
+
+  if (mins >= eveningStart && wd >= 1 && wd <= 5) return 'regular';
+  if (mins < morningEnd && wd >= 2 && wd <= 6) return 'regular';
+  if (mins >= morningEnd && mins < afterhoursEnd && wd >= 2 && wd <= 6) return 'afterhours';
+  if (mins >= premarketStart && mins < eveningStart && wd >= 1 && wd <= 5) return 'premarket';
+  return 'closed';
+}
+
+/** @param {Date} [date] */
+export function isUsQuoteLive(date = new Date()) {
+  return getUsSessionPhase(date) !== 'closed';
+}
+
+/** @typedef {'premarket'|'regular'|'afterhours'|'closed'} HoldingSessionPhase */
+
+/** @param {HoldingMarket} market @param {Date} [date] */
+export function getHoldingSessionPhase(market, date = new Date()) {
+  if (market === 'us' || market === 'other') return getUsSessionPhase(date);
+  if (isHoldingMarketOpen(market, date)) return 'regular';
+  return 'closed';
+}
+
+/** @param {HoldingMarket} market @param {Date} [date] */
+export function isHoldingQuoteLive(market, date = new Date()) {
+  return getHoldingSessionPhase(market, date) !== 'closed';
+}
+
+/** @param {Date} [date] */
+export function usSessionPhaseLabel(phase) {
+  if (phase === 'premarket') return '盘前';
+  if (phase === 'regular') return '盘中';
+  if (phase === 'afterhours') return '盘后';
+  return '已收盘';
+}
+
+/** 任一海外市场（美/日/韩/港）有可刷新行情 */
+export function isOverseasSessionOpen(date = new Date()) {
+  return (
+    isUsQuoteLive(date) ||
+    isJpMarketOpen(date) ||
+    isKrMarketOpen(date) ||
+    isHkMarketOpen(date)
+  );
 }
 
 /** 国内黄金：日盘 9:00–15:30；夜盘 20:00–次日 02:30 */
@@ -99,16 +158,6 @@ export function isHoldingMarketOpen(market, date = new Date()) {
     default:
       return isUsHoldingMarketOpen(date);
   }
-}
-
-/** 任一海外市场（美/日/韩/港）在交易 */
-export function isOverseasSessionOpen(date = new Date()) {
-  return (
-    isUsHoldingMarketOpen(date) ||
-    isJpMarketOpen(date) ||
-    isKrMarketOpen(date) ||
-    isHkMarketOpen(date)
-  );
 }
 
 /** @param {{ code?: string, name?: string, marketId?: number|null, source?: string }} h */

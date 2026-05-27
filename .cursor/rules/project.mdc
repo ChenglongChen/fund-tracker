@@ -1,0 +1,27 @@
+---
+description: fund-tracker 项目总则与文档入口
+alwaysApply: true
+---
+
+# fund-tracker
+
+Node 18+ ESM 项目：`server/` API + `src/` Vite 前端。
+
+## 必读
+
+- 根目录 `AGENTS.md`
+- 实时口径：`docs/realtime-spec.md`
+- 数据流：`docs/data-flow.md`
+
+## 硬性约束
+
+- Header EST = `baseline + RT1` 或 scope 内 `settledAssets + totalRealTime`；勿用 `Σ(amount - settled + ep)` 作 header
+- `estimateProfit` 跟 `resolveLiveDisplayImpact` 的 display impact，不跟 raw 穿透
+- `settle.js` 入账不得 clear snap / impact snapshots
+- 黄金联接基金按 A 股（`cn`）归类；顶栏不出现「黄金」标签
+
+## 改动后
+
+```bash
+npm run test:fund-estimate && npm run test:realtime-profit
+```

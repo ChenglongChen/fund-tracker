@@ -6,7 +6,10 @@ import { getLiveCache, refreshLiveDisplay, startSchedulers } from './live.js';
 import { runSettlement, settleIfNeeded } from './settle.js';
 import { ensurePortfolio, readPortfolio, writePortfolio } from './store.js';
 import { resolveFundImpact } from './market.js';
-import { classifyFundMarket, effectiveImpactPct } from './market-session.js';
+import { classifyFundMarket, resolveLiveDisplayImpact, seedFundRegularSnapshots } from './market-session.js';
+import { loadImpactSnapshots, getFundSnapshotRecords } from './impact-snapshots.js';
+import { loadDayDisplayState } from './day-display-state.js';
+import { seedSessionQuoteSnapshots } from './session-quotes.js';
 import { readAppState, setAssetViewMode, listDailyRecords } from './app-state.js';
 import { addFund, deleteFund, updateFund } from './fund-crud.js';
 
@@ -214,7 +217,8 @@ async function handler(req, res) {
       const fund = portfolio.funds.find((f) => f.code === code);
       const r = await resolveFundImpact(code, live.fxPct, fund?.name ?? '', live.indices ?? []);
       const market = classifyFundMarket(fund ?? { name: '' });
-      const impactPct = effectiveImpactPct(market, r.impactPct);
+      const displayImpact = resolveLiveDisplayImpact(fund?.id ?? null, market, r);
+      const impactPct = displayImpact.impactPct;
       const recent = r.recentReportDate || r.reportDate;
       const annual = r.annualReportDate || null;
       const recentQ = recent?.match(/-(\d{2})-/);
@@ -266,6 +270,10 @@ async function handler(req, res) {
 }
 
 await ensurePortfolio();
+await loadImpactSnapshots();
+await loadDayDisplayState();
+seedSessionQuoteSnapshots();
+seedFundRegularSnapshots(getFundSnapshotRecords());
 startSchedulers(settleIfNeeded);
 
 http.createServer((req, res) => {

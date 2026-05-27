@@ -1,5 +1,11 @@
 import { dayProfitPct } from './store.js';
-import { fmtMd } from './market-session.js';
+import { fmtMd, marketChipLabel, openMarketLabels } from './market-session.js';
+import {
+  fundEstimateProfit,
+  fundEstimatedAssets,
+  liveImpactForEstimate,
+} from './fund-estimate.js';
+import { getBaselineForDay, getRt1AccrualDay } from './day-display-state.js';
 
 function maxIsoDate(set) {
   const arr = [...set].sort();
@@ -79,14 +85,12 @@ export function buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt) {
  * @param {{ funds: object[] }} portfolio
  * @param {object[]} liveFunds
  */
-export function computePortfolioTotals(portfolio, liveFunds) {
+export function computePortfolioTotals(portfolio, liveFunds, now = new Date()) {
   const byId = new Map(liveFunds.map((f) => [f.id, f]));
   let settledAssets = 0;
-  let realtimeAssets = 0;
   let settledProfit = 0;
   let realtimeProfit = 0;
   let holdingProfit = 0;
-  const openMarkets = new Set();
 
   for (const f of portfolio.funds) {
     const live = byId.get(f.id);
@@ -94,27 +98,45 @@ export function computePortfolioTotals(portfolio, liveFunds) {
     settledAssets += amount;
     holdingProfit += f.totalProfit ?? 0;
 
-    const sp = live?.settledProfit ?? f.yesterdayProfit ?? 0;
-    if (Number.isFinite(sp)) settledProfit += sp;
-
-    let rt = 0;
-    if (live?.impactPct != null && Number.isFinite(live.impactPct)) {
-      rt = (amount * live.impactPct) / 100;
-      realtimeProfit += rt;
-      if (live.realtimeActive && live.marketLabel) openMarkets.add(live.marketLabel);
+    if (!live?.dailyPending) {
+      const sp = live?.settledProfit ?? f.yesterdayProfit ?? 0;
+      if (Number.isFinite(sp)) settledProfit += sp;
     }
-    realtimeAssets += amount + rt;
+
+    const ep =
+      live?.estimateProfit != null && Number.isFinite(live.estimateProfit)
+        ? live.estimateProfit
+        : live
+          ? fundEstimateProfit(
+              amount,
+              {
+                ...liveImpactForEstimate(live, live.market ?? 'cn'),
+                impactPctRegular: live.impactPctRegularLive ?? live.impactPctRegular,
+                impactPctExtended: live.impactPctExtendedLive ?? live.impactPctExtended,
+              },
+              now,
+            )
+          : null;
+    if (ep != null && Number.isFinite(ep)) {
+      realtimeProfit += ep;
+    }
   }
+
+  const accrualDay = getRt1AccrualDay(now);
+  const baseline = getBaselineForDay(accrualDay, 'portfolio');
+  const portfolioEst =
+    baseline != null && Number.isFinite(realtimeProfit)
+      ? round2(baseline + realtimeProfit)
+      : round2(settledAssets + realtimeProfit);
 
   return {
     settledAssets: round2(settledAssets),
-    realtimeAssets: round2(realtimeAssets),
+    realtimeAssets: portfolioEst,
     settledProfit: round2(settledProfit),
     realtimeProfit: round2(realtimeProfit),
     holdingProfit: round2(holdingProfit),
     settledProfitPct: dayProfitPct(settledAssets, settledProfit),
     realtimeProfitPct: settledAssets > 0 ? round4((realtimeProfit / settledAssets) * 100) : null,
-    openMarkets: [...openMarkets],
     fundCount: portfolio.funds.length,
   };
 }
@@ -129,7 +151,7 @@ export function pickDisplayTotals(mode, totals) {
       profitPct: totals.realtimeProfitPct,
       profitLabel: '实时收益',
       assetsLabel: '预估资产',
-      assetsHint: '入账资产 + 各市场最新估值',
+      assetsHint: '入账资产_{t−1} + 实时收益',
     };
   }
   return {
@@ -144,15 +166,23 @@ export function pickDisplayTotals(mode, totals) {
 }
 
 /** @param {object} fund @param {object|null} live */
-export function enrichFundDisplayAmount(fund, live) {
+export function enrichFundDisplayAmount(fund, live, now = new Date()) {
   const amount = fund.amount ?? 0;
-  let estAmount = amount;
-  if (live?.impactPct != null && Number.isFinite(live.impactPct)) {
-    estAmount = amount + (amount * live.impactPct) / 100;
-  }
+  const ea =
+    live?.estimateAssets != null && Number.isFinite(live.estimateAssets)
+      ? live.estimateAssets
+      : live
+        ? fundEstimatedAssets(
+            amount,
+            live.settledProfit ?? fund.yesterdayProfit ?? null,
+            liveImpactForEstimate(live, live.market ?? 'cn'),
+            live.dailyPending ?? false,
+            now,
+          )
+        : null;
   return {
     bookedAmount: amount,
-    estAmount: round2(estAmount),
+    estAmount: ea != null ? round2(ea) : round2(amount),
   };
 }
 
@@ -167,18 +197,20 @@ function round4(n) {
 /**
  * @param {string} beijingDate
  * @param {string} updatedAt
- * @param {string[]} openMarkets
  * @param {object[]} [liveFunds]
  * @param {object} [meta]
+ * @param {Date} [now]
  */
-export function buildDisplayContext(beijingDate, updatedAt, openMarkets, liveFunds = [], meta = {}) {
-  const liveText = openMarkets.length ? `${openMarkets.join(' / ')} 盘中` : '全市场休市';
+export function buildDisplayContext(beijingDate, updatedAt, liveFunds = [], meta = {}, now = new Date()) {
+  const labels = openMarketLabels(now);
+  const liveText = labels.length ? `${labels.join(' / ')} 盘中` : '全市场休市';
   return {
     beijingDate,
     updatedAt,
     clockLabel: beijingDate && updatedAt ? `${beijingDate.slice(5)} ${updatedAt}` : updatedAt,
-    realtimeNote: `实时收益=各市场最新估值 · 美股休市沿用收盘 · A股/黄金仅当日9:30后 · 当前 ${liveText}`,
-    dailyNote: '当日列入账后更新 · A股/黄金=当天 · QDII=最新公布净值日',
+    marketChip: marketChipLabel(now),
+    realtimeNote: `实时收益=盘中最新估值 · 收市沿用最近收盘 · 盘中标记仅交易时段点亮 · 当前 ${liveText}`,
+    dailyNote: '当日收益=净值公布后入账更新（通常晚间）· A股/黄金=当天 · QDII=最新公布净值日',
     holdingNote: '持有收益=累计盈亏，截至各基金已入账净值日',
     tableHead: buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt),
   };

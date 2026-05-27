@@ -1,6 +1,7 @@
 /**
  * 大盘指数：各市场常用指数 + 新浪代码解析（底部 dock / 抽屉展示）。
  */
+import { parseGbSinaRaw } from './gb-quote-parse.js';
 
 /** @typedef {'cn'|'hk'|'jp'|'kr'|'us'|'fx'} StripMarket */
 
@@ -22,39 +23,82 @@ export const MARKET_STRIP_INDICES = [
   { key: 'znb_NKY', label: '日经225', market: 'jp', parse: 'znb' },
   { key: 'znb_KOSPI', label: 'KOSPI', market: 'kr', parse: 'znb' },
   { key: 'gb_inx', label: '标普500', market: 'us', parse: 'gb' },
+  { key: 'gb_ndx', label: '纳斯达克100', market: 'us', parse: 'gb' },
   { key: 'gb_$ixic', label: '纳斯达克', market: 'us', parse: 'gb' },
 ];
 
 /**
  * @param {string} raw
  * @param {'gb'|'cn'|'hk'|'znb'} parse
+ * @param {string} [key]
+ * @returns {{ price: number|null, change: number|null, changePct: number|null, changePctRegular?: number|null, changePctPremarket?: number|null }}
  */
-export function parseIndexChangePct(raw, parse) {
-  if (!raw) return null;
+export function parseIndexQuote(raw, parse, key = '') {
+  const empty = { price: null, change: null, changePct: null, changePctRegular: null, changePctPremarket: null };
+  if (!raw) return empty;
   const parts = raw.split(',');
-  let changePct = null;
 
   switch (parse) {
-    case 'gb':
-      changePct = parseFloat(parts[2]);
-      break;
+    case 'gb': {
+      const gb = parseGbSinaRaw(raw);
+      if (!gb) {
+        const changePct = parseFloat(parts[2]);
+        return { ...empty, changePct: Number.isFinite(changePct) ? changePct : null };
+      }
+      const prev = gb.price / (1 + gb.changePct / 100);
+      return {
+        price: gb.price,
+        change: gb.price - prev,
+        changePct: gb.changePct,
+        changePctRegular:
+          gb.changePctRegular != null && gb.changePctRegular !== 0
+            ? gb.changePctRegular
+            : gb.changePct,
+        changePctPremarket: gb.changePctPremarket,
+      };
+    }
     case 'cn': {
       const prev = parseFloat(parts[2]);
       const cur = parseFloat(parts[3]);
-      if (prev > 0 && cur > 0) changePct = ((cur - prev) / prev) * 100;
-      break;
+      if (!Number.isFinite(prev) || !Number.isFinite(cur)) return empty;
+      const changePct = prev > 0 ? ((cur - prev) / prev) * 100 : null;
+      return {
+        price: cur,
+        change: cur - prev,
+        changePct: Number.isFinite(changePct) ? changePct : null,
+      };
     }
-    case 'hk':
-      changePct = parseFloat(parts[8]);
-      break;
-    case 'znb':
-      changePct = parseFloat(parts[3]);
-      break;
+    case 'hk': {
+      const price = parseFloat(parts[6]);
+      const change = parseFloat(parts[7]);
+      const changePct = parseFloat(parts[8]);
+      return {
+        price: Number.isFinite(price) ? price : null,
+        change: Number.isFinite(change) ? change : null,
+        changePct: Number.isFinite(changePct) ? changePct : null,
+      };
+    }
+    case 'znb': {
+      const price = parseFloat(parts[1]);
+      const change = parseFloat(parts[2]);
+      const changePct = parseFloat(parts[3]);
+      return {
+        price: Number.isFinite(price) ? price : null,
+        change: Number.isFinite(change) ? change : null,
+        changePct: Number.isFinite(changePct) ? changePct : null,
+      };
+    }
     default:
-      break;
+      return empty;
   }
+}
 
-  return Number.isFinite(changePct) ? changePct : null;
+/**
+ * @param {string} raw
+ * @param {'gb'|'cn'|'hk'|'znb'} parse
+ */
+export function parseIndexChangePct(raw, parse) {
+  return parseIndexQuote(raw, parse).changePct;
 }
 
 /** @param {string} fxRaw */

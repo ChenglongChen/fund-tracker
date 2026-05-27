@@ -1,4 +1,4 @@
-import { parseIndexChangePct } from './market-indices.js';
+import { parseIndexChangePct, parseIndexQuote } from './market-indices.js';
 
 const ok = [];
 const fail = [];
@@ -17,6 +17,14 @@ assert('cn parse', Math.abs(parseIndexChangePct(cnRaw, 'cn') - -0.017) < 0.05);
 assert('hk parse', parseIndexChangePct(hkRaw, 'hk') === -0.01);
 assert('znb parse', parseIndexChangePct(znbRaw, 'znb') === 1.32);
 assert('gb parse', parseIndexChangePct(gbRaw, 'gb') === 0.61);
+
+const cnQuote = parseIndexQuote(cnRaw, 'cn');
+assert('cn quote price', Math.abs(cnQuote.price - 4144.6694) < 0.001);
+assert('cn quote change', Math.abs(cnQuote.change + 0.7036) < 0.01);
+
+const hkQuote = parseIndexQuote(hkRaw, 'hk');
+assert('hk quote price', hkQuote.price === 25595.9);
+assert('hk quote change', hkQuote.change === -3.55);
 
 console.log(`market-indices tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {

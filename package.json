@@ -15,7 +15,11 @@
     "compare:holdings": "node scripts/compare-holdings.js 270023 scripts/fixtures/ref-270023-345569.json",
     "audit:345569": "node scripts/audit-vs-345569.js",
     "audit:holdings-xyz": "node scripts/audit-holdings-vs-xyz.js",
-    "audit:impact-xyz": "node scripts/audit-impact-vs-xyz.js"
+    "audit:impact-xyz": "node scripts/audit-impact-vs-xyz.js",
+    "test:fund-estimate": "node server/fund-estimate.test.js",
+    "test:realtime-profit": "node server/realtime-profit-consistency.test.js",
+    "verify:alipay-realtime": "node scripts/verify-alipay-realtime.js",
+    "verify:tab-reconcile": "node scripts/verify-tab-reconcile.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

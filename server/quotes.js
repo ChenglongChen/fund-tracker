@@ -1,5 +1,6 @@
 import { extractQuotedVar } from './quote-utils.js';
 import { isKrMarketOpen } from './holding-market.js';
+import { parseGbSinaQuote } from './gb-quote-parse.js';
 
 const SINA_ORIGIN = 'https://hq.sinajs.cn';
 const SINA_HEADERS = { Referer: 'https://finance.sina.com.cn/' };
@@ -67,7 +68,8 @@ function parseSinaList(text, keys) {
     if (key.startsWith('rt_hk') && parts.length >= 9) {
       out[key] = { name: parts[1], price: parseFloat(parts[6]), changePct: parseFloat(parts[8]) };
     } else if (key.startsWith('gb_') && parts.length >= 3) {
-      out[key] = { name: parts[0], price: parseFloat(parts[1]), changePct: parseFloat(parts[2]) };
+      const gb = parseGbSinaQuote(key, raw);
+      if (gb) out[key] = gb;
     } else if (parts.length >= 4) {
       const pre = parseFloat(parts[2]);
       const cur = parseFloat(parts[3]);

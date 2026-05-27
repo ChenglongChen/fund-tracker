@@ -66,6 +66,20 @@ export function saveValuationProfiles(profiles) {
 const ACTIVE_NAME_MARKERS =
   /全球|科技|成长|精选|先锋|新兴|互联|互联网|高端制造|智选|产业|混合|优选|配置|价值|制造|升级|先锋|互联/i;
 
+/** 纯指数联接 proxy 对应的指数条 label（养基宝口径：直接用指数涨跌幅） */
+export function indexStripLabelForProxyFund(fundName) {
+  const n = String(fundName || '').trim();
+  if (!n) return null;
+  if (/黄金/.test(n)) return null;
+  if (/标普500|博时标普|标普指数/.test(n) && !ACTIVE_NAME_MARKERS.test(n)) return '标普500';
+  if (/纳斯达克100|纳指100|NASDAQ100/i.test(n) && !ACTIVE_NAME_MARKERS.test(n)) return '纳斯达克100';
+  if (/纳指/.test(n) && !/全球|科技|精选|成长|互联|高端|先锋|新兴|互联网|智选|产业/.test(n)) {
+    return '纳斯达克100';
+  }
+  if (/159915|创业板ETF/.test(n)) return '创业板';
+  return null;
+}
+
 /**
  * 纯指数联接/ETF 联接：仅这类走 proxy（如 xxx纳斯达克100、xxx标普500、黄金）。
  * @param {string} fundName

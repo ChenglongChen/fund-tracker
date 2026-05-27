@@ -26,6 +26,28 @@ export function buildAccountSummaries(rows, accounts) {
       const hasRealtime = rtFunds.length > 0;
       const totalRealTimePct =
         hasRealtime && totalAssets > 0 ? (totalRealTime / totalAssets) * 100 : null;
+
+      let totalRealTimeExtended = 0;
+      let usAssets = 0;
+      let extendedSession = null;
+      for (const f of funds) {
+        const ext = f.realTimeProfitExtended;
+        if (ext != null && Number.isFinite(ext)) totalRealTimeExtended += ext;
+        if (f.market === 'us') {
+          usAssets += f.amount ?? 0;
+          if (f.impactSession === 'premarket' || f.impactSession === 'afterhours') {
+            extendedSession = f.impactSession;
+          }
+        }
+      }
+      totalRealTimeExtended = Math.round(totalRealTimeExtended * 100) / 100;
+      const totalRealTimeExtendedPct =
+        usAssets > 0 ? (totalRealTimeExtended / usAssets) * 100 : null;
+      const hasExtendedRealtime =
+        extendedSession != null &&
+        totalRealTimeExtended != null &&
+        Math.abs(totalRealTimeExtended) >= 0.001;
+
       return {
         ...acc,
         totalAssets,
@@ -34,6 +56,10 @@ export function buildAccountSummaries(rows, accounts) {
         totalRealTime,
         totalRealTimePct,
         hasRealtime,
+        totalRealTimeExtended,
+        totalRealTimeExtendedPct,
+        hasExtendedRealtime,
+        extendedSession,
         totalHolding,
         totalHoldingPct,
         fundCount: funds.length,
@@ -44,6 +70,12 @@ export function buildAccountSummaries(rows, accounts) {
       };
     })
     .filter((a) => a.fundCount > 0);
+}
+
+/** @param {object} target @param {string} field @param {number|null|undefined} value */
+function sumNullableField(target, field, value) {
+  if (value == null || !Number.isFinite(value)) return;
+  target[field] = (target[field] ?? 0) + value;
 }
 
 /** @param {object[]} rows */
@@ -67,9 +99,10 @@ export function mergeFundsByCode(rows) {
     existing.totalProfit += f.totalProfit;
     existing.yesterdayProfit = (existing.yesterdayProfit ?? 0) + (f.yesterdayProfit ?? 0);
     existing.settledProfit = (existing.settledProfit ?? 0) + (f.settledProfit ?? 0);
-    if (f.realTimeProfit != null && Number.isFinite(f.realTimeProfit)) {
-      existing.realTimeProfit = (existing.realTimeProfit ?? 0) + f.realTimeProfit;
-    }
+    sumNullableField(existing, 'realTimeProfit', f.realTimeProfit);
+    sumNullableField(existing, 'estimateProfit', f.estimateProfit);
+    sumNullableField(existing, 'realTimeProfitRegular', f.realTimeProfitRegular);
+    sumNullableField(existing, 'realTimeProfitExtended', f.realTimeProfitExtended);
     existing.mergedIds.push(f.id);
     if (!existing.accountIds.includes(f.accountId)) existing.accountIds.push(f.accountId);
     existing.isMerged = existing.mergedIds.length > 1;
@@ -79,6 +112,9 @@ export function mergeFundsByCode(rows) {
     existing.settledPct = dayProfitPct(existing.amount, existing.settledProfit);
     if (existing.realTimeProfit != null && existing.amount > 0) {
       existing.realTimePct = (existing.realTimeProfit / existing.amount) * 100;
+    }
+    if (existing.realTimeProfitRegular != null && existing.amount > 0) {
+      existing.realTimePctRegular = (existing.realTimeProfitRegular / existing.amount) * 100;
     }
     existing.realtimeActive = existing.realtimeActive || f.realtimeActive;
   }

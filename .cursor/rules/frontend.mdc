@@ -1,0 +1,31 @@
+---
+description: 前端 Hero、列表、账户概况与 summary 计算
+globs: src/**/*.{js,css,html}
+alwaysApply: false
+---
+
+# Frontend
+
+主文件：`src/main.js`、`src/accounts.js`。
+
+## buildSummary（header 预估）
+
+```javascript
+// ✅ scope header
+realtimeAssets = settledAssets + totalRealTime;
+
+// ❌ 勿 Σ estimatedAssetsForRow — 无 RT1 的 A 股基金会多减 settled
+```
+
+无 extended 时 Hero/账户卡：**竖排** 金额 + 收益率（模式 A）。  
+盘前/盘后：**两行** `.metric-split-row`（模式 B），row2 带「盘前/盘后」tag，不计入 row1。
+
+## 数据源
+
+- 以 `/api/live` 的 `estimateProfit`、`estimateAssets` 为准
+- **禁止** 前端独立 snap Map（已移除 `premarketEstimateByScope`）
+- `mergeLiveIntoFunds`：`realTimeProfit` = `estimateProfit`
+
+## UI patch
+
+列表 1s 刷新优先 `patchListDom()`；extended 列用 `.metric-split-row` 与 Hero 同构。

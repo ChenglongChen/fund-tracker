@@ -1,15 +1,34 @@
-import { fetchFundNavInfo, fetchMarketStrip, resolveFundImpact } from './market.js';
-import { getFundProfitWindows, effectiveImpactPct } from './market-session.js';
+import { fetchFundNavInfo, fetchMarketStrip, resolvePortfolioImpacts } from './market.js';
+import {
+  getFundProfitWindows,
+  isDailyProfitPending,
+  resolveLiveDisplayImpact,
+  shouldSuppressDomesticRealtimeDuringUsRegular,
+} from './market-session.js';
 import { enrichFundSettled } from './nav.js';
 import { readPortfolio } from './store.js';
-import { beijingDateString, beijingTimeHm } from './time.js';
+import { beijingDateString, beijingTimeHms } from './time.js';
 import { readAppState, recordLiveSnapshot } from './app-state.js';
 import { buildDisplayContext, computePortfolioTotals, pickDisplayTotals } from './aggregate.js';
+import {
+  fundEstimateImpactPct,
+  fundEstimateProfit,
+  fundEstimatedAssets,
+} from './fund-estimate.js';
+import {
+  applyFundRt1Snap,
+  applyPortfolioTotalsSnap,
+  reconcileDisplayState,
+  sumExtendedProfit,
+  tryBackfillSnapFromTicks,
+} from './display-state-machine.js';
+import { getRt1AccrualDay } from './day-display-state.js';
 
 const LIVE_REFRESH_MS = 1_000;
+const LIVE_FULL_REFRESH_MS = 5 * 60_000;
 const SETTLE_CHECK_MS = 30 * 60_000;
 
-/** @type {{ updatedAt: string, beijingDate: string, indices: object[], fxPct: number|null, funds: object[], totals: object|null, display: object|null, displayContext: object|null, assetViewMode: string, error: string|null }} */
+/** @type {{ updatedAt: string, beijingDate: string, indices: object[], fxPct: number|null, funds: object[], totals: object|null, display: object|null, displayContext: object|null, assetViewMode: string, displayState: object|null, error: string|null }} */
 let cache = {
   updatedAt: '',
   beijingDate: '',
@@ -20,12 +39,29 @@ let cache = {
   display: null,
   displayContext: null,
   assetViewMode: 'settled',
+  displayState: null,
   error: null,
 };
 
 let liveBusy = false;
 let livePending = false;
 let settleBusy = false;
+let lastFullRefreshAt = 0;
+
+/** @type {Map<number, string>} */
+const fundImpactSourceCache = new Map();
+
+function rememberImpactSources(funds, impacts) {
+  for (let i = 0; i < funds.length; i++) {
+    const f = funds[i];
+    const src = impacts[i]?.impactSource;
+    if (f?.id != null && src) fundImpactSourceCache.set(f.id, src);
+  }
+}
+
+function shouldRunFullImpactRefresh(now = Date.now()) {
+  return fundImpactSourceCache.size === 0 || now - lastFullRefreshAt >= LIVE_FULL_REFRESH_MS;
+}
 
 export function getLiveCache() {
   return cache;
@@ -43,11 +79,121 @@ export async function refreshLiveDisplay() {
   cache.displayContext = buildDisplayContext(
     cache.beijingDate,
     cache.updatedAt,
-    totals.openMarkets,
     cache.funds,
     portfolio.meta,
+    new Date(),
   );
   return cache;
+}
+
+/**
+ * @param {object} f
+ * @param {object} r
+ * @param {object|null} navInfo
+ * @param {string} beijingDate
+ * @param {Date} now
+ */
+function buildLiveFundRow(f, r, navInfo, beijingDate, now) {
+  const settled = enrichFundSettled(f, navInfo);
+  const windows = getFundProfitWindows(
+    { ...f, lastNavDate: settled.settledNavDate ?? f.lastNavDate },
+    beijingDate,
+    now,
+  );
+  const displayImpact = resolveLiveDisplayImpact(f.id, windows.market, r, now);
+  const {
+    impactPct,
+    impactPctRegular,
+    impactPctExtended,
+    impactSession,
+    rawImpactPct,
+  } = displayImpact;
+  const amount = f.amount ?? 0;
+  const displayLive =
+    impactPct != null && Number.isFinite(impactPct)
+      ? {
+          market: windows.market,
+          impactPct: impactPctRegular ?? impactPct,
+          impactPctRegular: impactPctRegular ?? null,
+          impactPctExtended: impactPctExtended ?? null,
+        }
+      : null;
+  const impactPctRegularLive =
+    r?.impactPctRegular != null && Number.isFinite(r.impactPctRegular)
+      ? r.impactPctRegular
+      : r?.impactPct != null && Number.isFinite(r.impactPct)
+        ? r.impactPct
+        : null;
+  const impactPctExtendedLive =
+    r?.impactPctExtended != null && Number.isFinite(r.impactPctExtended)
+      ? r.impactPctExtended
+      : null;
+  const estimateImpactPct = displayLive ? fundEstimateImpactPct(displayLive, now) : null;
+  const estimateProfit = displayLive ? fundEstimateProfit(amount, displayLive, now) : null;
+  const realTimeProfitExtended =
+    displayLive && impactPctExtendedLive != null
+      ? Math.round(((amount * impactPctExtendedLive) / 100) * 100) / 100
+      : null;
+  const dailyPending = isDailyProfitPending(
+    f,
+    windows.market,
+    navInfo,
+    beijingDate,
+    now,
+  );
+  const settledFields = dailyPending
+    ? {
+        settledNavDate: settled.settledNavDate ?? f.lastNavDate ?? null,
+        settledProfit: null,
+        settledPct: null,
+        settledSource: settled.settledSource ?? 'portfolio',
+      }
+    : settled;
+  const estimateAssets = fundEstimatedAssets(
+    amount,
+    settledFields.settledProfit ?? f.yesterdayProfit ?? null,
+    displayLive,
+    dailyPending,
+    now,
+    null,
+    estimateProfit,
+  );
+  const suppressDomestic = shouldSuppressDomesticRealtimeDuringUsRegular(windows.market, now);
+  return {
+    id: f.id,
+    code: f.code,
+    name: f.name,
+    amount,
+    totalProfit: f.totalProfit ?? null,
+    totalProfitPct: f.totalProfitPct ?? null,
+    yesterdayProfit: f.yesterdayProfit ?? null,
+    shares: f.shares ?? null,
+    lastNav: f.lastNav ?? null,
+    impactPct,
+    impactPctRegular,
+    impactPctExtended,
+    impactPctRegularLive,
+    impactPctExtendedLive,
+    estimateImpactPct,
+    impactSession,
+    estimateProfit,
+    estimateAssets,
+    realTimeProfitExtended,
+    dailyPending,
+    weightCoverage: r.weightCoverage ?? null,
+    quoteCoverage: r.quoteCoverage ?? null,
+    reportFundCount: r.reportFundCount ?? 0,
+    holdingsCount: r.count ?? 0,
+    lastNavDate: settled.settledNavDate ?? f.lastNavDate ?? null,
+    ...settledFields,
+    ...windows,
+    realtimeActive: suppressDomestic ? false : windows.realtimeActive,
+    rawImpactPct,
+    impactSource: r.impactSource ?? null,
+    estimateSource: r.impactSource ?? null,
+    officialNavDate: navInfo?.pdate ?? null,
+    officialDisplayDate: navInfo?.displayDate ?? null,
+  };
 }
 
 async function refreshLive() {
@@ -57,108 +203,117 @@ async function refreshLive() {
   }
   liveBusy = true;
   try {
-    const portfolio = await readPortfolio();
-    const strip = await fetchMarketStrip();
-    const fxPct = strip.find((x) => x.label === '汇率')?.changePct ?? null;
     const now = new Date();
-    const updatedAt = beijingTimeHm(now);
+    const updatedAt = beijingTimeHms(now);
     const beijingDate = beijingDateString(now);
+    const accrualDay = getRt1AccrualDay(now);
 
-    const concurrency = 4;
-    const funds = portfolio.funds;
-    const results = [];
-    let i = 0;
+    const [portfolio, strip, appState] = await Promise.all([
+      readPortfolio(),
+      fetchMarketStrip(now),
+      readAppState(),
+    ]);
+    const fxPct = strip.find((x) => x.label === '汇率')?.changePct ?? null;
 
-    async function worker() {
-      while (i < funds.length) {
-        const idx = i++;
-        const f = funds[idx];
-        try {
-          const [r, navInfo] = await Promise.all([
-            resolveFundImpact(f.code, fxPct, f.name, strip),
-            fetchFundNavInfo(f.code),
-          ]);
-          const settled = enrichFundSettled(f, navInfo);
-          const windows = getFundProfitWindows(
-            { ...f, lastNavDate: settled.settledNavDate ?? f.lastNavDate },
-            beijingDate,
-            now,
-          );
-          const rawImpactPct =
-            r.impactPct != null && Number.isFinite(r.impactPct) ? r.impactPct : null;
-          const impactPct = effectiveImpactPct(windows.market, rawImpactPct, now);
-          results[idx] = {
-            id: f.id,
-            code: f.code,
-            name: f.name,
-            impactPct,
-            weightCoverage: r.weightCoverage,
-            quoteCoverage: r.quoteCoverage,
-            reportFundCount: r.reportFundCount ?? 0,
-            holdingsCount: r.count,
-            lastNavDate: settled.settledNavDate ?? f.lastNavDate ?? null,
-            ...settled,
-            ...windows,
-            rawImpactPct,
-            impactSource: r.impactSource ?? null,
-            officialNavDate: navInfo?.pdate ?? null,
-            officialDisplayDate: navInfo?.displayDate ?? null,
-          };
-        } catch {
-          const settled = enrichFundSettled(f, null);
-          const windows = getFundProfitWindows(
-            { ...f, lastNavDate: settled.settledNavDate ?? f.lastNavDate },
-            beijingDate,
-            now,
-          );
-          results[idx] = {
-            id: f.id,
-            code: f.code,
-            name: f.name,
-            impactPct: null,
-            weightCoverage: null,
-            holdingsCount: 0,
-            lastNavDate: settled.settledNavDate ?? f.lastNavDate ?? null,
-            ...settled,
-            ...windows,
-            rawImpactPct: null,
-            officialNavDate: null,
-            officialDisplayDate: null,
-          };
-        }
+    cache = {
+      ...cache,
+      updatedAt,
+      beijingDate,
+      indices: strip,
+      fxPct,
+      error: null,
+    };
+
+    const useSourceCache = !shouldRunFullImpactRefresh();
+    const [impacts, navInfos] = await Promise.all([
+      resolvePortfolioImpacts(
+        portfolio.funds,
+        strip,
+        fxPct,
+        now,
+        useSourceCache ? fundImpactSourceCache : new Map(),
+        { skipAsiaSupplement: useSourceCache },
+      ),
+      Promise.all(portfolio.funds.map((f) => fetchFundNavInfo(f.code))),
+    ]);
+    rememberImpactSources(portfolio.funds, impacts);
+    if (!useSourceCache) lastFullRefreshAt = Date.now();
+
+    let results = portfolio.funds.map((f, idx) => {
+      try {
+        return buildLiveFundRow(f, impacts[idx] ?? {}, navInfos[idx] ?? null, beijingDate, now);
+      } catch {
+        const settled = enrichFundSettled(f, navInfos[idx] ?? null);
+        const windows = getFundProfitWindows(
+          { ...f, lastNavDate: settled.settledNavDate ?? f.lastNavDate },
+          beijingDate,
+          now,
+        );
+        return {
+          id: f.id,
+          code: f.code,
+          name: f.name,
+          impactPct: null,
+          weightCoverage: null,
+          holdingsCount: 0,
+          lastNavDate: settled.settledNavDate ?? f.lastNavDate ?? null,
+          ...settled,
+          ...windows,
+          rawImpactPct: null,
+          officialNavDate: navInfos[idx]?.pdate ?? null,
+          officialDisplayDate: navInfos[idx]?.displayDate ?? null,
+        };
       }
-    }
+    });
 
-    await Promise.all(Array.from({ length: concurrency }, () => worker()));
+    const totalsLive = computePortfolioTotals(portfolio, results, now);
+    await tryBackfillSnapFromTicks(accrualDay, 'premarketSnap');
+    await tryBackfillSnapFromTicks(accrualDay, 'afterhoursSnap');
 
-    const appState = await readAppState();
-    const totals = computePortfolioTotals(portfolio, results.filter(Boolean));
+    const displayState = reconcileDisplayState(portfolio, results, totalsLive, impacts, now);
+
+    results = results.map((row) => applyFundRt1Snap(row.id, row, accrualDay, now));
+    const totals = applyPortfolioTotalsSnap(
+      computePortfolioTotals(portfolio, results, now),
+      accrualDay,
+      now,
+    );
+    const extended = sumExtendedProfit(results, now);
+    totals.realtimeProfitExtended = extended.total;
+    totals.realtimeProfitExtendedPct = extended.pct;
+    totals.extendedSession = extended.session;
+
     const display = pickDisplayTotals(appState.assetViewMode, totals);
     const displayContext = buildDisplayContext(
       beijingDate,
       updatedAt,
-      totals.openMarkets,
-      results.filter(Boolean),
+      results,
       portfolio.meta,
+      now,
     );
 
-    await recordLiveSnapshot({
-      beijingDate,
-      updatedAt,
-      ...totals,
-      assetViewMode: appState.assetViewMode,
-    });
+    if (!useSourceCache) {
+      await recordLiveSnapshot({
+        beijingDate,
+        updatedAt,
+        ...totals,
+        assetViewMode: appState.assetViewMode,
+      });
+    }
 
     cache = {
       updatedAt,
       beijingDate,
       indices: strip,
       fxPct,
-      funds: results.filter(Boolean),
+      funds: results,
       totals,
       display,
       displayContext,
       assetViewMode: appState.assetViewMode,
+      displayState,
+      portfolioUpdatedAt:
+        portfolio.meta?.lastAutoSettleAt ?? portfolio.meta?.importedAt ?? null,
       error: null,
     };
   } catch (e) {
@@ -194,4 +349,4 @@ export function startSchedulers(settleFn) {
   setInterval(runSettle, SETTLE_CHECK_MS);
 }
 
-export { LIVE_REFRESH_MS, SETTLE_CHECK_MS };
+export { LIVE_REFRESH_MS, LIVE_FULL_REFRESH_MS, SETTLE_CHECK_MS };

@@ -5,6 +5,7 @@ import { holdingProfitPct, readPortfolio, writePortfolio } from './store.js';
 import { recordLiveSnapshot, readAppState } from './app-state.js';
 import { computePortfolioTotals } from './aggregate.js';
 import { getLiveCache } from './live.js';
+import { ensureDayBaseline } from './day-display-state.js';
 
 /**
  * 取 fundgz 与东财移动端 API 中较新的净值快照（fundgz 常滞后半天）
@@ -118,6 +119,7 @@ export async function runSettlement(portfolio, opts = {}) {
   }
 
   if (changed && !dryRun) {
+    ensureDayBaseline(portfolio);
     const consensus = consensusNavDate(portfolio.funds);
     if (consensus) {
       portfolio.meta.snapshotDate = consensus;
