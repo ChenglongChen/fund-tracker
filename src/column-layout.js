@@ -57,11 +57,14 @@ export function saveMetricColumnVisible(visible) {
   return visible;
 }
 
-/** @returns {'amount'|'code'} */
+/** @returns {'amount'} */
 export function loadNameSubline() {
   try {
     const v = localStorage.getItem(SUBLINE_KEY);
-    return v === 'code' ? 'code' : 'amount';
+    if (v === 'code') {
+      localStorage.setItem(SUBLINE_KEY, 'amount');
+    }
+    return 'amount';
   } catch {
     return 'amount';
   }
@@ -69,8 +72,8 @@ export function loadNameSubline() {
 
 /** @param {'amount'|'code'} mode */
 export function saveNameSubline(mode) {
-  localStorage.setItem(SUBLINE_KEY, mode === 'code' ? 'code' : 'amount');
-  return mode;
+  localStorage.setItem(SUBLINE_KEY, 'amount');
+  return 'amount';
 }
 
 /** @param {string} [scope] @returns {number[]} */

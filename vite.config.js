@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: './',
   server: {
+    host: true,
     port: 5178,
     open: true,
     proxy: {
@@ -24,6 +25,7 @@ export default defineConfig({
     },
   },
   preview: {
+    host: true,
     port: 5178,
     proxy: {
       '/api': {

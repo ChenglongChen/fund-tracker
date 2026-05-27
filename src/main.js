@@ -79,7 +79,6 @@ const state = {
   sortDir: 'desc',
   holdingsSortKey: 'weight',
   holdingsSortDir: 'desc',
-  accountTabsMenuOpen: false,
   indexDrawerOpen: false,
   indexDrawerTab: 'cn',
   indexDockSlide: 0,
@@ -117,6 +116,36 @@ function fmtPct(v) {
   return `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
 }
 
+function renderPctPill(v, { tag = 'span', extraClass = '', attrs = '' } = {}) {
+  const cls = pctClass(v);
+  const text = v != null && Number.isFinite(Number(v)) ? fmtPct(v) : '—';
+  const classes = ['pct-pill', cls, extraClass].filter(Boolean).join(' ');
+  const attrStr = attrs ? ` ${attrs}` : '';
+  return `<${tag} class="${classes}"${attrStr}>${text}</${tag}>`;
+}
+
+function setPctPillEl(el, v) {
+  if (!el) return;
+  const layout = [...el.classList].filter((c) => !['is-up', 'is-down', 'is-flat', 'pct-pill'].includes(c));
+  el.className = [...layout, 'pct-pill', pctClass(v)].filter(Boolean).join(' ');
+  el.textContent = v != null && Number.isFinite(Number(v)) ? fmtPct(v) : '—';
+}
+
+function renderPctSub(v, { tag = 'p', extraClass = 'holding-sub', attrs = '' } = {}) {
+  const cls = pctClass(v);
+  const text = v != null && Number.isFinite(Number(v)) ? fmtPct(v) : '—';
+  const classes = [extraClass, cls].filter(Boolean).join(' ');
+  const attrStr = attrs ? ` ${attrs}` : '';
+  return `<${tag} class="${classes}"${attrStr}>${text}</${tag}>`;
+}
+
+function setPctSubEl(el, v) {
+  if (!el) return;
+  const layout = [...el.classList].filter((c) => !['is-up', 'is-down', 'is-flat'].includes(c));
+  el.className = [...layout, pctClass(v)].filter(Boolean).join(' ');
+  el.textContent = v != null && Number.isFinite(Number(v)) ? fmtPct(v) : '—';
+}
+
 function extendedSessionLabel(session) {
   if (session === 'premarket') return '盘前';
   if (session === 'afterhours') return '盘后';
@@ -136,13 +165,16 @@ function shouldShowExtendedMetric(f) {
   return hasExtendedRealtimeLayout(f);
 }
 
-function renderRealtimeSplitRow(val, pct, { valSigned = true, tag = '' } = {}) {
+function renderRealtimeSplitRow(val, pct, { valSigned = true, tag = '', pill = false } = {}) {
   const cls = pctClass(valSigned ? val : pct);
   const tagHtml = tag ? `<span class="metric-dual-line__tag">${escapeHtml(tag)}</span>` : '';
+  const pctHtml = pill
+    ? renderPctPill(pct, { extraClass: 'holding-sub' })
+    : `<span class="holding-sub ${cls}">${fmtPct(pct)}</span>`;
   return `
     <p class="metric-split-row${tag ? ' metric-split-row--ext' : ''}">
       <span class="holding-val ${cls}">${fmtMoney(val, valSigned)}</span>
-      <span class="holding-sub ${cls}">${fmtPct(pct)}</span>
+      ${pctHtml}
       ${tagHtml}
     </p>`;
 }
@@ -184,7 +216,7 @@ function renderMetricDualLine({
     return `
     <div class="metric-dual-line${listCls}"${tip} aria-label="${escapeHtml(tooltip || `${extLabel} ${fmtPct(extPct)}`)}">
       <p class="holding-val ${cls}">${fmtMoney(mainVal, valSigned)}</p>
-      <p class="holding-sub ${cls}">${mainPct != null ? fmtPct(mainPct) : '—'}</p>
+      ${renderPctSub(mainPct, { extraClass: 'holding-sub' })}
       <div class="metric-dual-line__ext metric-dual-line__ext--inline">
         ${showExtVal ? `<span class="metric-dual-line__ext-val ${extCls}">${fmtMoney(extVal, valSigned)}</span>` : ''}
         ${extPct != null ? `<span class="metric-dual-line__ext-pct ${extCls}">${fmtPct(extPct)}</span>` : ''}
@@ -197,7 +229,7 @@ function renderMetricDualLine({
     <div class="metric-dual-line${compactCls}${listCls}"${tip}>
       <div class="metric-dual-line__main">
         ${mainVal != null ? `<p class="holding-val ${cls}">${fmtMoney(mainVal, valSigned)}</p>` : ''}
-        ${mainPct != null ? `<p class="holding-sub ${cls}">${fmtPct(mainPct)}</p>` : ''}
+        ${mainPct != null ? renderPctSub(mainPct, { extraClass: 'holding-sub' }) : ''}
         ${mainVal == null && mainPct != null ? `<p class="detail-hero-pct ${cls}">${fmtPct(mainPct)}</p>` : ''}
       </div>
       <div class="metric-dual-line__ext">
@@ -319,14 +351,17 @@ function renderHoldingsTableHead() {
 
 function renderStockChangeCell(h) {
   if (!holdingShowsDualChange(h)) {
-    return `<span class="stock-change ${pctClass(h.changePct)}">${fmtPct(h.changePct)}</span>`;
+    const cls = pctClass(h.changePct);
+    return `<span class="stock-change ${cls}">${fmtPct(h.changePct)}</span>`;
   }
   const extLabel = h.quoteSession === 'afterhours' ? '盘后' : '盘前';
+  const mainCls = pctClass(h.changePctRegular);
+  const extCls = pctClass(h.changePct);
   return `
     <div class="metric-dual-line metric-dual-line--holdings">
-      <span class="stock-change ${pctClass(h.changePctRegular)}">${fmtPct(h.changePctRegular)}</span>
+      <span class="stock-change ${mainCls}">${fmtPct(h.changePctRegular)}</span>
       <div class="metric-dual-line__ext">
-        <span class="metric-dual-line__ext-pct ${pctClass(h.changePct)}">${fmtPct(h.changePct)}</span>
+        <span class="metric-dual-line__ext-pct ${extCls}">${fmtPct(h.changePct)}</span>
         <span class="metric-dual-line__tag">${extLabel}</span>
       </div>
     </div>`;
@@ -346,18 +381,15 @@ function patchStockChangeCell(row, h) {
     const extPctEl = wrap.querySelector('.metric-dual-line__ext-pct');
     const tagEl = wrap.querySelector('.metric-dual-line__tag');
     if (!mainEl || !extPctEl || !tagEl) return false;
-    mainEl.textContent = fmtPct(h.changePctRegular);
-    setTextClass(mainEl, pctClass(h.changePctRegular));
-    extPctEl.textContent = fmtPct(h.changePct);
-    setTextClass(extPctEl, pctClass(h.changePct));
+    setPctSubEl(mainEl, h.changePctRegular);
+    setPctSubEl(extPctEl, h.changePct);
     tagEl.textContent = h.quoteSession === 'afterhours' ? '盘后' : '盘前';
     return true;
   }
   const changeEl = row.querySelector('.stock-change');
   if (!changeEl) return false;
   if (row.querySelector('.metric-dual-line--holdings')) return false;
-  changeEl.textContent = fmtPct(h.changePct);
-  setTextClass(changeEl, pctClass(h.changePct));
+  setPctSubEl(changeEl, h.changePct);
   return true;
 }
 
@@ -804,6 +836,13 @@ function applySort(rows) {
   });
 }
 
+function listConfigIconMarkup() {
+  return `<svg class="list-head-config-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.75"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
 function themeToggleIconMarkup() {
   const dark = document.documentElement.dataset.theme === 'dark';
   if (dark) {
@@ -1003,6 +1042,11 @@ function renderIndexBottom() {
       ${renderIndexDrawerPanel()}
       ${renderIndexDockBar()}
     </div>`;
+}
+
+function renderBottomChrome() {
+  if (!showIndexTicker()) return '';
+  return `<div class="bottom-chrome" id="bottom-chrome">${renderIndexBottom()}</div>`;
 }
 
 function openIndexDrawer() {
@@ -1375,7 +1419,7 @@ function fundMetricCells(f, key) {
       return `
       <div class="holding-col holding-col--rt" data-col="realtime">
         <p class="holding-val ${rtCls}">${fmtMoney(hasRealtimeProfit(f) ? f.realTimeProfit : null, true)}</p>
-        <p class="holding-sub ${rtCls}">${hasRealtimeProfit(f) ? fmtPct(f.realTimePct) : '—'}</p>
+        ${renderPctSub(hasRealtimeProfit(f) ? f.realTimePct : null, { extraClass: 'holding-sub' })}
       </div>`;
     case 'daily': {
       const pending = f.dailyPending;
@@ -1383,14 +1427,14 @@ function fundMetricCells(f, key) {
       return `
       <div class="holding-col holding-col--settled" data-col="daily">
         <p class="holding-val ${stCls}">${fmtMoney(pending ? null : f.settledProfit, true)}</p>
-        <p class="holding-sub ${stCls}">${pending ? '—' : fmtPct(f.settledPct)}</p>
+        ${renderPctSub(pending ? null : f.settledPct, { extraClass: 'holding-sub' })}
       </div>`;
     }
     case 'holding':
       return `
       <div class="holding-col holding-col--total" data-col="holding">
         <p class="holding-val ${thCls}">${fmtMoney(f.totalProfit, true)}</p>
-        <p class="holding-sub ${thCls}">${fmtPct(f.totalProfitPct)}</p>
+        ${renderPctSub(f.totalProfitPct, { extraClass: 'holding-sub' })}
       </div>`;
     default:
       return '';
@@ -1400,132 +1444,53 @@ function fundMetricCells(f, key) {
 function renderAccountTabButton(t) {
   const selected = state.activeScope === t.scope;
   return `
-    <button type="button" role="tab" class="account-tab ${selected ? 'is-active' : ''}" data-account-scope="${t.scope}" id="account-tab-${t.scope}" aria-selected="${selected ? 'true' : 'false'}" aria-controls="holding-list-scroll">
+    <button type="button" role="tab" class="account-tab${selected ? ' is-active' : ''}" data-account-scope="${t.scope}" id="account-tab-${t.scope}" aria-selected="${selected ? 'true' : 'false'}" aria-controls="holding-list-scroll">
       ${escapeHtml(t.label)}
     </button>`;
 }
 
-function accountTabsAll() {
+function accountTabsPinned() {
   return [
     { scope: SCOPE_SUMMARY, label: '账户概况' },
     { scope: SCOPE_ALL, label: '全部持仓' },
-    ...ACCOUNTS.map((a) => ({ scope: a.id, label: a.name })),
   ];
 }
 
-function sumTabWidths(widths, indices) {
-  return indices.reduce((sum, i) => sum + widths[i], 0);
+function accountTabsScrollable() {
+  return ACCOUNTS.map((a) => ({ scope: a.id, label: a.name }));
 }
 
-/** @param {number[]} widths @param {number} budget @param {number} activeIdx */
-function computeVisibleTabIndices(widths, budget, activeIdx) {
-  const n = widths.length;
-  /** @type {number[]} */
-  let visible = [];
-  let used = 0;
-  for (let i = 0; i < n; i++) {
-    if (used + widths[i] <= budget) {
-      visible.push(i);
-      used += widths[i];
-    } else break;
-  }
-  if (visible.includes(activeIdx)) return visible;
-
-  visible.push(activeIdx);
-  visible = [...new Set(visible)].sort((a, b) => a - b);
-  while (sumTabWidths(widths, visible) > budget && visible.length > 1) {
-    let removed = false;
-    for (let j = visible.length - 1; j >= 0; j--) {
-      if (visible[j] !== activeIdx) {
-        visible.splice(j, 1);
-        removed = true;
-        break;
-      }
-    }
-    if (!removed) break;
-  }
-  return visible;
+function accountTabsAll() {
+  return [...accountTabsPinned(), ...accountTabsScrollable()];
 }
 
 function layoutAccountTabs() {
-  const bar = document.querySelector('.account-tabs-bar');
-  const track = document.getElementById('account-tabs-track');
-  const moreBtn = document.getElementById('btn-account-tabs-more');
-  const menu = document.getElementById('account-tabs-menu');
-  const countEl = document.getElementById('account-tabs-more-count');
-  if (!bar || !track || !moreBtn || !menu) return;
-
-  const tabs = [...track.querySelectorAll('.account-tab')];
-  const activeIdx = tabs.findIndex((t) => t.getAttribute('data-account-scope') === state.activeScope);
-  const activeIndex = activeIdx >= 0 ? activeIdx : 0;
-
-  tabs.forEach((tab) => {
-    tab.hidden = false;
-  });
-  moreBtn.hidden = true;
-  menu.innerHTML = '';
-
-  const widths = tabs.map((tab) => tab.offsetWidth);
-  const totalWidth = widths.reduce((sum, w) => sum + w, 0);
-  let trackWidth = track.clientWidth;
-
-  if (totalWidth <= trackWidth) {
-    state.accountTabsMenuOpen = false;
-    menu.hidden = true;
-    moreBtn.setAttribute('aria-expanded', 'false');
-    return;
-  }
-
-  moreBtn.hidden = false;
-  trackWidth = track.clientWidth;
-
-  const visibleIndices = new Set(computeVisibleTabIndices(widths, trackWidth, activeIndex));
-  const overflow = [];
-
-  tabs.forEach((tab, index) => {
-    if (visibleIndices.has(index)) {
-      tab.hidden = false;
-      return;
-    }
-    tab.hidden = true;
-    const scope = tab.getAttribute('data-account-scope');
-    if (!scope) return;
-    overflow.push({
-      scope,
-      label: tab.textContent?.trim() || scope,
-      active: scope === state.activeScope,
-    });
-  });
-
-  if (countEl) countEl.textContent = overflow.length > 0 ? String(overflow.length) : '';
-
-  menu.innerHTML = overflow
-    .map(
-      (item) => `
-      <button type="button" class="account-tabs-menu-item ${item.active ? 'is-active' : ''}" data-account-scope="${item.scope}" role="menuitem">
-        ${escapeHtml(item.label)}
-      </button>`,
-    )
-    .join('');
-  menu.hidden = !state.accountTabsMenuOpen || overflow.length === 0;
-  moreBtn.setAttribute('aria-expanded', String(state.accountTabsMenuOpen && overflow.length > 0));
-  if (overflow.length === 0) {
-    moreBtn.hidden = true;
-    state.accountTabsMenuOpen = false;
+  const scroll = document.getElementById('account-tabs-track');
+  if (!scroll) return;
+  const active = scroll.querySelector('.account-tab.is-active');
+  if (!active) return;
+  const pad = 8;
+  const left = active.offsetLeft;
+  const right = left + active.offsetWidth;
+  const viewLeft = scroll.scrollLeft;
+  const viewRight = viewLeft + scroll.clientWidth;
+  if (left < viewLeft + pad) {
+    scroll.scrollLeft = Math.max(0, left - pad);
+  } else if (right > viewRight - pad) {
+    scroll.scrollLeft = right - scroll.clientWidth + pad;
   }
 }
 
 function setupAccountTabsLayout() {
-  const bar = document.querySelector('.account-tabs-bar');
-  if (!bar) return;
+  const scroll = document.getElementById('account-tabs-track');
+  if (!scroll) return;
   requestAnimationFrame(() => layoutAccountTabs());
   accountTabsResizeObserver?.disconnect();
   accountTabsResizeObserver = new ResizeObserver(() => layoutAccountTabs());
-  accountTabsResizeObserver.observe(bar);
+  accountTabsResizeObserver.observe(scroll);
 }
 
 function activateAccountScope(scope) {
-  state.accountTabsMenuOpen = false;
   state.indexDrawerOpen = false;
   setActiveScope(scope);
   navigateTo({ type: 'list', scope });
@@ -1535,12 +1500,6 @@ function activateAccountScope(scope) {
 }
 
 function onAccountTabsBarClick(ev) {
-  if (ev.target.closest('#btn-account-tabs-more')) {
-    ev.stopPropagation();
-    state.accountTabsMenuOpen = !state.accountTabsMenuOpen;
-    layoutAccountTabs();
-    return;
-  }
   const tab = ev.target.closest('[data-account-scope]');
   if (!tab || !tab.closest('.account-tabs-bar')) return;
   const scope = tab.getAttribute('data-account-scope');
@@ -1554,10 +1513,6 @@ function initIndexDrawerGlobalListeners() {
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') {
       if (state.indexDrawerOpen) closeIndexDrawer();
-      if (state.accountTabsMenuOpen) {
-        state.accountTabsMenuOpen = false;
-        layoutAccountTabs();
-      }
       return;
     }
     if (ev.key !== 'Tab' || !state.indexDrawerOpen) return;
@@ -1599,29 +1554,13 @@ function initIndexDrawerGlobalListeners() {
   );
 }
 
-function initAccountTabsGlobalListeners() {
-  if (window.__accountTabsGlobalListeners) return;
-  window.__accountTabsGlobalListeners = true;
-  document.addEventListener('click', (ev) => {
-    if (!state.accountTabsMenuOpen) return;
-    if (ev.target.closest('.account-tabs-bar')) return;
-    state.accountTabsMenuOpen = false;
-    layoutAccountTabs();
-  });
-}
-
 function renderAccountTabs() {
-  const allTabs = accountTabsAll();
   return `
     <div class="account-tabs-bar">
       <div class="account-tabs" role="tablist" id="account-tabs-track">
-        ${allTabs.map((t) => renderAccountTabButton(t)).join('')}
+        ${accountTabsAll().map((t) => renderAccountTabButton(t)).join('')}
       </div>
-      <button type="button" class="account-tab account-tab--more" id="btn-account-tabs-more" hidden aria-expanded="false" aria-haspopup="menu">
-        更多<span class="account-tab-fold-count" id="account-tabs-more-count"></span>
-      </button>
       ${renderThemeToggle()}
-      <div class="account-tabs-menu" id="account-tabs-menu" hidden role="menu"></div>
     </div>`;
 }
 
@@ -1656,7 +1595,7 @@ function renderAccountSummaryCard(acc) {
             <span class="account-summary-label">账户资产</span>
           </div>
           <p class="account-summary-val">${fmtMoney(acc.totalAssets)}</p>
-          <p class="account-summary-sub ${holdingCls}">${fmtMoney(acc.totalHolding, true)} · ${fmtPct(acc.totalHoldingPct)}</p>
+          <p class="account-summary-sub account-summary-sub--combo">${fmtMoney(acc.totalHolding, true)} · ${renderPctPill(acc.totalHoldingPct)}</p>
         </div>
         <div class="account-summary-col account-summary-col--center${acc.hasExtendedRealtime ? ' account-summary-col--rt-split' : ''}">
           <div class="account-summary-label-row account-summary-label-row--center">
@@ -1671,7 +1610,7 @@ function renderAccountSummaryCard(acc) {
             ${renderSummaryTrendCounts(acc.up, acc.down)}
           </div>
           <p class="account-summary-val ${dailyCls}">${fmtMoney(acc.totalSettled, true)}</p>
-          <p class="account-summary-sub ${dailyCls}">${fmtPct(acc.totalSettledPct)}</p>
+          ${renderPctPill(acc.totalSettledPct, { tag: 'p', extraClass: 'account-summary-sub' })}
         </div>
       </div>
     </button>`;
@@ -1698,7 +1637,7 @@ function renderSummaryRealtimeBody(s) {
     const rtCls = pctClass(s.totalRealTime);
     return `
       <p class="yj-summary-val ${rtCls}">${fmtMoney(s.totalRealTime, true)}</p>
-      <p class="yj-summary-sub ${rtCls}">${s.totalRealTimePct != null ? fmtPct(s.totalRealTimePct) : '—'}</p>`;
+      ${renderPctSub(s.totalRealTimePct, { extraClass: 'yj-summary-sub' })}`;
   }
   const rtCls = pctClass(s.totalRealTime);
   const tag = extendedSessionLabel(s.extendedSession);
@@ -1706,7 +1645,7 @@ function renderSummaryRealtimeBody(s) {
     <div class="yj-summary-rt-split">
       <p class="metric-split-row">
         <span class="holding-val ${rtCls}">${fmtMoney(s.totalRealTime, true)}</span>
-        <span class="holding-sub ${rtCls}">${s.totalRealTimePct != null ? fmtPct(s.totalRealTimePct) : '—'}</span>
+        <span class="holding-sub ${rtCls}">${fmtPct(s.totalRealTimePct)}</span>
       </p>
       ${renderRealtimeSplitRow(s.totalRealTimeExtended ?? 0, s.totalRealTimeExtendedPct ?? 0, { tag })}
     </div>`;
@@ -1726,7 +1665,7 @@ function renderSummaryMetricCol(title, colKey, val, pct, { signed = false, amoun
     <div class="yj-summary-col ${amount ? 'yj-summary-col--amount' : ''}" data-summary-col="${colKey || 'assets'}">
       <p class="yj-summary-label">${escapeHtml(title)}${dateHtml}</p>
       <p class="yj-summary-val ${valCls}">${fmtMoney(val, signed)}</p>
-      <p class="yj-summary-sub ${valCls}">${pct != null ? fmtPct(pct) : amount ? '' : '—'}</p>
+      ${pct != null || !amount ? renderPctSub(pct, { extraClass: 'yj-summary-sub' }) : ''}
     </div>`;
 }
 
@@ -1735,16 +1674,23 @@ function renderAccountRealtimeBody(acc) {
   if (!acc.hasExtendedRealtime) {
     return `
           <p class="account-summary-val ${rtCls}" data-account-rt-val>${acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—'}</p>
-          <p class="account-summary-sub ${rtCls}" data-account-rt-pct>${acc.hasRealtime ? fmtPct(acc.totalRealTimePct) : '—'}</p>`;
+          ${renderPctPill(acc.hasRealtime ? acc.totalRealTimePct : null, {
+            tag: 'p',
+            extraClass: 'account-summary-sub',
+            attrs: 'data-account-rt-pct',
+          })}`;
   }
   const tag = extendedSessionLabel(acc.extendedSession);
   return `
           <div class="account-summary-rt-split" data-account-rt-split>
             <p class="metric-split-row">
               <span class="holding-val ${rtCls}" data-account-rt-val>${acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—'}</span>
-              <span class="holding-sub ${rtCls}" data-account-rt-pct>${acc.hasRealtime ? fmtPct(acc.totalRealTimePct) : '—'}</span>
+              ${renderPctPill(acc.hasRealtime ? acc.totalRealTimePct : null, {
+                extraClass: 'holding-sub',
+                attrs: 'data-account-rt-pct',
+              })}
             </p>
-            ${renderRealtimeSplitRow(acc.totalRealTimeExtended ?? 0, acc.totalRealTimeExtendedPct ?? 0, { tag })}
+            ${renderRealtimeSplitRow(acc.totalRealTimeExtended ?? 0, acc.totalRealTimeExtendedPct ?? 0, { tag, pill: true })}
           </div>`;
 }
 
@@ -1807,7 +1753,7 @@ function renderListTableHead() {
     .map((col) => renderHeadSortCol(col.title, col.key, col.dateCol))
     .join('');
   const configBtn = isEditableScope(state.activeScope)
-    ? `<button type="button" class="list-head-config" id="btn-list-config" title="列表配置" aria-label="列表配置">⚙</button>`
+    ? `<button type="button" class="list-head-config" id="btn-list-config" title="列表配置" aria-label="列表配置">${listConfigIconMarkup()}</button>`
     : `<span class="list-head-config-spacer" aria-hidden="true"></span>`;
   return `
     <div class="list-table-head">
@@ -2117,18 +2063,16 @@ async function syncRouteFromHash() {
 
 function renderFundRow(f) {
   const metricCols = orderedMetrics().map((col) => fundMetricCells(f, col.key)).join('');
-  const mergeTag = f.isMerged
-    ? `<span class="holding-merge-tag">${f.mergedIds?.length ?? 2}个账户</span>`
-    : '';
   const metaLine =
     state.nameSubline === 'amount'
-      ? `<span class="holding-code">${escapeHtml(f.code)}</span><span class="holding-amount">${fmtHoldAmount(f.displayAmount ?? f.amount)}</span>${mergeTag}`
-      : `<span class="holding-amount">${escapeHtml(f.code)}</span>${mergeTag}`;
+      ? `<span class="holding-amount">${fmtHoldAmount(f.displayAmount ?? f.amount)}</span>`
+      : '';
+  const metaHtml = metaLine ? `<p class="holding-meta">${metaLine}</p>` : '';
   return `
     <button type="button" class="holding-row" data-fund-id="${f.id}">
       <div class="holding-col holding-col--name">
         <p class="holding-name">${escapeHtml(f.name)}</p>
-        <p class="holding-meta">${metaLine}</p>
+        ${metaHtml}
       </div>
       ${metricCols}
       <span class="holding-chevron" aria-hidden="true">›</span>
@@ -2170,10 +2114,7 @@ function patchSummaryRealtimeCol(colEl, s) {
         valEl.textContent = fmtMoney(val, signed);
         setTextClass(valEl, cls);
       }
-      if (subEl) {
-        subEl.textContent = fmtPct(pct);
-        setTextClass(subEl, cls);
-      }
+      if (subEl) setPctSubEl(subEl, pct);
     };
     patchRow(rows[0], s.totalRealTime, s.totalRealTimePct);
     patchRow(rows[1], s.totalRealTimeExtended ?? 0, s.totalRealTimeExtendedPct ?? 0);
@@ -2188,10 +2129,7 @@ function patchSummaryRealtimeCol(colEl, s) {
     valEl.textContent = fmtMoney(s.totalRealTime, true);
     setTextClass(valEl, rtCls);
   }
-  if (subEl) {
-    subEl.textContent = s.totalRealTimePct != null ? fmtPct(s.totalRealTimePct) : '—';
-    setTextClass(subEl, rtCls);
-  }
+  if (subEl) setPctSubEl(subEl, s.totalRealTimePct);
 }
 
 function patchSummaryCol(col, { val, pct, signed = false, subText, subMuted = false, dateCol = null, summary = null }) {
@@ -2244,9 +2182,8 @@ function patchSummaryCol(col, { val, pct, signed = false, subText, subMuted = fa
     if (!subMuted) setTextClass(subEl, valCls);
     else subEl.classList.remove('is-up', 'is-down', 'is-flat');
   } else {
-    subEl.textContent = pct != null ? fmtPct(pct) : '—';
+    setPctSubEl(subEl, pct);
     subEl.classList.remove('yj-summary-sub--muted');
-    setTextClass(subEl, valCls);
   }
 }
 
@@ -2271,10 +2208,7 @@ function patchRealtimeMetricCell(cell, f) {
         valEl.textContent = fmtMoney(val, signed);
         setTextClass(valEl, cls);
       }
-      if (subEl) {
-        subEl.textContent = fmtPct(pct);
-        setTextClass(subEl, cls);
-      }
+      if (subEl) setPctSubEl(subEl, pct);
     };
     patchSplitRow(splitRows[0], regularProfit, regularPct);
     patchSplitRow(splitRows[1], extProfit, extPct);
@@ -2290,10 +2224,7 @@ function patchRealtimeMetricCell(cell, f) {
     valEl.textContent = fmtMoney(hasRealtimeProfit(f) ? f.realTimeProfit : null, true);
     setTextClass(valEl, cls);
   }
-  if (subEl) {
-    subEl.textContent = hasRealtimeProfit(f) ? fmtPct(f.realTimePct) : '—';
-    setTextClass(subEl, cls);
-  }
+  if (subEl) setPctSubEl(subEl, hasRealtimeProfit(f) ? f.realTimePct : null);
   return true;
 }
 
@@ -2378,20 +2309,14 @@ function patchListDom() {
           valEl.textContent = fmtMoney(pending ? null : f.settledProfit, true);
           setTextClass(valEl, cls);
         }
-        if (subEl) {
-          subEl.textContent = pending ? '—' : fmtPct(f.settledPct);
-          setTextClass(subEl, cls);
-        }
+        if (subEl) setPctSubEl(subEl, pending ? null : f.settledPct);
       } else if (col.key === 'holding') {
         const cls = pctClass(f.totalProfit);
         if (valEl) {
           valEl.textContent = fmtMoney(f.totalProfit, true);
           setTextClass(valEl, cls);
         }
-        if (subEl) {
-          subEl.textContent = fmtPct(f.totalProfitPct);
-          setTextClass(subEl, cls);
-        }
+        if (subEl) setPctSubEl(subEl, f.totalProfitPct);
       }
     }
   }
@@ -2456,8 +2381,8 @@ function patchAccountSummaryCards() {
       const sub = assetsCol.querySelector('.account-summary-sub');
       if (val) val.textContent = fmtMoney(acc.totalAssets);
       if (sub) {
-        sub.textContent = `${fmtMoney(acc.totalHolding, true)} · ${fmtPct(acc.totalHoldingPct)}`;
-        setTextClass(sub, holdingCls);
+        sub.className = 'account-summary-sub account-summary-sub--combo';
+        sub.innerHTML = `${fmtMoney(acc.totalHolding, true)} · ${renderPctPill(acc.totalHoldingPct)}`;
       }
     }
 
@@ -2477,25 +2402,19 @@ function patchAccountSummaryCards() {
             valEl.textContent = fmtMoney(val, signed);
             setTextClass(valEl, cls);
           }
-          if (subEl) {
-            subEl.textContent = fmtPct(pct);
-            setTextClass(subEl, cls);
-          }
+          if (subEl) setPctPillEl(subEl, pct);
         };
         patchRow(rows[0], acc.totalRealTime, acc.totalRealTimePct);
         patchRow(rows[1], acc.totalRealTimeExtended ?? 0, acc.totalRealTimeExtendedPct ?? 0);
       } else {
         const rtVal = rtCol.querySelector('.account-summary-val');
-        const rtPct = rtCol.querySelector('.account-summary-sub');
+        const rtPct = rtCol.querySelector('[data-account-rt-pct], .account-summary-sub');
         const rtCls = pctClass(acc.hasRealtime ? acc.totalRealTime : null);
         if (rtVal) {
           rtVal.textContent = acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—';
           setTextClass(rtVal, rtCls);
         }
-        if (rtPct) {
-          rtPct.textContent = acc.hasRealtime ? fmtPct(acc.totalRealTimePct) : '—';
-          setTextClass(rtPct, rtCls);
-        }
+        if (rtPct) setPctPillEl(rtPct, acc.hasRealtime ? acc.totalRealTimePct : null);
       }
     }
 
@@ -2507,10 +2426,7 @@ function patchAccountSummaryCards() {
         val.textContent = fmtMoney(acc.totalSettled, true);
         setTextClass(val, dailyCls);
       }
-      if (sub) {
-        sub.textContent = fmtPct(acc.totalSettledPct);
-        setTextClass(sub, dailyCls);
-      }
+      if (sub) setPctPillEl(sub, acc.totalSettledPct);
     }
   }
   return true;
@@ -2520,7 +2436,8 @@ function renderListPage() {
   const gridClass = portfolioGridClass();
   const dockClass = showIndexTicker() ? ' has-index-dock' : '';
   const sheetClass = state.indexDrawerOpen && showIndexTicker() ? ' index-sheet-open' : '';
-  const indexChrome = showIndexTicker() ? `${renderIndexSheetMask()}${renderIndexBottom()}` : '';
+  const indexMask = showIndexTicker() ? renderIndexSheetMask() : '';
+  const scopeTabId = `account-tab-${state.activeScope}`;
 
   if (state.activeScope === SCOPE_SUMMARY) {
     const cards = buildAccountSummaries(state.fundRows, ACCOUNTS)
@@ -2540,11 +2457,12 @@ function renderListPage() {
           ${renderLiveBanner()}
           ${renderPortfolioHeader()}
         </div>
-        <div class="holding-list-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="account-tab-${state.activeScope}">
+        <div class="holding-list-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="${scopeTabId}">
           <section class="account-summary-list">${listBody}</section>
         </div>
-        ${indexChrome}
-      </section>`,
+        ${indexMask}
+      </section>
+      ${renderBottomChrome()}`,
     );
   }
 
@@ -2566,11 +2484,12 @@ function renderListPage() {
         ${renderPortfolioHeader()}
         ${renderListTableHead()}
       </div>
-      <div class="holding-list-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="account-tab-${state.activeScope}">
+      <div class="holding-list-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="${scopeTabId}">
         <section class="holding-list">${listBody}</section>
       </div>
-      ${indexChrome}
-    </section>`,
+      ${indexMask}
+    </section>
+    ${renderBottomChrome()}`,
   );
 }
 
@@ -2645,7 +2564,6 @@ function renderManageHoldingsTab() {
 
 function renderManageHeadersTab() {
   const amountOn = state.nameSubline === 'amount';
-  const codeOn = state.nameSubline === 'code';
   const colRows = state.metricColumnOrder
     .map((key, idx) => {
       const col = metricColumnDef(key);
@@ -2665,10 +2583,6 @@ function renderManageHeadersTab() {
       <label class="manage-switch-row">
         <span>显示 基金名称 + 持有金额</span>
         <input type="radio" name="name-subline" value="amount" ${amountOn ? 'checked' : ''} />
-      </label>
-      <label class="manage-switch-row">
-        <span>显示 基金名称 + 基金代码</span>
-        <input type="radio" name="name-subline" value="code" ${codeOn ? 'checked' : ''} />
       </label>
     </div>
     <div class="manage-header-table-head">
@@ -2814,7 +2728,7 @@ function renderDetailMetric(label, val, pct, { signed = false, metrics = null, d
     <div class="detail-metric">
       <p class="detail-metric-label">${escapeHtml(label)}</p>
       <p class="detail-metric-val ${cls}">${fmtMoney(val, signed)}</p>
-      <p class="detail-metric-sub ${cls}">${pct != null ? fmtPct(pct) : '—'}</p>
+      ${renderPctSub(pct, { extraClass: 'detail-metric-sub' })}
     </div>`;
 }
 
@@ -3344,10 +3258,7 @@ function patchDetailMetricsDom() {
         valEl.textContent = fmtMoney(val, true);
         setTextClass(valEl, cls);
       }
-      if (subEl) {
-        subEl.textContent = pct != null ? fmtPct(pct) : '—';
-        setTextClass(subEl, cls);
-      }
+      if (subEl) setPctSubEl(subEl, pct);
     });
   }
 
@@ -3459,6 +3370,5 @@ window.addEventListener('hashchange', () => {
 });
 
 initTheme();
-initAccountTabsGlobalListeners();
 initIndexDrawerGlobalListeners();
 bootstrap();

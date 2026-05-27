@@ -415,7 +415,7 @@ export const DAILY_NAV_EXPECT_HOUR = 18;
 
 /**
  * 当日收益是否尚未更新（按市场区分期望净值日）
- * - A 股 / 黄金：入账净值日 < 今天 → 一律 —（不展示上一交易日）
+ * - A 股 / 黄金：18:00 前展示最新已入账净值（含日切后昨日）；18:00 后期望今日净值
  * - QDII：18:00 后期望至少已有「北京时间昨天」的公布净值；否则 —
  * @param {object} fund
  * @param {MarketType} market
@@ -429,16 +429,21 @@ export function isDailyProfitPending(fund, market, navInfo, beijingDate, now = n
 
   const lastNavDate = fund.lastNavDate ?? null;
   const officialDate = navInfo?.pdate ?? null;
+  const mins = minutesOfDay(beijingParts(now));
+  const yesterday = beijingIsoAddDays(beijingDate, -1);
+
+  if (officialDate && lastNavDate && officialDate > lastNavDate) return true;
+  if (!lastNavDate) return true;
 
   if (market === 'us') {
-    const mins = minutesOfDay(beijingParts(now));
     if (mins < DAILY_NAV_EXPECT_HOUR * 60) return false;
-    if (officialDate && lastNavDate && officialDate > lastNavDate) return true;
-    const expectedMin = beijingIsoAddDays(beijingDate, -1);
-    return !lastNavDate || lastNavDate < expectedMin;
+    return lastNavDate < yesterday;
   }
 
-  return !lastNavDate || lastNavDate < beijingDate;
+  if (mins < DAILY_NAV_EXPECT_HOUR * 60) {
+    return lastNavDate < yesterday;
+  }
+  return lastNavDate < beijingDate;
 }
 
 /**

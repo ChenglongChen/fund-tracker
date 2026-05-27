@@ -234,9 +234,10 @@ assert(
 assert('15:03 chip', marketChipLabel(cnHkGap) === '盘中 · 港股');
 
 const cnPending = new Date('2026-05-27T10:30:00.000Z');
+const cnAfterMidnight = new Date('2026-05-27T16:01:00.000Z');
 assert(
-  'cn daily pending when nav before today',
-  isDailyProfitPending(
+  'cn daily ok before 18:00 when nav is yesterday',
+  !isDailyProfitPending(
     { lastNavDate: '2026-05-26' },
     'cn',
     { pdate: '2026-05-26' },
@@ -255,12 +256,32 @@ assert(
   ),
 );
 assert(
+  'cn daily ok after midnight when nav is yesterday',
+  !isDailyProfitPending(
+    { lastNavDate: '2026-05-27' },
+    'cn',
+    { pdate: '2026-05-27' },
+    '2026-05-28',
+    cnAfterMidnight,
+  ),
+);
+assert(
   'cn daily pending after 18:30 if nav stale',
   isDailyProfitPending(
     { lastNavDate: '2026-05-26' },
     'cn',
     { pdate: '2026-05-26' },
     '2026-05-27',
+    cnPending,
+  ),
+);
+assert(
+  'cn daily pending after 18:30 if only yesterday nav on new day',
+  isDailyProfitPending(
+    { lastNavDate: '2026-05-27' },
+    'cn',
+    { pdate: '2026-05-27' },
+    '2026-05-28',
     cnPending,
   ),
 );

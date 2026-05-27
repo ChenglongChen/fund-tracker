@@ -36,7 +36,7 @@ npm run dev
 | 前端 | http://localhost:5178 |
 | API | http://localhost:8788 |
 
-开发模式下 Vite 将 `/api` 代理至 API 服务。
+开发模式下 Vite 将 `/api` 代理至 API 服务。Vite 已配置 `host: true`，同一 Wi‑Fi 下的手机可通过 Mac 局域网 IP 访问（见下文）。
 
 ### 生产
 
@@ -47,6 +47,47 @@ PORT=8788 npm start
 ```
 
 浏览器访问 `http://<主机>:8788`。Node 同时提供静态页面与 API。
+
+### iPhone / 局域网访问
+
+Mac 与 iPhone 连接**同一 Wi‑Fi** 即可，无需改业务代码。
+
+**推荐（生产，单端口）：**
+
+```bash
+npm run build
+PORT=8788 npm start
+```
+
+在 iPhone Safari 打开：
+
+```text
+http://<Mac局域网IP>:8788
+```
+
+**开发模式（双端口）：**
+
+```bash
+npm run dev
+```
+
+iPhone 访问 `http://<Mac局域网IP>:5178`（Vite 会把 `/api` 代理到本机 8788）。
+
+**查 Mac IP：**
+
+```bash
+ipconfig getifaddr en0
+```
+
+或在 **系统设置 → 网络 → Wi‑Fi → 详细信息** 查看。也可用 `http://<LocalHostName>.local:8788`（如 `http://MacBook-Pro.local:8788`）。
+
+**若打不开：**
+
+- 确认 Mac 上服务已启动，且 iPhone 与 Mac 在同一网络（非访客网络隔离）
+- **系统设置 → 网络 → 防火墙**：允许 Node / 终端传入连接
+- Mac 合盖休眠会断连，需保持唤醒
+
+**加到主屏幕：** Safari → 分享 → **添加到主屏幕**。从主屏幕打开会全屏显示（无 Safari 地址栏），并自动适配 Dynamic Island / 底部 Home 指示条安全区。
 
 ## 持仓数据
 
