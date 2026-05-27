@@ -34,7 +34,7 @@ function replayXyzImpact(holdings, xyzHoldings, fxPct = 0) {
 }
 
 async function main() {
-  const snapPath = process.argv[2] || join(ROOT, 'data/xyz-close-snapshot.json');
+  const snapPath = process.argv[2] || join(ROOT, 'scripts/fixtures/xyz-close-snapshot.json');
   const snap = JSON.parse(readFileSync(snapPath, 'utf8'));
   const portfolio = JSON.parse(readFileSync(join(ROOT, 'data/portfolio.json'), 'utf8'));
   const fxPct = snap.indices?.fx ?? 0;

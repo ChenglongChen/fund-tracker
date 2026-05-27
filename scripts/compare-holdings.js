@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fetchFundHoldings, holdingMergeKey, holdingMatchName } from '../server/market.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_REF = join(__dirname, '../data/ref-270023-345569.json');
+const DEFAULT_REF = join(__dirname, 'fixtures/ref-270023-345569.json');
 
 const code = process.argv[2] || '270023';
 const refPath = process.argv[3] || (code === '270023' ? DEFAULT_REF : undefined);

@@ -49,7 +49,7 @@ function diffHoldings(local, xyz) {
 }
 
 async function main() {
-  const snapPath = process.argv[2] || join(ROOT, 'data/xyz-close-snapshot.json');
+  const snapPath = process.argv[2] || join(ROOT, 'scripts/fixtures/xyz-close-snapshot.json');
   const portfolio = JSON.parse(readFileSync(join(ROOT, 'data/portfolio.json'), 'utf8'));
   const unique = [...new Map(portfolio.funds.map((f) => [f.code, f])).values()];
   const xyzByCode = XYZ_FUNDS.filter((x) => x.code);

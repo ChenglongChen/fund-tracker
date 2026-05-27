@@ -1,4 +1,13 @@
 node_modules
 dist
 .DS_Store
+
+# 运行时 / 个人持仓（首次启动从 src/portfolio.json 复制）
+data/portfolio.json
+data/app-state.json
+
+# 本地临时文件（校准日志、东财抓包、PDF 等）
+data/_*
 data/_calibrate-run.log
+data/*.pdf
+data/*.js
