@@ -34,6 +34,7 @@ import {
 import { HIDDEN_AMOUNT_TEXT, loadHideAssets, saveHideAssets } from './privacy.js';
 
 const REFRESH_MS = 1_000;
+const DETAIL_HOLDINGS_REFRESH_MS = 3_000;
 
 /** @type {ResizeObserver | null} */
 let accountTabsResizeObserver = null;
@@ -51,6 +52,8 @@ const state = {
   detailId: null,
   indices: [],
   updatedAt: '',
+  quoteUpdatedAt: '',
+  detailHoldingsAt: '',
   fxPct: null,
   fundRows: [],
   displayRows: [],
@@ -88,6 +91,7 @@ const state = {
 
 let refreshTimer = null;
 let refreshPending = false;
+let lastDetailHoldingsFetchAt = 0;
 let indexDockCarouselTimer = null;
 const INDEX_DOCK_CAROUSEL_MS = 4000;
 
@@ -974,15 +978,14 @@ function renderIndexDrawerPanel() {
     </button>`,
   ).join('');
   return `
-    <div class="index-drawer${open ? ' is-open' : ''}" id="index-drawer" role="dialog" aria-modal="true" aria-labelledby="index-drawer-title" aria-hidden="${open ? 'false' : 'true'}">
+    <div class="index-drawer${open ? ' is-open' : ''}" id="index-drawer" role="dialog" aria-modal="true" aria-label="大盘指数" aria-hidden="${open ? 'false' : 'true'}">
       <div class="index-drawer-handle" aria-hidden="true"></div>
-      <div class="index-drawer-head">
-        <span class="index-drawer-title" id="index-drawer-title">大盘指数</span>
+      <div class="index-drawer-tabs-row">
+        <div class="index-drawer-tabs" role="tablist">${tabs}</div>
         <button type="button" class="index-drawer-close" id="btn-index-drawer-close" aria-label="收起">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       </div>
-      <div class="index-drawer-tabs" role="tablist">${tabs}</div>
       <div class="index-drawer-grid" id="index-drawer-panel" role="tabpanel" aria-labelledby="index-tab-${tabId}">${renderIndexTickerItems(tabIndices)}</div>
     </div>`;
 }
@@ -1001,8 +1004,6 @@ function renderIndexBottom() {
       ${renderIndexDockBar()}
     </div>`;
 }
-
-let indexDrawerTransitionHandler = null;
 
 function openIndexDrawer() {
   state.indexDrawerReturnFocus = document.activeElement;
@@ -1030,25 +1031,12 @@ function syncIndexDrawerUi() {
   const scrollEl = document.getElementById('holding-list-scroll');
   const scrollTop = scrollEl?.scrollTop ?? 0;
 
-  if (indexDrawerTransitionHandler && drawer) {
-    drawer.removeEventListener('transitionend', indexDrawerTransitionHandler);
-    indexDrawerTransitionHandler = null;
-  }
-
   document.querySelector('.portfolio-page')?.classList.toggle('index-sheet-open', open);
-  if (!open) bottom?.classList.remove('index-bottom--drawer-open');
+  bottom?.classList.toggle('index-bottom--drawer-open', open);
 
   if (drawer) {
     drawer.classList.toggle('is-open', open);
     drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-    if (open) {
-      indexDrawerTransitionHandler = (e) => {
-        if (e.target !== drawer || e.propertyName !== 'transform') return;
-        if (state.indexDrawerOpen) bottom?.classList.add('index-bottom--drawer-open');
-        indexDrawerTransitionHandler = null;
-      };
-      drawer.addEventListener('transitionend', indexDrawerTransitionHandler);
-    }
   }
   if (mask) {
     mask.classList.toggle('is-open', open);
@@ -1240,6 +1228,32 @@ function detailFundMetrics(fund) {
   };
 }
 
+function formatClockLabel(timeStr) {
+  const date = state.displayContext?.beijingDate ?? state.lastLive?.beijingDate ?? '';
+  if (date && timeStr) return `${date.slice(5)} ${timeStr}`;
+  return timeStr || fmtTime();
+}
+
+function statusTimesHtml() {
+  const refresh = formatClockLabel(state.updatedAt);
+  const quote = formatClockLabel(state.quoteUpdatedAt || state.updatedAt);
+  return `<span class="status-strip-times"><span>刷新 ${escapeHtml(refresh)}</span><span class="status-strip-time-sep" aria-hidden="true">·</span><span>行情 ${escapeHtml(quote)}</span></span>`;
+}
+
+function detailHoldingsMetaHtml(holdingsCount) {
+  const refresh = formatClockLabel(state.updatedAt);
+  const holdings = state.detailHoldingsAt ? formatClockLabel(state.detailHoldingsAt) : '—';
+  return `${holdingsCount} 只 · 刷新 ${escapeHtml(refresh)} · 持仓 ${escapeHtml(holdings)}`;
+}
+
+function patchStatusStripTimes() {
+  const statusChip = document.querySelector('.status-strip-chip');
+  const statusTime = document.querySelector('.status-strip-time');
+  if (statusChip) statusChip.textContent = marketStatusHint();
+  if (statusTime) statusTime.innerHTML = statusTimesHtml();
+  return Boolean(statusTime);
+}
+
 function marketStatusHint() {
   return state.displayContext?.marketChip ?? '休市';
 }
@@ -1284,8 +1298,9 @@ function patchLiveBanner() {
 function announceLiveUpdate() {
   const el = document.getElementById('live-region');
   if (!el || state.view === 'loading' || state.view === 'error') return;
-  const t = state.displayContext?.clockLabel || state.updatedAt || fmtTime();
-  el.textContent = `已更新 ${t}`;
+  const refresh = formatClockLabel(state.updatedAt);
+  const quote = formatClockLabel(state.quoteUpdatedAt || state.updatedAt);
+  el.textContent = `已刷新 ${refresh} · 行情 ${quote}`;
 }
 
 function renderEmptyState({ title, hint, actionId, actionLabel } = {}) {
@@ -1663,13 +1678,11 @@ function renderAccountSummaryCard(acc) {
 }
 
 function renderStatusStrip() {
-  const ctx = state.displayContext;
-  const clock = ctx?.clockLabel || state.updatedAt || fmtTime();
   return `
     <div class="status-strip">
       <div class="status-strip-meta">
         <span class="status-strip-chip">${escapeHtml(marketStatusHint())}</span>
-        <span class="status-strip-time">${escapeHtml(clock)}</span>
+        <span class="status-strip-time">${statusTimesHtml()}</span>
       </div>
     </div>`;
 }
@@ -2333,11 +2346,7 @@ function patchListDom() {
 
   reorderListRows();
 
-  const ctx = state.displayContext;
-  const statusTime = document.querySelector('.status-strip-time');
-  const statusChip = document.querySelector('.status-strip-chip');
-  if (statusChip) statusChip.textContent = marketStatusHint();
-  if (statusTime) statusTime.textContent = ctx?.clockLabel || state.updatedAt || fmtTime();
+  patchStatusStripTimes();
   patchLiveBanner();
   announceLiveUpdate();
 
@@ -2874,9 +2883,9 @@ function renderDetailPage() {
   const fund = fundById(state.detailId);
   if (!fund || !state.detail) return renderLoading();
 
-  const { impactPct, note } = state.detail;
+  const { note } = state.detail;
   const holdings = getSortedDetailHoldings();
-  const metrics = { ...detailFundMetrics(fund), impactPct };
+  const metrics = detailFundMetrics(fund);
   const rows = holdings
     .map(
       (h) => `
@@ -2898,7 +2907,7 @@ function renderDetailPage() {
       ${renderDetailStats(metrics)}
       <div class="detail-section-head">
         <h2 class="detail-section-title">持仓穿透</h2>
-        <span class="detail-section-meta">${holdings.length} 只 · ${escapeHtml(state.updatedAt || fmtTime())}</span>
+        <span class="detail-section-meta">${detailHoldingsMetaHtml(holdings.length)}</span>
       </div>
       <section class="holdings-card">
         ${renderHoldingsTableHead()}
@@ -3188,6 +3197,7 @@ function applyLive(live) {
   state.indices = live.indices ?? [];
   state.fxPct = live.fxPct;
   state.updatedAt = live.updatedAt || fmtTime();
+  state.quoteUpdatedAt = live.quoteUpdatedAt || live.updatedAt || state.updatedAt;
   state.displayContext = live.displayContext ?? state.displayContext;
   if (live.error) {
     state.liveBanner = live.error;
@@ -3266,12 +3276,16 @@ async function openDetail(id) {
   state.holdingsSortKey = 'weight';
   state.holdingsSortDir = 'desc';
   state.fundEditError = null;
+  state.detailHoldingsAt = '';
+  lastDetailHoldingsFetchAt = 0;
   state.view = 'detail-loading';
   paint();
   scheduleRefresh();
 
   try {
     await loadDetail(id);
+    lastDetailHoldingsFetchAt = Date.now();
+    state.detailHoldingsAt = state.updatedAt || fmtTime();
     state.view = 'detail';
   } catch (e) {
     state.error = e instanceof Error ? e.message : String(e);
@@ -3288,12 +3302,12 @@ function canPatchDetailDom() {
   return true;
 }
 
-function patchDetailDom() {
+function patchDetailMetricsDom() {
   const fund = fundById(state.detailId);
   if (!fund || !state.detail) return false;
 
-  const metrics = { ...detailFundMetrics(fund), impactPct: state.detail.impactPct };
-  const heroCls = pctClass(metrics.impactPct);
+  const metrics = detailFundMetrics(fund);
+  const heroCls = pctClass(metrics.impactPctRegular ?? metrics.impactPct);
   const hero = document.querySelector('.detail-hero');
   if (hero) {
     hero.className = `detail-hero ${heroCls}`;
@@ -3339,8 +3353,17 @@ function patchDetailDom() {
 
   const metaEl = document.querySelector('.detail-section-meta');
   if (metaEl) {
-    metaEl.textContent = `${state.detail.holdings.length} 只 · ${state.updatedAt || fmtTime()}`;
+    metaEl.innerHTML = detailHoldingsMetaHtml(state.detail.holdings.length);
   }
+
+  patchStatusStripTimes();
+  return true;
+}
+
+function patchDetailDom() {
+  const fund = fundById(state.detailId);
+  if (!fund || !state.detail) return false;
+  if (!patchDetailMetricsDom()) return false;
 
   const rows = document.querySelectorAll('#holdings-list-scroll .table-row');
   const holdings = getSortedDetailHoldings();
@@ -3357,13 +3380,24 @@ function patchDetailDom() {
 }
 
 async function refreshDetailView() {
-  if (!state.detailId || state.busy) return;
+  if (!state.detailId) return;
+  if (state.busy) {
+    refreshPending = true;
+    return;
+  }
   state.busy = true;
   try {
     const live = await fetchLive();
     applyLive(live);
-    await loadDetail(state.detailId);
+    const holdingsDue =
+      !state.detail || Date.now() - lastDetailHoldingsFetchAt >= DETAIL_HOLDINGS_REFRESH_MS;
+    if (holdingsDue) {
+      await loadDetail(state.detailId);
+      lastDetailHoldingsFetchAt = Date.now();
+      state.detailHoldingsAt = live.updatedAt || fmtTime();
+    }
     if (state.view === 'detail-loading') state.view = 'detail';
+    if (!holdingsDue && patchDetailMetricsDom()) return;
     if (canPatchDetailDom() && patchDetailDom()) return;
     const scrollTop = document.getElementById('holdings-list-scroll')?.scrollTop ?? 0;
     paint();
@@ -3375,6 +3409,10 @@ async function refreshDetailView() {
     if (!patchLiveBanner()) paint();
   } finally {
     state.busy = false;
+    if (refreshPending) {
+      refreshPending = false;
+      void refreshDetailView();
+    }
   }
 }
 

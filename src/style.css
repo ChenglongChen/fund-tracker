@@ -709,6 +709,18 @@ html[data-theme='dark'] .account-summary-card {
   font-variant-numeric: tabular-nums;
 }
 
+.status-strip-times {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-strip-time-sep {
+  opacity: 0.45;
+}
+
 .yj-summary-col--rt-split .metric-split-row {
   justify-content: flex-end;
   margin: 2px 0 0;
@@ -1197,6 +1209,8 @@ html[data-theme='dark'] .yj-summary--hero.is-down {
 .index-dock {
   position: relative;
   z-index: 1;
+  opacity: 1;
+  transition: opacity 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .index-dock-bar {
@@ -1261,7 +1275,6 @@ html[data-theme='dark'] .index-dock-bar.is-flat {
 .index-dock-slide {
   display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
   height: var(--index-dock-h);
   box-sizing: border-box;
@@ -1271,7 +1284,7 @@ html[data-theme='dark'] .index-dock-bar.is-flat {
 
 .index-dock-name {
   flex: 0 0 auto;
-  max-width: 5.2em;
+  max-width: 6em;
   font-size: 12px;
   font-weight: 500;
   color: var(--text);
@@ -1285,10 +1298,11 @@ html[data-theme='dark'] .index-dock-bar.is-flat {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-evenly;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
   min-width: 0;
-  padding: 0 2px;
+  margin-left: 12px;
+  padding-right: 2px;
 }
 
 .index-dock-price,
@@ -1301,7 +1315,7 @@ html[data-theme='dark'] .index-dock-bar.is-flat {
   white-space: nowrap;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  text-align: center;
+  text-align: right;
 }
 
 .index-dock-chevron {
@@ -1309,8 +1323,8 @@ html[data-theme='dark'] .index-dock-bar.is-flat {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 12px;
-  margin-left: 0;
+  width: 14px;
+  margin-left: 6px;
   color: var(--text-dim);
   opacity: 0.55;
 }
@@ -1342,7 +1356,7 @@ html[data-theme='dark'] .index-dock-bar.is-flat {
   flex-shrink: 0;
   width: 36px;
   height: 4px;
-  margin: 8px auto 0;
+  margin: 8px auto 4px;
   border-radius: 999px;
   background: var(--border);
 }
@@ -1357,49 +1371,19 @@ html[data-theme='dark'] .index-drawer {
   visibility: visible;
 }
 
-.index-drawer-head {
+.index-drawer-tabs-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  padding: 6px var(--list-pad-x) 8px;
+  align-items: stretch;
   border-bottom: 1px solid var(--border-light);
   flex-shrink: 0;
 }
 
-.index-drawer-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.index-drawer-close {
-  position: absolute;
-  right: var(--list-pad-x);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.index-drawer-close:active {
-  background: var(--bg-row-active);
-}
-
 .index-drawer-tabs {
   display: flex;
+  flex: 1;
+  min-width: 0;
   gap: 0;
-  padding: 0 var(--list-pad-x);
-  border-bottom: 1px solid var(--border-light);
+  padding: 0 0 0 var(--list-pad-x);
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1426,6 +1410,25 @@ html[data-theme='dark'] .index-drawer {
   color: var(--text);
   font-weight: 600;
   border-bottom-color: var(--accent);
+}
+
+.index-drawer-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  margin-right: calc(var(--list-pad-x) - 4px);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.index-drawer-close:active {
+  background: var(--bg-row-active);
 }
 
 .index-drawer-grid {
@@ -2458,18 +2461,19 @@ html[data-theme='dark'] .holdings-card {
   }
 
   .index-dock-slide {
-    gap: 8px;
+    gap: 0;
   }
 
   .index-dock-name {
-    max-width: 4.6em;
+    max-width: 5.4em;
     font-size: 11px;
   }
 
   .index-dock-quote {
-    justify-content: space-between;
-    gap: 4px;
-    padding: 0;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-left: 8px;
+    padding-right: 0;
   }
 
   .index-dock-price,

@@ -196,6 +196,7 @@ async function handler(req, res) {
         },
         live: {
           updatedAt: live.updatedAt,
+          quoteUpdatedAt: live.quoteUpdatedAt,
           beijingDate: live.beijingDate,
           error: live.error,
           fundCount: live.funds.length,

@@ -28,9 +28,10 @@ const LIVE_REFRESH_MS = 1_000;
 const LIVE_FULL_REFRESH_MS = 5 * 60_000;
 const SETTLE_CHECK_MS = 30 * 60_000;
 
-/** @type {{ updatedAt: string, beijingDate: string, indices: object[], fxPct: number|null, funds: object[], totals: object|null, display: object|null, displayContext: object|null, assetViewMode: string, displayState: object|null, error: string|null }} */
+/** @type {{ updatedAt: string, quoteUpdatedAt: string, beijingDate: string, indices: object[], fxPct: number|null, funds: object[], totals: object|null, display: object|null, displayContext: object|null, assetViewMode: string, displayState: object|null, error: string|null }} */
 let cache = {
   updatedAt: '',
+  quoteUpdatedAt: '',
   beijingDate: '',
   indices: [],
   fxPct: null,
@@ -47,6 +48,7 @@ let liveBusy = false;
 let livePending = false;
 let settleBusy = false;
 let lastFullRefreshAt = 0;
+let lastQuoteFingerprint = '';
 
 /** @type {Map<number, string>} */
 const fundImpactSourceCache = new Map();
@@ -61,6 +63,33 @@ function rememberImpactSources(funds, impacts) {
 
 function shouldRunFullImpactRefresh(now = Date.now()) {
   return fundImpactSourceCache.size === 0 || now - lastFullRefreshAt >= LIVE_FULL_REFRESH_MS;
+}
+
+function roundQuote(n, digits = 4) {
+  if (n == null || !Number.isFinite(Number(n))) return '';
+  const f = 10 ** digits;
+  return String(Math.round(Number(n) * f) / f);
+}
+
+/** @param {object[]} indices @param {object[]} funds @param {number|null} fxPct */
+function buildQuoteFingerprint(indices, funds, fxPct) {
+  const idx = indices
+    .map((i) => `${i.label}:${roundQuote(i.changePct)}:${i.quoteMode ?? ''}:${roundQuote(i.price, 2)}`)
+    .join('|');
+  const fd = funds
+    .map((f) => `${f.id}:${roundQuote(f.impactPct)}:${roundQuote(f.estimateProfit, 2)}`)
+    .join('|');
+  return `${idx};;${fd};;${roundQuote(fxPct)}`;
+}
+
+/** @param {string} updatedAt @param {object[]} indices @param {object[]} funds @param {number|null} fxPct */
+function resolveQuoteUpdatedAt(updatedAt, indices, funds, fxPct) {
+  const fp = buildQuoteFingerprint(indices, funds, fxPct);
+  if (!cache.quoteUpdatedAt || fp !== lastQuoteFingerprint) {
+    lastQuoteFingerprint = fp;
+    return updatedAt;
+  }
+  return cache.quoteUpdatedAt;
 }
 
 export function getLiveCache() {
@@ -82,6 +111,7 @@ export async function refreshLiveDisplay() {
     cache.funds,
     portfolio.meta,
     new Date(),
+    cache.quoteUpdatedAt || cache.updatedAt,
   );
   return cache;
 }
@@ -284,12 +314,14 @@ async function refreshLive() {
     totals.extendedSession = extended.session;
 
     const display = pickDisplayTotals(appState.assetViewMode, totals);
+    const quoteUpdatedAt = resolveQuoteUpdatedAt(updatedAt, strip, results, fxPct);
     const displayContext = buildDisplayContext(
       beijingDate,
       updatedAt,
       results,
       portfolio.meta,
       now,
+      quoteUpdatedAt,
     );
 
     if (!useSourceCache) {
@@ -303,6 +335,7 @@ async function refreshLive() {
 
     cache = {
       updatedAt,
+      quoteUpdatedAt,
       beijingDate,
       indices: strip,
       fxPct,

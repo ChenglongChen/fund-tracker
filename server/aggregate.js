@@ -201,13 +201,23 @@ function round4(n) {
  * @param {object} [meta]
  * @param {Date} [now]
  */
-export function buildDisplayContext(beijingDate, updatedAt, liveFunds = [], meta = {}, now = new Date()) {
+export function buildDisplayContext(
+  beijingDate,
+  updatedAt,
+  liveFunds = [],
+  meta = {},
+  now = new Date(),
+  quoteUpdatedAt = updatedAt,
+) {
   const labels = openMarketLabels(now);
   const liveText = labels.length ? `${labels.join(' / ')} 盘中` : '全市场休市';
+  const quoteAt = quoteUpdatedAt || updatedAt;
   return {
     beijingDate,
     updatedAt,
+    quoteUpdatedAt: quoteAt,
     clockLabel: beijingDate && updatedAt ? `${beijingDate.slice(5)} ${updatedAt}` : updatedAt,
+    quoteClockLabel: beijingDate && quoteAt ? `${beijingDate.slice(5)} ${quoteAt}` : quoteAt,
     marketChip: marketChipLabel(now),
     realtimeNote: `实时收益=盘中最新估值 · 收市沿用最近收盘 · 盘中标记仅交易时段点亮 · 当前 ${liveText}`,
     dailyNote: '当日收益=净值公布后入账更新（通常晚间）· A股/黄金=当天 · QDII=最新公布净值日',
