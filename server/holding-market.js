@@ -1,0 +1,140 @@
+/**
+ * 单只持仓所属市场及交易时段（北京时间）。
+ */
+import { beijingParts, beijingWeekday } from './time.js';
+import { isLikelyKoreanHolding } from './quotes.js';
+
+/** @typedef {'cn'|'hk'|'us'|'jp'|'kr'|'tw'|'gold_cn'|'other'} HoldingMarket */
+
+/** @param {{ hour: string, minute: string }} parts */
+function minutesOfDay(parts) {
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
+
+function isWeekday(date) {
+  const wd = beijingWeekday(date);
+  return wd >= 1 && wd <= 5;
+}
+
+/** A 股：9:30–11:30、13:00–15:00 */
+export function isCnHoldingMarketOpen(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return (
+    (mins >= 9 * 60 + 30 && mins <= 11 * 60 + 30) ||
+    (mins >= 13 * 60 && mins <= 15 * 60)
+  );
+}
+
+/** 港股：9:30–12:00、13:00–16:00 */
+export function isHkMarketOpen(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return (
+    (mins >= 9 * 60 + 30 && mins <= 12 * 60) ||
+    (mins >= 13 * 60 && mins <= 16 * 60)
+  );
+}
+
+/** 日股：8:00–10:30、11:30–14:00（东京 9:00–15:00 JST） */
+export function isJpMarketOpen(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return (
+    (mins >= 8 * 60 && mins <= 10 * 60 + 30) ||
+    (mins >= 11 * 60 + 30 && mins <= 14 * 60)
+  );
+}
+
+/** 韩股：8:00–14:30（首尔 9:00–15:30 KST） */
+export function isKrMarketOpen(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return mins >= 8 * 60 && mins <= 14 * 60 + 30;
+}
+
+/** 美股：21:30–次日 04:00 北京时间 */
+export function isUsHoldingMarketOpen(date = new Date()) {
+  const wd = beijingWeekday(date);
+  const mins = minutesOfDay(beijingParts(date));
+  const eveningStart = 21 * 60 + 30;
+  const morningEnd = 4 * 60;
+  if (mins >= eveningStart) return wd >= 1 && wd <= 5;
+  if (mins < morningEnd) return wd >= 2 && wd <= 6;
+  return false;
+}
+
+/** 国内黄金：日盘 9:00–15:30；夜盘 20:00–次日 02:30 */
+export function isGoldCnHoldingMarketOpen(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const wd = beijingWeekday(date);
+  const mins = minutesOfDay(beijingParts(date));
+  const dayStart = 9 * 60;
+  const dayEnd = 15 * 60 + 30;
+  const nightStart = 20 * 60;
+  const nightEnd = 2 * 60 + 30;
+  if (mins >= dayStart && mins <= dayEnd) return true;
+  if (mins >= nightStart && wd >= 1 && wd <= 5) return true;
+  if (mins < nightEnd && wd >= 2 && wd <= 6) return true;
+  return false;
+}
+
+/** @param {HoldingMarket} market @param {Date} [date] */
+export function isHoldingMarketOpen(market, date = new Date()) {
+  switch (market) {
+    case 'cn':
+      return isCnHoldingMarketOpen(date);
+    case 'hk':
+      return isHkMarketOpen(date);
+    case 'jp':
+      return isJpMarketOpen(date);
+    case 'kr':
+      return isKrMarketOpen(date);
+    case 'us':
+      return isUsHoldingMarketOpen(date);
+    case 'gold_cn':
+      return isGoldCnHoldingMarketOpen(date);
+    case 'tw':
+      return isCnHoldingMarketOpen(date);
+    default:
+      return isUsHoldingMarketOpen(date);
+  }
+}
+
+/** 任一海外市场（美/日/韩/港）在交易 */
+export function isOverseasSessionOpen(date = new Date()) {
+  return (
+    isUsHoldingMarketOpen(date) ||
+    isJpMarketOpen(date) ||
+    isKrMarketOpen(date) ||
+    isHkMarketOpen(date)
+  );
+}
+
+/** @param {{ code?: string, name?: string, marketId?: number|null, source?: string }} h */
+export function classifyHoldingMarket(h) {
+  const code = String(h.code || '').trim();
+  const name = String(h.name || '');
+  const mid = h.marketId;
+
+  if (/黄金|AU9999|Gold/i.test(name) || code === 'AU9999') return 'gold_cn';
+  if (mid === 0 || mid === 1) return 'cn';
+  if (mid === 116) return 'hk';
+  if (mid === 106) return 'tw';
+  if (isLikelyKoreanHolding(code, name)) return 'kr';
+  if (/日本|东京|东洋|株式会社|铠侠|NITTO|日産|丰田|索尼|软银|Keyence|东京电子|日本电产/i.test(name)) {
+    return 'jp';
+  }
+  if (/^JP/i.test(code)) return 'jp';
+  if (mid === 105 || /^[A-Z][A-Z0-9.-]*$/i.test(code)) return 'us';
+  if (/^77(09|47)$/.test(code) || /南方两倍做多|CSOP.*2x/i.test(name)) return 'hk';
+  if (/^\d{6}$/.test(code)) {
+    if (code.startsWith('6') || code.startsWith('0') || code.startsWith('3')) return 'cn';
+  }
+  return 'other';
+}
+
+/** @param {{ code?: string, name?: string }} h */
+export function holdingCacheKey(h) {
+  return `${String(h.code || '').trim()}\0${String(h.name || '').trim()}`;
+}

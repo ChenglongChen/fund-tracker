@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "snapshotDate": "2026-05-29",
+    "snapshotLabel": "示例种子数据（非真实持仓）",
+    "source": "demo",
+    "importedAt": "2026-05-29T08:00:00.000Z",
+    "beijingDate": "2026-05-29"
+  },
+  "funds": [
+    {
+      "id": 1,
+      "name": "示例 QDII 纳指100",
+      "code": "012922",
+      "amount": 100000,
+      "yesterdayProfit": 120.5,
+      "totalProfit": 8000,
+      "totalProfitPct": 8.7,
+      "shares": 12000,
+      "lastNav": 8.3333,
+      "lastNavDate": "2026-05-29",
+      "accountId": "alipay"
+    },
+    {
+      "id": 2,
+      "name": "示例 A 股混合",
+      "code": "022364",
+      "amount": 50000,
+      "yesterdayProfit": -80.25,
+      "totalProfit": 2500,
+      "totalProfitPct": 5.26,
+      "shares": 8500,
+      "lastNav": 5.8824,
+      "lastNavDate": "2026-05-29",
+      "accountId": "alipay"
+    },
+    {
+      "id": 3,
+      "name": "示例 黄金联接",
+      "code": "000216",
+      "amount": 20000,
+      "yesterdayProfit": 45,
+      "totalProfit": 1200,
+      "totalProfitPct": 6.38,
+      "shares": 15000,
+      "lastNav": 1.3333,
+      "lastNavDate": "2026-05-29",
+      "accountId": "alipay"
+    },
+    {
+      "id": 4,
+      "name": "示例 纳指联接",
+      "code": "006479",
+      "amount": 80000,
+      "yesterdayProfit": 200,
+      "totalProfit": 6000,
+      "totalProfitPct": 8.11,
+      "shares": 10000,
+      "lastNav": 8,
+      "lastNavDate": "2026-05-29",
+      "accountId": "guangfa"
+    },
+    {
+      "id": 5,
+      "name": "示例 全球精选",
+      "code": "270023",
+      "amount": 60000,
+      "yesterdayProfit": 150,
+      "totalProfit": 4000,
+      "totalProfitPct": 7.14,
+      "shares": 9000,
+      "lastNav": 6.6667,
+      "lastNavDate": "2026-05-29",
+      "accountId": "jiashi"
+    }
+  ],
+  "accounts": [
+    { "id": "alipay", "name": "支付宝", "order": 0 },
+    { "id": "jiashi", "name": "嘉实理财", "order": 1 },
+    { "id": "nanfang", "name": "南方基金", "order": 2 },
+    { "id": "guangfa", "name": "广发基金", "order": 3 },
+    { "id": "dacheng", "name": "大成基金", "order": 4 },
+    { "id": "efund", "name": "易方达", "order": 5 }
+  ]
+}

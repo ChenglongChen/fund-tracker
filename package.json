@@ -1,0 +1,27 @@
+{
+  "name": "fund-tracker",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n web,api -c blue,green \"vite\" \"node server/index.js\"",
+    "dev:web": "vite",
+    "dev:api": "node server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "preview": "vite preview",
+    "backtest:valuation": "node scripts/backtest-valuation.js --days=40 --live",
+    "calibrate:valuation": "node scripts/calibrate-valuation.js --days=25",
+    "compare:holdings": "node scripts/compare-holdings.js 270023 data/ref-270023-345569.json",
+    "audit:345569": "node scripts/audit-vs-345569.js",
+    "audit:holdings-xyz": "node scripts/audit-holdings-vs-xyz.js",
+    "audit:impact-xyz": "node scripts/audit-impact-vs-xyz.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "vite": "^6.2.0"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}
