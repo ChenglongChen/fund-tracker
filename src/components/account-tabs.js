@@ -1,7 +1,6 @@
 import { SCOPE_ALL, SCOPE_SUMMARY } from '../accounts.js';
 import { escapeHtml } from '../format.js';
 import { app } from '../app/context.js';
-import { renderThemeToggle } from './theme-chrome.js';
 import { showIndexTicker, closeIndexDrawer } from './index-dock.js';
 
 /** @type {ResizeObserver | null} */
@@ -59,8 +58,9 @@ export function setupAccountTabsLayout() {
 export function activateAccountScope(scope) {
   const { setActiveScope, navigateTo, paint, scheduleRefresh } = app();
   app().state.indexDrawerOpen = false;
+  app().state.mainTab = 'holdings';
   setActiveScope(scope);
-  navigateTo({ type: 'list', scope });
+  navigateTo({ type: 'list', scope, mainTab: 'holdings' });
   app().state.view = 'list';
   paint();
   scheduleRefresh();
@@ -80,6 +80,5 @@ export function renderAccountTabs() {
       <div class="account-tabs" role="tablist" id="account-tabs-track">
         ${accountTabsAll().map((t) => renderAccountTabButton(t)).join('')}
       </div>
-      ${renderThemeToggle()}
     </div>`;
 }

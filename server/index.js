@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { getLiveCache, refreshLiveDisplay, startSchedulers } from './live.js';
 import { runSettlement, settleIfNeeded } from './settle.js';
 import { ensurePortfolio, readPortfolio, writePortfolio } from './store.js';
-import { resolveFundImpact } from './market.js';
+import { resolveFundImpact, fetchFundNavInfo } from './market.js';
 import { classifyFundMarket } from './components/market-hours.js';
 import { resolveLiveDisplayImpact, seedFundRegularSnapshots } from './market-session.js';
 import { loadImpactSnapshots, getFundSnapshotRecords } from './impact-snapshots.js';
@@ -13,6 +13,12 @@ import { loadDayDisplayState } from './day-display-state.js';
 import { seedSessionQuoteSnapshots } from './session-quotes.js';
 import { readAppState, setAssetViewMode, listDailyRecords } from './app-state.js';
 import { addFund, deleteFund, updateFund } from './fund-crud.js';
+import {
+  addWatchlistItem,
+  buildWatchlistLive,
+  readWatchlist,
+  removeWatchlistItem,
+} from './watchlist.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -131,6 +137,43 @@ async function handler(req, res) {
     return json(res, 200, getLiveCache());
   }
 
+  if (req.method === 'GET' && pathname === '/api/watchlist') {
+    try {
+      const items = await readWatchlist();
+      return json(res, 200, { items });
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/watchlist') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const items = await addWatchlistItem(body.code, body.name);
+      return json(res, 200, { items });
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  const watchlistCodeMatch = pathname.match(/^\/api\/watchlist\/(\d{6})$/);
+  if (watchlistCodeMatch && req.method === 'DELETE') {
+    try {
+      const items = await removeWatchlistItem(watchlistCodeMatch[1]);
+      return json(res, 200, { items });
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/watchlist/live') {
+    try {
+      return json(res, 200, await buildWatchlistLive());
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
   if (req.method === 'GET' && pathname === '/api/settings') {
     try {
       const appState = await readAppState();
@@ -216,9 +259,19 @@ async function handler(req, res) {
       const code = decodeURIComponent(detailMatch[1]);
       const live = getLiveCache();
       const portfolio = await readPortfolio();
+      const watchlist = await readWatchlist();
       const fund = portfolio.funds.find((f) => f.code === code);
-      const r = await resolveFundImpact(code, live.fxPct, fund?.name ?? '', live.indices ?? []);
-      const market = classifyFundMarket(fund ?? { name: '' });
+      let fundName = fund?.name ?? '';
+      if (!fundName) {
+        const wlItem = watchlist.find((i) => i.code === code);
+        if (wlItem?.name) fundName = wlItem.name;
+      }
+      if (!fundName) {
+        const nav = await fetchFundNavInfo(code);
+        fundName = nav?.name ?? '';
+      }
+      const r = await resolveFundImpact(code, live.fxPct, fundName, live.indices ?? []);
+      const market = classifyFundMarket(fund ?? { name: fundName, code });
       const displayImpact = resolveLiveDisplayImpact(fund?.id ?? null, market, r);
       const impactPct = displayImpact.impactPct;
       const recent = r.recentReportDate || r.reportDate;
@@ -284,5 +337,5 @@ http.createServer((req, res) => {
   });
 }).listen(PORT, () => {
   console.log(`fund-tracker server http://localhost:${PORT}`);
-  console.log('  API: /api/portfolio /api/live /api/settings /api/history/daily');
+  console.log('  API: /api/portfolio /api/live /api/watchlist /api/settings /api/history/daily');
 });

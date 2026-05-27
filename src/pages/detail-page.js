@@ -1,7 +1,6 @@
 import { escapeHtml, fmtPct, pctClass } from '../format.js';
 import { fmtHoldAmount, fmtMoney } from '../display-format.js';
 import { visibleMetricColumns } from '../column-layout.js';
-import { pickFundDisplayMetrics } from '../fund-display-ui.js';
 import { app } from '../app/context.js';
 import { setTextClass } from '../dom.js';
 import { renderShell, renderLoading, renderLiveBanner } from '../components/shell.js';
@@ -20,14 +19,18 @@ import {
   holdingStatusLabel,
   shouldShowExtendedMetric,
 } from '../components/session.js';
+import { detailProfile } from '../fund-live-display.js';
 
 function orderedMetrics() {
   return visibleMetricColumns(app().state.metricColumnOrder, app().state.metricColumnVisible);
 }
 
-export function detailFundMetrics(fund) {
-  const row = app().state.fundRows.find((f) => f.id === fund.id);
-  return pickFundDisplayMetrics(row, fund);
+function detailBundle() {
+  return app().detailMetrics?.() ?? { fund: null, metrics: null, row: null };
+}
+
+function isWatchlistDetail() {
+  return app().state.detailSource === 'watchlist';
 }
 
 export function holdingSortValue(h, key) {
@@ -212,7 +215,17 @@ export function renderDetailMetric(label, val, pct, { signed = false, metrics = 
     </div>`;
 }
 
-export function renderDetailHero(fund, metrics) {
+function renderDetailPctMetric(label, pct) {
+  const cls = pctClass(pct);
+  const text = pct != null && Number.isFinite(Number(pct)) ? fmtPct(pct) : '—';
+  return `
+    <div class="detail-metric detail-metric--pct-only">
+      <p class="detail-metric-label">${escapeHtml(label)}</p>
+      <p class="detail-metric-val ${cls}">${text}</p>
+    </div>`;
+}
+
+export function renderDetailHero(fund, metrics, profile) {
   const showExt = shouldShowExtendedMetric(metrics);
   const mainPct = showExt ? metrics.impactPctRegular : metrics.impactPct;
   const cls = pctClass(mainPct);
@@ -225,16 +238,26 @@ export function renderDetailHero(fund, metrics) {
         compact: true,
       })}</div>`
     : `<p class="detail-hero-pct ${cls}">${fmtPct(metrics.impactPct)}</p>`;
+  const amountLine = profile.showAmount
+    ? `<p class="detail-hero-amount">持仓 ${fmtHoldAmount(fund.amount)}</p>`
+    : '';
   return `
     <section class="detail-hero ${cls}">
       <p class="detail-hero-code">${escapeHtml(fund.code)}</p>
       <p class="detail-hero-label">估值涨跌</p>
       ${pctBlock}
-      <p class="detail-hero-amount">持仓 ${fmtHoldAmount(fund.amount)}</p>
+      ${amountLine}
     </section>`;
 }
 
-export function renderDetailStats(metrics) {
+export function renderDetailStats(metrics, profile) {
+  if (profile.pctOnly) {
+    return `
+    <section class="detail-stats detail-stats--pct-only">
+      ${renderDetailPctMetric('实时收益', metrics.realTimePct)}
+      ${renderDetailPctMetric('当日收益', metrics.dailyPending ? null : metrics.settledPct)}
+    </section>`;
+  }
   return `
     <section class="detail-stats">
       ${orderedMetrics()
@@ -249,22 +272,27 @@ export function renderDetailStats(metrics) {
           if (col.key === 'daily') {
             return renderDetailMetric(col.title, metrics.settledProfit, metrics.settledPct, { signed: true });
           }
+          if (!profile.showHoldingMetric) return '';
           return renderDetailMetric(col.title, metrics.totalProfit, metrics.totalProfitPct, { signed: true });
         })
         .join('')}
     </section>`;
 }
 
-export function renderDetailLoading(fund) {
+export function renderDetailLoading(fund, profile) {
+  const amountLine = profile.showAmount
+    ? `<p class="detail-hero-amount">持仓 ${fmtHoldAmount(fund.amount)}</p>`
+    : '';
+  const pageClass = profile.pctOnly ? 'detail-page detail-page--watchlist' : 'detail-page';
   return renderShell(
     `
-    <section class="detail-page">
+    <section class="${pageClass}">
       ${renderDetailNav(fund.name)}
       <section class="detail-hero is-flat">
         <p class="detail-hero-code">${escapeHtml(fund.code)}</p>
         <p class="detail-hero-label">估值涨跌</p>
         <p class="detail-hero-pct is-flat">—</p>
-        <p class="detail-hero-amount">持仓 ${fmtHoldAmount(fund.amount)}</p>
+        ${amountLine}
       </section>
       <section class="state-card state-card--inline">
         <p class="state-text">正在拉取持仓穿透…</p>
@@ -274,12 +302,14 @@ export function renderDetailLoading(fund) {
 }
 
 export function renderDetailPage() {
-  const fund = app().fundById(app().state.detailId);
-  if (!fund || !app().state.detail) return renderLoading();
+  const { fund, metrics } = detailBundle();
+  if (!fund || !metrics || !app().state.detail) return renderLoading();
 
+  const profile = detailProfile(app().state.detailSource);
   const { note } = app().state.detail;
   const holdings = getSortedDetailHoldings();
-  const metrics = detailFundMetrics(fund);
+  const showEdit = app().canEditDetailFund?.() ?? false;
+  const pageClass = profile.pctOnly ? 'detail-page detail-page--watchlist' : 'detail-page';
   const rows = holdings
     .map(
       (h) => `
@@ -294,11 +324,11 @@ export function renderDetailPage() {
 
   return renderShell(
     `
-    <section class="detail-page">
-      ${renderDetailNav(fund.name, { showEdit: app().canEditFund(fund) })}
+    <section class="${pageClass}">
+      ${renderDetailNav(fund.name, { showEdit })}
       ${renderLiveBanner()}
-      ${renderDetailHero(fund, metrics)}
-      ${renderDetailStats(metrics)}
+      ${renderDetailHero(fund, metrics, profile)}
+      ${renderDetailStats(metrics, profile)}
       <div class="detail-section-head">
         <h2 class="detail-section-title">持仓穿透</h2>
         <span class="detail-section-meta">${detailHoldingsMetaHtml(holdings.length)}</span>
@@ -316,17 +346,17 @@ export function renderDetailPage() {
 
 export function canPatchDetailDom() {
   if (app().state.view !== 'detail' || !document.getElementById('holdings-list-scroll')) return false;
-  const row = app().state.fundRows.find((f) => f.id === app().state.detailId);
+  const { row } = detailBundle();
   if (shouldShowExtendedMetric(row)) return false;
   if (getSortedDetailHoldings().some(holdingShowsDualChange)) return false;
   return true;
 }
 
 export function patchDetailMetricsDom() {
-  const fund = app().fundById(app().state.detailId);
-  if (!fund || !app().state.detail) return false;
+  const { fund, metrics } = detailBundle();
+  if (!fund || !metrics || !app().state.detail) return false;
 
-  const metrics = detailFundMetrics(fund);
+  const profile = detailProfile(app().state.detailSource);
   const heroCls = pctClass(metrics.impactPctRegular ?? metrics.impactPct);
   const hero = document.querySelector('.detail-hero');
   if (hero) {
@@ -337,11 +367,27 @@ export function patchDetailMetricsDom() {
       setTextClass(pctEl, heroCls);
     }
     const amountEl = hero.querySelector('.detail-hero-amount');
-    if (amountEl) amountEl.textContent = `持仓 ${fmtHoldAmount(fund.amount)}`;
+    if (amountEl && profile.showAmount) {
+      amountEl.textContent = `持仓 ${fmtHoldAmount(fund.amount)}`;
+    }
   }
 
   const statsEl = document.querySelector('.detail-stats');
-  if (statsEl) {
+  if (statsEl && profile.pctOnly) {
+    const vals = statsEl.querySelectorAll('.detail-metric-val');
+    if (vals[0]) {
+      vals[0].textContent =
+        metrics.realTimePct != null && Number.isFinite(metrics.realTimePct)
+          ? fmtPct(metrics.realTimePct)
+          : '—';
+      setTextClass(vals[0], pctClass(metrics.realTimePct));
+    }
+    if (vals[1]) {
+      const daily = metrics.dailyPending ? null : metrics.settledPct;
+      vals[1].textContent = daily != null ? fmtPct(daily) : '—';
+      setTextClass(vals[1], pctClass(daily));
+    }
+  } else if (statsEl) {
     orderedMetrics().forEach((col, i) => {
       const el = statsEl.children[i];
       if (!el) return;
@@ -378,7 +424,7 @@ export function patchDetailMetricsDom() {
 }
 
 export function patchDetailDom() {
-  const fund = app().fundById(app().state.detailId);
+  const { fund } = detailBundle();
   if (!fund || !app().state.detail) return false;
   if (!patchDetailMetricsDom()) return false;
 

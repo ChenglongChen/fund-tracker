@@ -24,6 +24,7 @@ function defaultAppState() {
     assetViewMode: 'settled',
     dailyRecords: {},
     intradayTicks: [],
+    watchlist: [],
   };
 }
 
@@ -35,6 +36,7 @@ function normalizeAppState(data) {
     assetViewMode: data.assetViewMode === 'realtime' ? 'realtime' : 'settled',
     dailyRecords: data.dailyRecords && typeof data.dailyRecords === 'object' ? data.dailyRecords : {},
     intradayTicks: Array.isArray(data.intradayTicks) ? data.intradayTicks.slice(-MAX_INTRADAY_TICKS) : [],
+    watchlist: Array.isArray(data.watchlist) ? data.watchlist : [],
   };
 }
 

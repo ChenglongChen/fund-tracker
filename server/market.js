@@ -459,6 +459,7 @@ export async function fetchFundNavInfo(code) {
         nav: parseFloat(row.NAV),
         navChgRt: Number.isFinite(navChgRt) ? navChgRt : null,
         displayDate: body?.Expansion?.FSRQ ?? row.PDATE,
+        name: row.SHORTNAME ? String(row.SHORTNAME).trim() : null,
       };
     }
   } catch {

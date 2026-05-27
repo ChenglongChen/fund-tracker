@@ -1,4 +1,4 @@
-import { SCOPE_SUMMARY, buildAccountSummaries, isEditableScope } from '../accounts.js';
+import { SCOPE_ALL, SCOPE_SUMMARY, buildAccountSummaries, isEditableScope } from '../accounts.js';
 import { escapeHtml, pctClass } from '../format.js';
 import { fmtEstimatedAssets, fmtHoldAmount, fmtMoney } from '../display-format.js';
 import { visibleMetricColumns } from '../column-layout.js';
@@ -26,6 +26,37 @@ import { extendedSessionLabel, hasExtendedRealtimeLayout, hasRealtimeProfit } fr
 
 function orderedMetrics() {
   return visibleMetricColumns(app().state.metricColumnOrder, app().state.metricColumnVisible);
+}
+
+function isMultiAccountMergedRow(f) {
+  return app().state.activeScope === SCOPE_ALL && (f.isMerged || (f.accountIds?.length ?? 0) > 1);
+}
+
+function multiAccountIconMarkup() {
+  return `<svg class="holding-account-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="4" y="5" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.75"/>
+    <rect x="8" y="9" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.75"/>
+  </svg>`;
+}
+
+function renderMultiAccountBadge(f) {
+  if (!isMultiAccountMergedRow(f)) return '';
+  const ids = f.accountIds ?? [];
+  if (ids.length <= 1) return '';
+  const accounts = app().getAccounts();
+  const title = ids.map((id) => accounts.find((a) => a.id === id)?.name ?? id).join('、');
+  return `<span class="holding-account-badge" title="${escapeHtml(title)}" aria-label="多账户：${escapeHtml(title)}">${multiAccountIconMarkup()}</span>`;
+}
+
+function renderFundMetaLine(f) {
+  const parts = [];
+  if (app().state.nameSubline === 'amount') {
+    parts.push(`<span class="holding-amount">${fmtHoldAmount(f.displayAmount ?? f.amount)}</span>`);
+  }
+  const badge = renderMultiAccountBadge(f);
+  if (badge) parts.push(badge);
+  if (!parts.length) return '';
+  return `<p class="holding-meta">${parts.join('')}</p>`;
 }
 
 function portfolioGridClass() {
@@ -139,15 +170,18 @@ export function renderListTableHead() {
     </div>`;
 }
 
+function rowDetailScope(f) {
+  if (app().state.activeScope === SCOPE_SUMMARY) return SCOPE_SUMMARY;
+  if (app().state.activeScope === SCOPE_ALL && isMultiAccountMergedRow(f)) return SCOPE_SUMMARY;
+  return f.accountId ?? app().state.activeScope;
+}
+
 export function renderFundRow(f) {
   const metricCols = orderedMetrics().map((col) => fundMetricCells(f, col.key)).join('');
-  const metaLine =
-    app().state.nameSubline === 'amount'
-      ? `<span class="holding-amount">${fmtHoldAmount(f.displayAmount ?? f.amount)}</span>`
-      : '';
-  const metaHtml = metaLine ? `<p class="holding-meta">${metaLine}</p>` : '';
+  const metaHtml = renderFundMetaLine(f);
+  const detailScope = rowDetailScope(f);
   return `
-    <button type="button" class="holding-row" data-fund-id="${f.id}">
+    <button type="button" class="holding-row" data-fund-id="${f.id}" data-fund-code="${escapeHtml(f.code)}" data-fund-scope="${escapeHtml(detailScope)}">
       <div class="holding-col holding-col--name">
         <p class="holding-name">${escapeHtml(f.name)}</p>
         ${metaHtml}
@@ -343,7 +377,7 @@ export function renderListPage() {
       });
     return renderShell(
       `
-      <section class="portfolio-page portfolio-page--summary${dockClass}${sheetClass} ${gridClass}">
+      <section class="portfolio-page portfolio-page--summary has-bottom-nav${dockClass}${sheetClass} ${gridClass}">
         <div class="portfolio-sticky">
           ${renderAccountTabs()}
           ${renderLiveBanner()}
@@ -353,8 +387,8 @@ export function renderListPage() {
           <section class="account-summary-list">${listBody}</section>
         </div>
         ${indexMask}
-      </section>
-      ${renderBottomChrome()}`,
+        ${renderBottomChrome()}
+      </section>`,
     );
   }
 
@@ -369,7 +403,7 @@ export function renderListPage() {
     });
   return renderShell(
     `
-    <section class="portfolio-page${dockClass}${sheetClass} ${gridClass}">
+    <section class="portfolio-page has-bottom-nav${dockClass}${sheetClass} ${gridClass}">
       <div class="portfolio-sticky">
         ${renderAccountTabs()}
         ${renderLiveBanner()}
@@ -380,7 +414,7 @@ export function renderListPage() {
         <section class="holding-list">${listBody}</section>
       </div>
       ${indexMask}
-    </section>
-    ${renderBottomChrome()}`,
+      ${renderBottomChrome()}
+    </section>`,
   );
 }

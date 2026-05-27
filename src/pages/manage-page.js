@@ -1,6 +1,7 @@
 import { isEditableScope } from '../accounts.js';
 import { metricColumnDef } from '../column-layout.js';
 import { escapeHtml } from '../format.js';
+import { resolvePortfolioFund } from '../fund-live-display.js';
 import { app } from '../app/context.js';
 import { renderShell, renderLoading, renderSubpageNav } from '../components/shell.js';
 
@@ -153,7 +154,8 @@ export function renderManagePage() {
 }
 
 export function renderFundEditPage() {
-  const fund = app().fundById(app().state.detailId);
+  const ctx = app().detailCtx?.();
+  const fund = ctx ? resolvePortfolioFund(app().getFunds, ctx) : null;
   if (!fund) return renderLoading();
 
   return renderShell(

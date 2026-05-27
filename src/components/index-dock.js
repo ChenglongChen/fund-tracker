@@ -2,6 +2,7 @@ import { escapeHtml, fmtIndexChange, fmtIndexPrice, fmtPct, pctClass } from '../
 import { app } from '../app/context.js';
 import { setTextClass } from '../dom.js';
 import { extendedSessionLabel } from './session.js';
+import { renderBottomTabs, showAppBottomChrome } from './bottom-tabs.js';
 
 const INDEX_DOCK_CAROUSEL_MS = 4000;
 /** @type {ReturnType<typeof setInterval> | null} */
@@ -24,7 +25,7 @@ const INDEX_DOCK_CAROUSEL = [
 ];
 
 export function showIndexTicker() {
-  return app().state.view === 'list' && app().state.indices.length > 0;
+  return showAppBottomChrome() && app().state.indices.length > 0;
 }
 
 function dockCarouselIndices() {
@@ -163,8 +164,10 @@ function renderIndexBottom() {
 }
 
 export function renderBottomChrome() {
-  if (!showIndexTicker()) return '';
-  return `<div class="bottom-chrome" id="bottom-chrome">${renderIndexBottom()}</div>`;
+  if (!showAppBottomChrome()) return '';
+  const dock = renderIndexBottom();
+  const tabs = renderBottomTabs();
+  return `<div class="bottom-chrome" id="bottom-chrome">${dock}${tabs}</div>`;
 }
 
 export function openIndexDrawer() {

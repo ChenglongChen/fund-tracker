@@ -29,6 +29,30 @@ export async function fetchDailyHistory(limit = 30) {
   return apiJson(`/api/history/daily?limit=${limit}`);
 }
 
+/** @returns {Promise<{ items: object[] }>} */
+export async function fetchWatchlist() {
+  return apiJson('/api/watchlist');
+}
+
+/** @returns {Promise<{ funds: object[], displayContext?: object, updatedAt: string }>} */
+export async function fetchWatchlistLive() {
+  return apiJson('/api/watchlist/live');
+}
+
+/** @param {{ code: string, name?: string }} data */
+export async function addWatchlistApi(data) {
+  return apiJson('/api/watchlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+/** @param {string} code */
+export async function removeWatchlistApi(code) {
+  return apiJson(`/api/watchlist/${encodeURIComponent(code)}`, { method: 'DELETE' });
+}
+
 /** @returns {Promise<{ meta: object, funds: object[] }>} */
 export async function fetchPortfolio() {
   return apiJson('/api/portfolio');
