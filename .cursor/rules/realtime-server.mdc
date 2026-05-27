@@ -6,30 +6,44 @@ alwaysApply: false
 
 # Server — 实时收益
 
+## Ground truth
+
+| 字段 | 唯一 writer |
+|------|------------|
+| `estimateProfit` | `fund-display.buildDisplayFundRow` |
+| `realtimeProfit` | `aggregate.computePortfolioTotals`（仅 Σ ep） |
+| phase / snapKey / RT1 模式 | **`display-session.resolveDisplaySession`** |
+| raw 穿透 | `market.js` |
+| suppress 收口 | **`components/suppress.finalizeLiveFundDisplayRow`** |
+
+编排：`live-pipeline.runLiveDisplayPipeline()` — 每 tick **一次** session，传入 reconcile / snap。
+
 ## 分层
 
-1. **穿透** `market.js` — 永远 live，输出 regular/extended
-2. **会话** `market-session.js` — `resolveLiveDisplayImpact`、`shouldSuppressDomesticRealtimeDuringUsRegular`
-3. **估算** `fund-estimate.js` — 盘前/盘后 RT1 仅 regular
-4. **Snap** `display-state-machine.js` + `day-display-state.js`
-5. **组装** `live.js` → `aggregate.js` → `applyPortfolioTotalsSnap`
+1. **穿透** `market.js`
+2. **时钟/session** **`display-session.js`**
+3. **display impact** `market-session.js` + **`components/market-hours.js`**
+4. **suppress** **`components/suppress.js`**
+5. **per-fund** `fund-display.js` + **`components/extended-row.js`**
+6. **编排** `live-pipeline.js`
+7. **求和** `aggregate.js` + **`components/table-head.js`**
+8. **Snap** **`components/snap-*.js`** + `day-display-state.js`
 
-## buildLiveFundRow
+## 流水线
 
-```javascript
-// ✅ estimateProfit 来自 display impactPct
-const displayLive = impactPct != null ? { market, impactPct: impactPctRegular ?? impactPct, ... } : null;
-const estimateProfit = displayLive ? fundEstimateProfit(amount, displayLive, now) : null;
-
-// ❌ 勿用 liveImpactForEstimate(r) 绕过 display snap / suppress
 ```
-
-## computePortfolioTotals
-
-组合 `realtimeAssets` = `baseline + realtimeProfit`，勿累加 per-fund `fundEstimatedAssets`。
+resolveDisplaySession (一次)
+→ buildDisplayFundRows
+→ reconcileDisplayState (snap-seed)
+→ tryBackfillSnapFromTicks
+→ applyDisplaySnapAndTotals (snap-apply + suppress)
+```
 
 ## 测试
 
+- `server/display-session.test.js`
+- `server/snap-state.test.js`
+- `server/live-pipeline.test.js`
+- `server/realtime-display-pipeline.test.js`
 - `server/fund-estimate.test.js`
-- `server/market-session.test.js`
 - `server/realtime-profit-consistency.test.js`

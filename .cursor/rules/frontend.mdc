@@ -1,31 +1,38 @@
----
-description: 前端 Hero、列表、账户概况与 summary 计算
-globs: src/**/*.{js,css,html}
-alwaysApply: false
----
-
 # Frontend
 
-主文件：`src/main.js`、`src/accounts.js`。
+主入口：`src/main.js`（页面编排）。**业务数据与组件分离**。
 
-## buildSummary（header 预估）
+## 分层
+
+| 层 | 路径 | 职责 |
+|----|------|------|
+| ViewModel | `live-view-model.js`, `summary.js` | API → 行 / scope 合计 |
+| Components | `components/metrics.js`, `components/session.js` | 可复用指标 UI |
+| Format | `format.js`, `display-format.js` | 数字/金额/隐私 |
+
+详见 `docs/frontend-architecture.md`。
+
+## buildSummary
 
 ```javascript
-// ✅ scope header
-realtimeAssets = settledAssets + totalRealTime;
-
-// ❌ 勿 Σ estimatedAssetsForRow — 无 RT1 的 A 股基金会多减 settled
+// SCOPE_ALL：canonicalTotals = live.totals，displayState = live.displayState
+// 账户 scope：Σ estimateProfit；禁止 pct×amount 作 row1
 ```
 
-无 extended 时 Hero/账户卡：**竖排** 金额 + 收益率（模式 A）。  
-盘前/盘后：**两行** `.metric-split-row`（模式 B），row2 带「盘前/盘后」tag，不计入 row1。
+## mergeLiveIntoFunds
 
-## 数据源
+```javascript
+// live-view-model.js — row1 = API estimateProfit only
+state.fundRows = mergeLiveIntoFunds(FUNDS, live);
+```
 
-- 以 `/api/live` 的 `estimateProfit`、`estimateAssets` 为准
-- **禁止** 前端独立 snap Map（已移除 `premarketEstimateByScope`）
-- `mergeLiveIntoFunds`：`realTimeProfit` = `estimateProfit`
+## 组件（模式 A / B）
 
-## UI patch
+- **模式 A**：`renderPctSub` + `fmtMoney` — 无 extended
+- **模式 B**：`renderRealtimeSplitRow` / `renderMetricDualLine` — 盘前/盘后双行
 
-列表 1s 刷新优先 `patchListDom()`；extended 列用 `.metric-split-row` 与 Hero 同构。
+Hero、账户卡、列表 **必须** 共用 `components/metrics.js`，禁止复制 HTML 结构。
+
+## patch 优先
+
+列表 1s 刷新：`patchListDom()` → 失败再 `paint()`。

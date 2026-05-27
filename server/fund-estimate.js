@@ -1,21 +1,18 @@
-import { getUsSessionPhase } from './holding-market.js';
-import { beijingDateString } from './time.js';
+import {
+  getRt1AccrualDay,
+  isUsExtendedEstimateWindow,
+  isUsPremarketEstimateWindow,
+  resolveDisplaySession,
+} from './display-session.js';
 import {
   getActiveScopeSnap,
   getBaselineForDay,
-  getRt1AccrualDay,
   isRt1SnapPhase,
   round2,
 } from './day-display-state.js';
+import { beijingDateString } from './time.js';
 
-export function isUsExtendedEstimateWindow(now = new Date()) {
-  const phase = getUsSessionPhase(now);
-  return phase === 'premarket' || phase === 'afterhours';
-}
-
-export function isUsPremarketEstimateWindow(now = new Date()) {
-  return getUsSessionPhase(now) === 'premarket';
-}
+export { isUsExtendedEstimateWindow, isUsPremarketEstimateWindow };
 
 /** @deprecated use day-display-state; kept for tests */
 export function clearPremarketPortfolioEstimateSnap() {
@@ -51,8 +48,8 @@ export function fundEstimateImpactPct(live, now = new Date()) {
   const market = live.market ?? 'cn';
   if (market !== 'us') return live.impactPct;
 
-  const usPhase = getUsSessionPhase(now);
-  if (usPhase === 'premarket' || usPhase === 'afterhours') {
+  const { usPhase } = resolveDisplaySession(now);
+  if (usPhase === 'premarket' || usPhase === 'afterhours' || usPhase === 'overnight') {
     const regular = live.impactPctRegular ?? live.impactPct;
     return regular != null && Number.isFinite(regular) ? regular : null;
   }
@@ -115,7 +112,7 @@ export function fundEstimatedAssets(
 }
 
 /**
- * @deprecated portfolio snap via display-state-machine.applyPortfolioTotalsSnap
+ * @deprecated portfolio snap via components/snap-apply.applyPortfolioTotalsSnap
  */
 export function applyPremarketPortfolioEstimateSnap(totals, now = new Date()) {
   const accrualDay = getRt1AccrualDay(now);

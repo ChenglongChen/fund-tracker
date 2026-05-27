@@ -15,13 +15,9 @@ export function buildAccountSummaries(rows, accounts) {
       const totalHolding = funds.reduce((s, f) => s + f.totalProfit, 0);
       const costBasis = totalAssets - totalHolding;
       const totalHoldingPct = costBasis > 0 ? (totalHolding / costBasis) * 100 : null;
-      const up = funds.filter((f) => (f.settledProfit ?? f.yesterdayProfit ?? 0) > 0).length;
-      const down = funds.filter((f) => (f.settledProfit ?? f.yesterdayProfit ?? 0) < 0).length;
       const rtFunds = funds.filter(
         (f) => f.realTimeProfit != null && Number.isFinite(f.realTimeProfit),
       );
-      const rtUp = rtFunds.filter((f) => f.realTimeProfit > 0).length;
-      const rtDown = rtFunds.filter((f) => f.realTimeProfit < 0).length;
       const totalRealTime = rtFunds.reduce((s, f) => s + f.realTimeProfit, 0);
       const hasRealtime = rtFunds.length > 0;
       const totalRealTimePct =
@@ -35,7 +31,11 @@ export function buildAccountSummaries(rows, accounts) {
         if (ext != null && Number.isFinite(ext)) totalRealTimeExtended += ext;
         if (f.market === 'us') {
           usAssets += f.amount ?? 0;
-          if (f.impactSession === 'premarket' || f.impactSession === 'afterhours') {
+          if (
+            f.impactSession === 'premarket' ||
+            f.impactSession === 'afterhours' ||
+            f.impactSession === 'overnight'
+          ) {
             extendedSession = f.impactSession;
           }
         }
@@ -63,10 +63,6 @@ export function buildAccountSummaries(rows, accounts) {
         totalHolding,
         totalHoldingPct,
         fundCount: funds.length,
-        up,
-        down,
-        rtUp,
-        rtDown,
       };
     })
     .filter((a) => a.fundCount > 0);

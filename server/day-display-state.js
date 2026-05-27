@@ -1,13 +1,15 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getUsSessionPhase } from './holding-market.js';
-import { beijingDateString, beijingIsoAddDays, beijingMinutesOfDay } from './time.js';
+import { getRt1AccrualDay, isRt1SnapPhaseAt, resolveDisplaySession } from './display-session.js';
+import { beijingDateString } from './time.js';
 import { DATA_DIR } from './store.js';
+
+export { getRt1AccrualDay } from './display-session.js';
 
 const PATH = path.join(DATA_DIR, 'day-display-state.json');
 const SCOPES = ['portfolio'];
 
-/** @typedef {'day_open'|'afterhours_freeze'|'premarket_freeze'|'us_regular_live'|'eod_freeze'|'asia_live'} DisplayPhase */
+/** @typedef {'day_open'|'afterhours_freeze'|'overnight_freeze'|'premarket_freeze'|'us_regular_live'|'eod_freeze'|'asia_live'} DisplayPhase */
 
 /** @type {{
  *   version: number,
@@ -70,17 +72,6 @@ export function getDayDisplayStateCache() {
   return cache;
 }
 
-/** RT1 累计日：00:00–04:00 美股正盘尾仍归属前一 accrual 日 */
-export function getRt1AccrualDay(now = new Date()) {
-  const beijingDate = beijingDateString(now);
-  const usPhase = getUsSessionPhase(now);
-  const mins = beijingMinutesOfDay(now);
-  if (usPhase === 'regular' && mins < 4 * 60) {
-    return beijingIsoAddDays(beijingDate, -1);
-  }
-  return beijingDate;
-}
-
 /** @param {string} day @param {string} [scope] */
 export function getBaselineForDay(day, scope = 'portfolio') {
   const dayRec = cache.days[day];
@@ -117,7 +108,7 @@ export function getCurrentPhase() {
 
 /**
  * @param {string} day
- * @param {'afterhoursSnap'|'premarketSnap'|'eodSnap'} key
+ * @param {'afterhoursSnap'|'premarketSnap'|'overnightSnap'|'eodSnap'} key
  * @param {string} [scope]
  */
 export function getScopeSnap(day, key, scope = 'portfolio') {
@@ -126,7 +117,7 @@ export function getScopeSnap(day, key, scope = 'portfolio') {
 
 /**
  * @param {string} day
- * @param {'afterhoursSnap'|'premarketSnap'|'eodSnap'} key
+ * @param {'afterhoursSnap'|'premarketSnap'|'overnightSnap'|'eodSnap'} key
  * @param {string} scope
  * @param {object} snap
  */
@@ -137,7 +128,7 @@ export function setScopeSnap(day, key, scope, snap) {
   scheduleSave();
 }
 
-/** @param {string} day @param {'afterhoursSnap'|'premarketSnap'|'eodSnap'} key @param {string} [scope] */
+/** @param {string} day @param {'afterhoursSnap'|'premarketSnap'|'overnightSnap'|'eodSnap'} key @param {string} [scope] */
 export function clearScopeSnap(day, key, scope = 'portfolio') {
   const scopeRec = cache.days[day]?.scopes?.[scope];
   if (!scopeRec?.[key]) return;
@@ -147,12 +138,7 @@ export function clearScopeSnap(day, key, scope = 'portfolio') {
 
 /** @param {Date} [now] */
 export function getActiveSnapKey(now = new Date()) {
-  const phase = cache.currentPhase;
-  const usPhase = getUsSessionPhase(now);
-  if (phase === 'eod_freeze') return 'eodSnap';
-  if (phase === 'premarket_freeze' || usPhase === 'premarket') return 'premarketSnap';
-  if (phase === 'afterhours_freeze' || usPhase === 'afterhours') return 'afterhoursSnap';
-  return null;
+  return resolveDisplaySession(now, { persistedPhase: cache.currentPhase }).snapKey;
 }
 
 /** @param {string} day @param {Date} [now] */
@@ -163,9 +149,7 @@ export function getActiveScopeSnap(day, now = new Date(), scope = 'portfolio') {
 }
 
 export function isRt1SnapPhase(now = new Date()) {
-  const usPhase = getUsSessionPhase(now);
-  if (usPhase === 'premarket' || usPhase === 'afterhours') return true;
-  return cache.currentPhase === 'premarket_freeze' || cache.currentPhase === 'afterhours_freeze' || cache.currentPhase === 'eod_freeze';
+  return isRt1SnapPhaseAt(now, cache.currentPhase);
 }
 
 /** @param {{ funds: object[] }} portfolio @param {Date} [now] */

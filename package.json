@@ -17,6 +17,10 @@
     "audit:holdings-xyz": "node scripts/audit-holdings-vs-xyz.js",
     "audit:impact-xyz": "node scripts/audit-impact-vs-xyz.js",
     "test:fund-estimate": "node server/fund-estimate.test.js",
+    "test:display-session": "node server/display-session.test.js",
+    "test:display-state": "node server/snap-state.test.js",
+    "test:live-pipeline": "node server/live-pipeline.test.js",
+    "test:realtime-display-pipeline": "node server/realtime-display-pipeline.test.js",
     "test:realtime-profit": "node server/realtime-profit-consistency.test.js",
     "verify:alipay-realtime": "node scripts/verify-alipay-realtime.js",
     "verify:tab-reconcile": "node scripts/verify-tab-reconcile.js"

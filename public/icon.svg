@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="fund-tracker">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="416" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3d7dff"/>
+      <stop offset="1" stop-color="#2f6ef0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g fill="#fff">
+    <rect x="128" y="176" width="112" height="24" rx="12" opacity="0.72"/>
+    <rect x="128" y="232" width="152" height="24" rx="12" opacity="0.88"/>
+    <rect x="128" y="288" width="192" height="24" rx="12"/>
+  </g>
+  <path
+    d="M296 312 L336 272 L368 288 L408 216"
+    stroke="#fff"
+    stroke-width="24"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="408" cy="216" r="14" fill="#fff"/>
+</svg>

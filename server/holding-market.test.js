@@ -37,8 +37,8 @@ assert('us afterhours 05:45', getUsSessionPhase(usAfterhours) === 'afterhours');
 assert('us quote live afterhours', isUsQuoteLive(usAfterhours));
 
 const usClosedMidday = new Date('2026-05-26T03:00:00.000Z');
-assert('us closed 11:00', getUsSessionPhase(usClosedMidday) === 'closed');
-assert('us quote not live midday', !isUsQuoteLive(usClosedMidday));
+assert('us overnight 11:00', getUsSessionPhase(usClosedMidday) === 'overnight');
+assert('us quote live overnight', isUsQuoteLive(usClosedMidday));
 
 assert('7747 is hk', classifyHoldingMarket({ code: '7747', name: '南方两倍做多三星' }) === 'hk');
 assert('005930 is kr', classifyHoldingMarket({ code: '005930', name: '三星电子' }) === 'kr');

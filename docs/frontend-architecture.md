@@ -1,0 +1,118 @@
+# 前端架构
+
+Vite SPA，面向 iPhone 全屏 PWA。原则：**展示只读 API canonical 字段**，组件可复用，页面只做编排。
+
+## 分层
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  main.js — 路由 · state · 刷新 · bindEvents              │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│  Pages（render + patch*Dom）                             │
+│  pages/list-page.js · detail-page.js · manage-page.js   │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│  Components（layout / chrome / hero）                    │
+│  components/shell.js · hero.js · account-tabs.js        │
+│  components/index-dock.js · metrics.js · session.js   │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│  Format                                                  │
+│  format.js           pct / escape / 原始数字              │
+│  display-format.js   金额 + 隐私脱敏                      │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────┐
+│  API（client-api.js）  GET /api/live · /api/portfolio    │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Single source（前端）
+
+| 数据 | 来源 | 禁止 |
+|------|------|------|
+| row1 `realTimeProfit` | API `estimateProfit` | `amount × impactPct` 重算 |
+| Hero RT1/EST（全账户） | API `live.totals` | 仅 `Σ amount + Σ ep` 替代 totals |
+| Hero RT1（账户 scope） | `Σ estimateProfit` | 穿透 pct 重算 |
+| row2 extended | API `realTimeProfitExtended` | 前端不算 extended |
+| 盘前/盘后 session | API `displayState.extendedSession` 或 fund `impactSession` | 本地时钟推断 |
+| 时段 chip | API `displayContext.marketChip` | — |
+
+## 组件约定（iOS 风格）
+
+### 模式 A — 竖排指标
+
+无 extended 时：金额 + 收益率 pill/sub（Hero、账户卡、列表单列）。
+
+### 模式 B — 双行 split
+
+盘前/盘后：`renderRealtimeSplitRow` / `renderMetricDualLine`  
+- row1 = RT1（regular，与 header 一致）  
+- row2 = extended + 「盘前/盘后」tag  
+
+**同一组件**用于：Hero `renderSummaryRealtimeBody`、账户卡 `renderAccountRealtimeBody`、列表 `fundMetricCells`。
+
+### 复用入口
+
+| 组件 | 文件 | 用途 |
+|------|------|------|
+| `renderPctPill` / `renderPctSub` | `components/metrics.js` | 收益率 |
+| `renderRealtimeSplitRow` | `components/metrics.js` | 模式 B 单行 |
+| `renderMetricDualLine` | `components/metrics.js` | 详情 Hero / 列表紧凑 |
+| `extendedSessionLabel` | `components/session.js` | 盘前/盘后文案 |
+| `hasExtendedRealtimeLayout` | `components/session.js` | 是否模式 B |
+
+## 数据流（1s）
+
+```
+GET /api/live
+  → mergeLiveIntoFunds(FUNDS, live)     // live-view-model
+  → buildSummary(rows, totals, displayState)  // summary
+  → patchListDom / paint                  // main.js
+```
+
+`applyDisplayScope`：`SCOPE_ALL` 时传入 `state.liveTotals` 与 `displayState` 作 canonical。
+
+## 目录
+
+```
+src/
+├── main.js                 路由、state、刷新、事件绑定
+├── app/context.js          bindApp / app() 共享上下文
+├── live-view-model.js      API → fundRows（唯一 merge）
+├── summary.js              scope 顶栏合计
+├── fund-display-ui.js      详情 metrics 选取
+├── format.js               纯格式化
+├── display-format.js       金额 + hideAssets
+├── dom.js                  DOM 小工具（setTextClass）
+├── pages/
+│   ├── list-page.js        列表页 render + patchListDom
+│   ├── detail-page.js      详情页 + 持仓穿透 patch
+│   └── manage-page.js      持有配置 / 添加 / 编辑
+├── components/
+│   ├── shell.js            app shell、loading、banner
+│   ├── hero.js             顶栏 Hero + 账户概况卡
+│   ├── account-tabs.js     scope 标签栏
+│   ├── index-dock.js       大盘指数 dock / drawer
+│   ├── theme-chrome.js     深色模式切换
+│   ├── privacy-ui.js       资产隐私 toggle
+│   ├── status.js           刷新/行情时间条
+│   ├── metrics.js          指标 UI 组件
+│   └── session.js          时段 / extended 规则
+├── accounts.js             账户 scope
+├── column-layout.js        列表列配置
+├── client-api.js           HTTP
+└── style.css               设计 token · safe-area
+```
+
+## 新增 UI 检查清单
+
+- [ ] row1 是否只读 `estimateProfit` / `realTimeProfit`（来自 merge）
+- [ ] Hero 全账户是否用 `live.totals`
+- [ ] extended 是否用 `components/metrics` 而非内联 HTML
+- [ ] 金额是否走 `display-format.fmtMoney`（隐私一致）
+- [ ] 1s 刷新是否优先 `patch*Dom` 而非全量 `paint`

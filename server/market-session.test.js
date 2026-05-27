@@ -1,20 +1,22 @@
 import {
-  classifyFundMarket,
   clearFundImpactSnapshots,
   effectiveImpactPct,
   getFundProfitWindows,
-  isCnMarketOpen,
   isDailyProfitPending,
+  resolveFundImpactPct,
+  resolveLiveDisplayImpact,
+  shouldDisplayRealtimeProfit,
+} from './market-session.js';
+import {
+  classifyFundMarket,
+  isCnMarketOpen,
   isDomesticRealtimeSession,
+  isFundImpactLiveWindow,
   isGoldCnMarketOpen,
   isUsMarketOpen,
   marketChipLabel,
   openMarketLabels,
-  resolveFundImpactPct,
-  resolveLiveDisplayImpact,
-  shouldDisplayRealtimeProfit,
-  isFundImpactLiveWindow,
-} from './market-session.js';
+} from './components/market-hours.js';
 import { isHkMarketOpen } from './holding-market.js';
 
 const ok = [];
@@ -59,7 +61,7 @@ assert(
 );
 
 const goldPre930 = new Date('2026-05-26T01:00:00.000Z');
-assert('gold day pre-open 09:00 impact', effectiveImpactPct('gold_cn', 0.3, goldPre930) === 0.3);
+assert('gold day pre-open 09:00 impact suppressed', effectiveImpactPct('gold_cn', 0.3, goldPre930) == null);
 assert(
   'gold day pre-open 09:00 no cn realtime',
   !getFundProfitWindows({ name: '华安黄金' }, '2026-05-26', goldPre930).realtimeActive,
@@ -83,11 +85,12 @@ clearFundImpactSnapshots();
 
 const cnMorning = new Date('2026-05-26T02:00:00.000Z');
 const cnPreOpen = new Date('2026-05-26T21:45:00.000Z');
+const cnOvernight = new Date('2026-05-27T16:18:00.000Z');
 assert('cn pre-open 05:45', !isDomesticRealtimeSession(cnPreOpen));
 clearFundImpactSnapshots();
-assert('cn pre-open no snapshot', resolveFundImpactPct(99, 'cn', null, cnPreOpen) == null);
+assert('cn pre-open no snapshot', resolveFundImpactPct(99, 'cn', -2.5, cnPreOpen) == null);
 resolveFundImpactPct(99, 'cn', -1.2, cnMorning);
-assert('cn pre-open uses close snapshot', resolveFundImpactPct(99, 'cn', -2.5, cnPreOpen) === -1.2);
+assert('cn overnight before open no snapshot', resolveFundImpactPct(99, 'cn', -2.5, cnOvernight) == null);
 clearFundImpactSnapshots();
 
 assert('cn session 10:00', isDomesticRealtimeSession(cnMorning));
@@ -143,8 +146,13 @@ assert(
 );
 const cnUsPremarket = new Date('2026-05-27T08:27:00.000Z');
 assert(
-  'cn keeps snapshot during us premarket',
+  'cn keeps snapshot during us premarket same day',
   resolveFundImpactPct(7, 'cn', -2.5, cnUsPremarket) === -1.1,
+);
+const cnNextMorning = new Date('2026-05-27T16:01:00.000Z');
+assert(
+  'cn hides snapshot next morning before open',
+  resolveFundImpactPct(7, 'cn', -2.5, cnNextMorning) == null,
 );
 resolveFundImpactPct(6, 'gold_cn', -1.11, cnMorning);
 assert(
@@ -228,10 +236,10 @@ assert(
   !openMarketLabels(cnHkGap).includes('A股'),
 );
 assert(
-  '15:03 status includes hk only',
-  openMarketLabels(cnHkGap).join('/') === '港股',
+  '15:03 status includes hk and us overnight',
+  openMarketLabels(cnHkGap).join('/') === '港股/美股',
 );
-assert('15:03 chip', marketChipLabel(cnHkGap) === '盘中 · 港股');
+assert('15:03 chip', marketChipLabel(cnHkGap) === '盘中 · 港股/美股');
 
 const cnPending = new Date('2026-05-27T10:30:00.000Z');
 const cnAfterMidnight = new Date('2026-05-27T16:01:00.000Z');

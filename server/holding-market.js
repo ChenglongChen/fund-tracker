@@ -64,7 +64,7 @@ export function isUsHoldingMarketOpen(date = new Date()) {
   return false;
 }
 
-/** @typedef {'premarket'|'regular'|'afterhours'|'closed'} UsSessionPhase */
+/** @typedef {'premarket'|'regular'|'afterhours'|'overnight'|'closed'} UsSessionPhase */
 
 /**
  * 美股交易阶段（北京时间，固定窗口近似美东 DST）
@@ -78,10 +78,12 @@ export function getUsSessionPhase(date = new Date()) {
   const eveningStart = 21 * 60 + 30;
   const morningEnd = 4 * 60;
   const afterhoursEnd = 8 * 60;
+  const overnightEnd = 16 * 60;
 
   if (mins >= eveningStart && wd >= 1 && wd <= 5) return 'regular';
   if (mins < morningEnd && wd >= 2 && wd <= 6) return 'regular';
   if (mins >= morningEnd && mins < afterhoursEnd && wd >= 2 && wd <= 6) return 'afterhours';
+  if (mins >= afterhoursEnd && mins < overnightEnd && wd >= 1 && wd <= 5) return 'overnight';
   if (mins >= premarketStart && mins < eveningStart && wd >= 1 && wd <= 5) return 'premarket';
   return 'closed';
 }
@@ -91,7 +93,7 @@ export function isUsQuoteLive(date = new Date()) {
   return getUsSessionPhase(date) !== 'closed';
 }
 
-/** @typedef {'premarket'|'regular'|'afterhours'|'closed'} HoldingSessionPhase */
+/** @typedef {'premarket'|'regular'|'afterhours'|'overnight'|'closed'} HoldingSessionPhase */
 
 /** @param {HoldingMarket} market @param {Date} [date] */
 export function getHoldingSessionPhase(market, date = new Date()) {
@@ -110,6 +112,7 @@ export function usSessionPhaseLabel(phase) {
   if (phase === 'premarket') return '盘前';
   if (phase === 'regular') return '盘中';
   if (phase === 'afterhours') return '盘后';
+  if (phase === 'overnight') return '夜盘';
   return '已收盘';
 }
 

@@ -7,7 +7,10 @@ import { deriveImpactSessionFromHoldings } from './market.js';
 function holdingsWithRegularChange(holdings) {
   return holdings.map((h) => {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended = h.quoteSession === 'premarket' || h.quoteSession === 'afterhours';
+    const extended =
+      h.quoteSession === 'premarket' ||
+      h.quoteSession === 'afterhours' ||
+      h.quoteSession === 'overnight';
     if (isUs && extended) {
       const regular = h.changePctRegular;
       return {
@@ -22,7 +25,10 @@ function holdingsWithRegularChange(holdings) {
 function holdingsWithExtendedChange(holdings) {
   return holdings.map((h) => {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended = h.quoteSession === 'premarket' || h.quoteSession === 'afterhours';
+    const extended =
+      h.quoteSession === 'premarket' ||
+      h.quoteSession === 'afterhours' ||
+      h.quoteSession === 'overnight';
     if (!isUs || !extended) {
       return { ...h, changePct: 0 };
     }

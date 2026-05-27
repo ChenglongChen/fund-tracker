@@ -164,7 +164,10 @@ function fillUsRegularFromIndex(holdings) {
   const ndxRegular = getIndexSessionRegular('纳斯达克100');
   return holdings.map((h) => {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended = h.quoteSession === 'premarket' || h.quoteSession === 'afterhours';
+    const extended =
+      h.quoteSession === 'premarket' ||
+      h.quoteSession === 'afterhours' ||
+      h.quoteSession === 'overnight';
     if (!isUs || !extended) return h;
     const resolved = resolveUsRegularChangePct(h, ndxRegular);
     if (resolved == null) return h;
@@ -176,7 +179,10 @@ function holdingsWithRegularChange(holdings) {
   const ndxRegular = getIndexSessionRegular('纳斯达克100');
   return holdings.map((h) => {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended = h.quoteSession === 'premarket' || h.quoteSession === 'afterhours';
+    const extended =
+      h.quoteSession === 'premarket' ||
+      h.quoteSession === 'afterhours' ||
+      h.quoteSession === 'overnight';
     if (isUs && extended) {
       const regular = resolveUsRegularChangePct(h, ndxRegular);
       return {
@@ -191,7 +197,10 @@ function holdingsWithRegularChange(holdings) {
 function holdingsWithExtendedChange(holdings) {
   return holdings.map((h) => {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended = h.quoteSession === 'premarket' || h.quoteSession === 'afterhours';
+    const extended =
+      h.quoteSession === 'premarket' ||
+      h.quoteSession === 'afterhours' ||
+      h.quoteSession === 'overnight';
     if (!isUs || !extended) {
       return { ...h, changePct: 0 };
     }
@@ -230,18 +239,18 @@ export function deriveImpactSessionFromHoldings(holdings, now) {
     if (!isUs) continue;
     const phase = h.quoteSession;
     if (phase === 'regular') usRegular = true;
-    if (phase === 'premarket' || phase === 'afterhours') usExtended = true;
+    if (phase === 'premarket' || phase === 'afterhours' || phase === 'overnight') usExtended = true;
   }
   if (usRegular) return 'regular';
   if (usExtended) {
     const usPhase = getUsSessionPhase(now);
-    if (usPhase === 'premarket' || usPhase === 'afterhours') return usPhase;
+    if (usPhase === 'premarket' || usPhase === 'afterhours' || usPhase === 'overnight') return usPhase;
   }
   return 'closed';
 }
 
 function attachExtendedImpactFields(impactPct, impactPctRegular, impactPctExtended, impactSession) {
-  if (impactSession !== 'premarket' && impactSession !== 'afterhours') {
+  if (impactSession !== 'premarket' && impactSession !== 'afterhours' && impactSession !== 'overnight') {
     return { impactPctRegular, impactPctExtended: null, impactSession };
   }
   let extended = impactPctExtended;
@@ -262,7 +271,9 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
   const impactSession = deriveImpactSessionFromHoldings(holdings, now);
   const impactPctRegular = estimateFromHoldingsWithFx(holdingsWithRegularChange(holdings), fxPct);
   const impactPctExtendedEstimate =
-    impactSession === 'premarket' || impactSession === 'afterhours'
+    impactSession === 'premarket' ||
+    impactSession === 'afterhours' ||
+    impactSession === 'overnight'
       ? estimateFromHoldingsWithFx(holdingsWithExtendedChange(holdings), fxPct)
       : null;
   const fallbackTotal = estimateFromHoldingsWithFx(holdings, fxPct);
@@ -491,7 +502,7 @@ export function resolveProxyIndexImpact(fundName, strip) {
       ? item.changePctRegular
       : item.changePct;
   let impactPctExtended = null;
-  if (impactSession === 'premarket' || impactSession === 'afterhours') {
+  if (impactSession === 'premarket' || impactSession === 'afterhours' || impactSession === 'overnight') {
     if (item?.changePctPremarket != null && Number.isFinite(item.changePctPremarket) && item.changePctPremarket !== 0) {
       impactPctExtended = item.changePctPremarket;
     } else {

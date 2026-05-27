@@ -104,51 +104,6 @@ html[data-theme='dark'] {
   color: var(--flat);
 }
 
-.account-summary-card .pct-pill {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: inherit;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.35;
-  white-space: nowrap;
-  vertical-align: baseline;
-}
-
-.account-summary-card .pct-pill.is-up {
-  background: rgba(230, 67, 64, 0.12);
-  color: var(--up);
-}
-
-html[data-theme='dark'] .account-summary-card .pct-pill.is-up {
-  background: rgba(255, 77, 79, 0.18);
-}
-
-.account-summary-card .pct-pill.is-down {
-  background: rgba(9, 187, 7, 0.12);
-  color: var(--down);
-}
-
-html[data-theme='dark'] .account-summary-card .pct-pill.is-down {
-  background: rgba(54, 194, 117, 0.18);
-}
-
-.account-summary-card .pct-pill.is-flat {
-  background: var(--bg-muted);
-  color: var(--flat);
-}
-
-.account-summary-card .account-summary-sub.pct-pill,
-.account-summary-card .metric-split-row .pct-pill {
-  margin: 2px 0 0;
-}
-
-.account-summary-card .account-summary-col--center .pct-pill,
-.account-summary-card .account-summary-col--right .pct-pill {
-  margin-left: auto;
-}
-
 .account-summary-sub--combo {
   color: var(--text-muted);
   font-size: 11px;
@@ -643,34 +598,32 @@ html[data-theme='dark'] .account-summary-card {
   justify-content: flex-end;
 }
 
-.account-summary-trends {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.account-summary-trend--up {
-  color: var(--up);
-}
-
-.account-summary-trend--down {
-  color: var(--down);
-}
-
 .account-summary-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  grid-template-rows: auto auto auto;
+  column-gap: 8px;
+  row-gap: 0;
   align-items: start;
 }
 
 .account-summary-col {
   min-width: 0;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+}
+
+.account-summary-col:nth-child(1) {
+  grid-column: 1;
+}
+
+.account-summary-col:nth-child(2) {
+  grid-column: 2;
+}
+
+.account-summary-col:nth-child(3) {
+  grid-column: 3;
 }
 
 .account-summary-col--center {
@@ -686,6 +639,22 @@ html[data-theme='dark'] .account-summary-card {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.account-summary-col--center .account-summary-val {
+  margin: 2px 0 0;
+}
+
+.account-summary-col--center .account-summary-sub--combo {
+  margin: 2px 0 0;
+}
+
+.account-summary-col--right .account-summary-val {
+  margin: 2px 0 0;
+}
+
+.account-summary-col--right .account-summary-sub--combo {
+  margin: 2px 0 0;
 }
 
 .account-summary-label {
@@ -784,18 +753,52 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .account-summary-col--rt-split .account-summary-rt-split {
-  margin-top: 2px;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  margin: 0;
+  align-content: start;
 }
 
 .account-summary-col--rt-split .metric-split-row {
   justify-content: center;
+  align-self: center;
+  gap: 4px;
   margin: 2px 0 0;
+  line-height: 1.25;
+}
+
+.account-summary-col--rt-split .metric-split-row--ext {
+  gap: 4px;
+}
+
+.account-summary-col--rt-split .metric-split-row .holding-val {
   font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.account-summary-col--rt-split .metric-split-row .holding-sub {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.account-summary-col--rt-split .metric-split-row--ext .holding-val,
+.account-summary-col--rt-split .metric-split-row--ext .holding-sub {
+  font-size: 11px;
 }
 
 .account-summary-col--rt-split .metric-split-row .holding-val,
 .account-summary-col--rt-split .metric-split-row .holding-sub {
-  font-size: inherit;
+  margin: 0;
+}
+
+.account-summary-col--rt-split .metric-dual-line__tag {
+  padding: 0 3px;
+  margin-left: 1px;
+  font-size: 9px;
+  line-height: 1.2;
 }
 
 .yj-summary-col--rt-split .yj-summary-val,
@@ -807,7 +810,7 @@ html[data-theme='dark'] .account-summary-card {
   display: grid;
   grid-template-columns: var(--list-grid);
   column-gap: var(--list-col-gap);
-  align-items: end;
+  align-items: start;
 }
 
 .yj-summary-col {
@@ -2656,11 +2659,6 @@ html[data-theme='dark'] .holdings-card {
   .index-dock-change,
   .index-dock-pct {
     font-size: 11px;
-  }
-
-  .account-summary-card .account-summary-sub.pct-pill {
-    font-size: 10px;
-    padding: 1px 5px;
   }
 }
 

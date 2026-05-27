@@ -9,12 +9,16 @@ alwaysApply: false
 ## 单元测试
 
 ```bash
-npm run test:fund-estimate      # server/fund-estimate.test.js
-npm run test:realtime-profit    # server/realtime-profit-consistency.test.js
+npm run test:fund-estimate              # server/fund-estimate.test.js
+npm run test:realtime-profit            # server/realtime-profit-consistency.test.js
+npm run test:display-session              # phase/snapKey 唯一接口
+npm run test:live-pipeline              # ground truth 流水线
+npm run test:display-state              # snap 状态机
+npm run test:realtime-display-pipeline  # suppress + snap + header=Σrow1
 node server/market-session.test.js
 ```
 
-改 `fund-estimate.js`、`market-session.js`、`aggregate.js` 后至少跑 fund-estimate + realtime-profit。
+改 `fund-estimate.js`、`market-session.js`、`components/snap-*.js`、`live.js`、`aggregate.js` 后至少跑 fund-estimate + realtime-profit；动 snap/suppress 加跑 display-state + realtime-display-pipeline。
 
 ## 集成验收（API :8788）
 
@@ -26,5 +30,6 @@ npm run verify:tab-reconcile     # 三 tab RT1 互证；baseline+RT1=EST
 ## 断言习惯
 
 - 盘前/盘后：RT1 用 regular only，不含 extended
-- 美股正盘 + cn 已收市：`impactPct` / `estimateProfit` 为 null
-- Snap 阶段：第二次 apply 不改变 `realtimeProfit` / `realtimeAssets`
+- A 股 suppress 窗口（21:30–09:30 + 周末）：`impactPct` / `estimateProfit` 为 null；**snap 后仍为 null**
+- Snap 阶段：`header RT1 === Σ estimateProfit`；第二次 apply 不改变 totals（除非 reseed）
+- provisional snap（空 funds）不得冻结列表

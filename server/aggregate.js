@@ -1,87 +1,13 @@
 import { dayProfitPct } from './store.js';
-import { fmtMd, marketChipLabel, openMarketLabels } from './market-session.js';
-import {
-  fundEstimateProfit,
-  fundEstimatedAssets,
-  liveImpactForEstimate,
-} from './fund-estimate.js';
-import { getBaselineForDay, getRt1AccrualDay } from './day-display-state.js';
-
-function maxIsoDate(set) {
-  const arr = [...set].sort();
-  return arr.length ? arr[arr.length - 1] : null;
-}
-
-/** @param {Set<string>} set @returns {string} */
-function fmtNavBucketLabel(set) {
-  const d = maxIsoDate(set);
-  return d ? fmtMd(d) : '';
-}
+import { marketChipLabel, openMarketLabels } from './components/market-hours.js';
+import { buildTableHeadLabels } from './components/table-head.js';
+import { fundEstimatedAssets, liveImpactForEstimate } from './fund-estimate.js';
+import { getBaselineForDay } from './day-display-state.js';
+import { getRt1AccrualDay } from './display-session.js';
 
 /**
- * 当日/持有列表头：按市场汇总已入账净值日（A股、黄金、QDII 可能不同日）
- * @param {object[]} liveFunds
- * @param {(f: object) => string|null|undefined} pickDate
- */
-function buildNavBucketHeadLabel(liveFunds, pickDate) {
-  const buckets = { cn: new Set(), us: new Set(), gold_cn: new Set() };
-  for (const f of liveFunds) {
-    const d = pickDate(f);
-    if (!d) continue;
-    const key = f.market === 'us' ? 'us' : f.market === 'gold_cn' ? 'gold_cn' : 'cn';
-    buckets[key].add(d);
-  }
-
-  const cnD = fmtNavBucketLabel(buckets.cn);
-  const usD = fmtNavBucketLabel(buckets.us);
-  const goldD = fmtNavBucketLabel(buckets.gold_cn);
-
-  /** @type {string[]} */
-  const parts = [];
-  if (cnD) parts.push(cnD);
-  if (goldD && goldD !== cnD) parts.push(goldD);
-  else if (goldD && !cnD) parts.push(goldD);
-  if (usD && usD !== cnD && usD !== goldD) parts.push(usD);
-  else if (usD && !cnD && !goldD) parts.push(usD);
-
-  const unique = [...new Set(parts)];
-  if (unique.length === 1) return unique[0];
-  if (unique.length > 1) return unique.join('/');
-  return '—';
-}
-
-/**
- * 三列表头时间：实时=北京时间刷新 · 当日/持有=各市场已入账净值日
- * @param {object[]} liveFunds
- * @param {object} [meta]
- * @param {string} beijingDate
- * @param {string} updatedAt
- */
-export function buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt) {
-  const realtime = beijingDate ? `${fmtMd(beijingDate)} ${updatedAt}` : updatedAt;
-
-  const daily = buildNavBucketHeadLabel(
-    liveFunds,
-    (f) => f.settledNavDate || f.dailyAsOfDate,
-  );
-  let holding = buildNavBucketHeadLabel(
-    liveFunds,
-    (f) => f.settledNavDate || f.lastNavDate,
-  );
-  const dailyLabel =
-    daily === '—' && meta?.snapshotDate ? fmtMd(meta.snapshotDate) : daily;
-  if (holding === '—' && meta?.snapshotDate) {
-    holding = fmtMd(meta.snapshotDate);
-  }
-
-  return {
-    realtime: { label: realtime },
-    daily: { label: dailyLabel },
-    holding: { label: holding },
-  };
-}
-
-/**
+ * 组合合计：仅对 per-fund 展示字段求和，禁止在此重算 estimateProfit。
+ * canonical RT1 来源：fund-display.buildDisplayFundRow → live-pipeline。
  * @param {{ funds: object[] }} portfolio
  * @param {object[]} liveFunds
  */
@@ -106,20 +32,8 @@ export function computePortfolioTotals(portfolio, liveFunds, now = new Date()) {
     const ep =
       live?.estimateProfit != null && Number.isFinite(live.estimateProfit)
         ? live.estimateProfit
-        : live
-          ? fundEstimateProfit(
-              amount,
-              {
-                ...liveImpactForEstimate(live, live.market ?? 'cn'),
-                impactPctRegular: live.impactPctRegularLive ?? live.impactPctRegular,
-                impactPctExtended: live.impactPctExtendedLive ?? live.impactPctExtended,
-              },
-              now,
-            )
-          : null;
-    if (ep != null && Number.isFinite(ep)) {
-      realtimeProfit += ep;
-    }
+        : null;
+    if (ep != null) realtimeProfit += ep;
   }
 
   const accrualDay = getRt1AccrualDay(now);

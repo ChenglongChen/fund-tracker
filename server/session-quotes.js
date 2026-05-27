@@ -135,7 +135,7 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
       if (market === 'us' || market === 'other') {
         if (regularSnap && isValidQuote(regularSnap) && regularSnap.source !== 'live') {
           changePctRegular = regularSnap.changePct;
-        } else if (frozenSession === 'premarket' || frozenSession === 'afterhours') {
+        } else if (frozenSession === 'premarket' || frozenSession === 'afterhours' || frozenSession === 'overnight') {
           changePctRegular = null;
         }
       }
@@ -272,7 +272,7 @@ export function applySessionMarketStrip(strip, now = new Date()) {
                 ? item.changePct
                 : null);
       let changePctPremarket = null;
-      if (phase === 'premarket' || phase === 'afterhours') {
+      if (phase === 'premarket' || phase === 'afterhours' || phase === 'overnight') {
         if (item.changePctPremarket != null && Number.isFinite(item.changePctPremarket) && item.changePctPremarket !== 0) {
           changePctPremarket = item.changePctPremarket;
         } else {
