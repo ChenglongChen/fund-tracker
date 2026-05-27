@@ -81,10 +81,30 @@ export function isMarketOpen(market, date = new Date()) {
   return false;
 }
 
+/** A 股午间休市 11:30–13:00（仍展示上午收盘估值） */
+export function isCnMiddayBreak(date = new Date()) {
+  const wd = beijingWeekday(date);
+  if (wd === 0 || wd === 6) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return mins > 11 * 60 + 30 && mins < 13 * 60;
+}
+
+/** A 股当日 15:00 收盘后至 24:00（沿用收盘估值） */
+function isCnPostCloseHold(date = new Date()) {
+  if (!isDomesticRealtimeSession(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return mins >= 15 * 60;
+}
+
 /** 实时收益列：黄金联接按 A 股时段；全球 QDII 在日/韩/港/美任一交易时段内刷新 */
 export function isRealtimeMarketOpen(market, date = new Date()) {
-  if (market === 'gold_cn') return isCnMarketOpen(date);
   if (market === 'us') return isOverseasSessionOpen(date);
+  if (market === 'cn') {
+    return isCnMarketOpen(date) || isCnMiddayBreak(date) || isCnPostCloseHold(date);
+  }
+  if (market === 'gold_cn') {
+    return isCnMarketOpen(date) || isCnMiddayBreak(date);
+  }
   return isMarketOpen(market, date);
 }
 

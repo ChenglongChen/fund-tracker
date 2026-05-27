@@ -65,9 +65,21 @@ assert(
 
 const cnLunch = new Date('2026-05-26T04:00:00.000Z');
 assert('cn lunch still session', isDomesticRealtimeSession(cnLunch));
+assert(
+  'cn lunch keeps realtime',
+  getFundProfitWindows({ name: '红土创新新兴产业' }, '2026-05-26', cnLunch).realtimeActive,
+);
+assert(
+  'gold lunch keeps realtime',
+  getFundProfitWindows({ name: '华安黄金' }, '2026-05-26', cnLunch).realtimeActive,
+);
 
 const cnPostClose = new Date('2026-05-26T09:30:00.000Z');
 assert('cn post-close same day', isDomesticRealtimeSession(cnPostClose));
+assert(
+  'cn post-close keeps realtime',
+  getFundProfitWindows({ name: '红土创新新兴产业' }, '2026-05-26', cnPostClose).realtimeActive,
+);
 
 const usPreCn = new Date('2026-05-26T21:45:00.000Z');
 assert('us keeps impact when cn pre-open', effectiveImpactPct('us', 2.75, usPreCn) === 2.75);

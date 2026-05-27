@@ -75,6 +75,8 @@ const state = {
   sortKey: 'amount',
   sortDir: 'desc',
   accountTabsMenuOpen: false,
+  indexDrawerOpen: false,
+  indexDrawerTab: 'cn',
 };
 
 let refreshTimer = null;
@@ -428,32 +430,155 @@ function renderError(msg) {
     </section>`);
 }
 
+const INDEX_DRAWER_TABS = [
+  { id: 'cn', label: '沪深', markets: ['cn'] },
+  { id: 'hk', label: '港股', markets: ['hk'] },
+  { id: 'asia', label: '亚太', markets: ['jp', 'kr'] },
+  { id: 'us', label: '美股', markets: ['us'] },
+  { id: 'fx', label: '外汇', markets: ['fx'] },
+];
+
+const INDEX_DOCK_CORE = [
+  { market: 'cn', label: '沪深300' },
+  { market: 'hk', label: '恒生' },
+  { market: 'us', label: '纳斯达克' },
+];
+
 function showIndexTicker() {
   return state.view === 'list' && state.activeScope === SCOPE_SUMMARY && state.indices.length > 0;
 }
 
-function renderIndexTicker() {
+function dockCoreIndices() {
+  return INDEX_DOCK_CORE.map(({ market, label }) => {
+    const exact = state.indices.find((it) => it.label === label);
+    if (exact) return exact;
+    return state.indices.find((it) => it.market === market) || null;
+  }).filter(Boolean);
+}
+
+function indicesForDrawerTab(tabId) {
+  const tab = INDEX_DRAWER_TABS.find((t) => t.id === tabId);
+  if (!tab) return [];
+  return state.indices.filter((it) => tab.markets.includes(it.market));
+}
+
+function renderIndexTickerItem(it) {
+  return `
+    <span class="index-ticker-item">
+      <span class="index-ticker-name">${escapeHtml(it.label)}</span>
+      <span class="index-ticker-val ${pctClass(it.changePct)}">${fmtPct(it.changePct)}</span>
+    </span>`;
+}
+
+function renderIndexTickerItems(indices = state.indices) {
+  return indices.map((it) => renderIndexTickerItem(it)).join('');
+}
+
+function renderIndexDockItem(it) {
+  const shortLabel =
+    it.label === '沪深300' ? '沪深300' : it.label === '纳斯达克' ? '纳指' : it.label;
+  return `
+    <span class="index-dock-item" data-dock-label="${escapeHtml(it.label)}">
+      <span class="index-dock-name">${escapeHtml(shortLabel)}</span>
+      <span class="index-dock-val ${pctClass(it.changePct)}">${fmtPct(it.changePct)}</span>
+    </span>`;
+}
+
+function renderIndexDock() {
   if (!showIndexTicker()) return '';
-  const items = state.indices
-    .map(
-      (it) => `
-      <span class="index-ticker-item">
-        <span class="index-ticker-name">${escapeHtml(it.label)}</span>
-        <span class="index-ticker-val ${pctClass(it.changePct)}">${fmtPct(it.changePct)}</span>
-      </span>`,
-    )
-    .join('');
-  return `<footer class="index-ticker">${items}</footer>`;
+  const core = dockCoreIndices();
+  if (!core.length) return '';
+  return `
+    <div class="index-dock" id="index-dock">
+      <button type="button" class="index-dock-bar" id="btn-index-dock" aria-expanded="${state.indexDrawerOpen}" aria-controls="index-drawer">
+        <span class="index-dock-items">${core.map((it) => renderIndexDockItem(it)).join('')}</span>
+        <span class="index-dock-chevron" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </span>
+      </button>
+    </div>`;
+}
+
+function renderIndexDrawer() {
+  if (!showIndexTicker()) return '';
+  const tabId = state.indexDrawerTab;
+  const tabIndices = indicesForDrawerTab(tabId);
+  const tabs = INDEX_DRAWER_TABS.map(
+    (tab) => `
+    <button type="button" class="index-drawer-tab${tab.id === tabId ? ' is-active' : ''}" data-index-tab="${tab.id}">
+      ${escapeHtml(tab.label)}
+    </button>`,
+  ).join('');
+  return `
+    <div class="index-drawer-backdrop${state.indexDrawerOpen ? ' is-open' : ''}" id="index-drawer-backdrop" aria-hidden="${!state.indexDrawerOpen}"></div>
+    <div class="index-drawer${state.indexDrawerOpen ? ' is-open' : ''}" id="index-drawer" aria-hidden="${!state.indexDrawerOpen}">
+      <div class="index-drawer-head">
+        <span class="index-drawer-title">大盘指数</span>
+        <button type="button" class="index-drawer-close" id="btn-index-drawer-close" aria-label="收起">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="index-drawer-tabs" role="tablist">${tabs}</div>
+      <div class="index-drawer-grid" role="tabpanel">${renderIndexTickerItems(tabIndices)}</div>
+    </div>`;
+}
+
+function openIndexDrawer() {
+  state.indexDrawerOpen = true;
+  syncIndexDrawerUi();
+}
+
+function closeIndexDrawer() {
+  state.indexDrawerOpen = false;
+  syncIndexDrawerUi();
+}
+
+function syncIndexDrawerUi() {
+  const open = state.indexDrawerOpen && showIndexTicker();
+  document.getElementById('index-drawer')?.classList.toggle('is-open', open);
+  document.getElementById('index-drawer-backdrop')?.classList.toggle('is-open', open);
+  document.getElementById('index-dock')?.classList.toggle('is-hidden', open);
+  document.getElementById('btn-index-dock')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  document.getElementById('index-drawer')?.setAttribute('aria-hidden', open ? 'false' : 'true');
+  document.getElementById('index-drawer-backdrop')?.setAttribute('aria-hidden', open ? 'false' : 'true');
+  document.body.classList.toggle('index-drawer-open', open);
+}
+
+function patchIndexDrawerTab() {
+  const tabId = state.indexDrawerTab;
+  document.querySelectorAll('.index-drawer-tab').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.getAttribute('data-index-tab') === tabId);
+  });
+  const grid = document.querySelector('.index-drawer-grid');
+  if (!grid) return false;
+  const tabIndices = indicesForDrawerTab(tabId);
+  grid.innerHTML = renderIndexTickerItems(tabIndices);
+  return true;
 }
 
 function patchIndexTicker() {
   if (!showIndexTicker()) return true;
-  const ticker = document.querySelector('.index-ticker');
-  if (!ticker) return false;
-  const items = ticker.querySelectorAll('.index-ticker-item');
-  if (items.length !== state.indices.length) return false;
-  state.indices.forEach((it, i) => {
-    const item = items[i];
+  const core = dockCoreIndices();
+  const dockItems = document.querySelectorAll('.index-dock-item');
+  if (dockItems.length !== core.length) return false;
+  core.forEach((it, i) => {
+    const item = dockItems[i];
+    if (!item) return;
+    const nameEl = item.querySelector('.index-dock-name');
+    const valEl = item.querySelector('.index-dock-val');
+    const shortLabel =
+      it.label === '沪深300' ? '沪深300' : it.label === '纳斯达克' ? '纳指' : it.label;
+    if (nameEl) nameEl.textContent = shortLabel;
+    if (valEl) {
+      valEl.textContent = fmtPct(it.changePct);
+      setTextClass(valEl, pctClass(it.changePct));
+    }
+  });
+  const drawerItems = document.querySelectorAll('.index-drawer-grid .index-ticker-item');
+  const tabIndices = indicesForDrawerTab(state.indexDrawerTab);
+  if (drawerItems.length !== tabIndices.length) return patchIndexDrawerTab();
+  tabIndices.forEach((it, i) => {
+    const item = drawerItems[i];
     if (!item) return;
     const nameEl = item.querySelector('.index-ticker-name');
     const valEl = item.querySelector('.index-ticker-val');
@@ -706,6 +831,7 @@ function setupAccountTabsLayout() {
 
 function activateAccountScope(scope) {
   state.accountTabsMenuOpen = false;
+  state.indexDrawerOpen = false;
   setActiveScope(scope);
   navigateTo({ type: 'list', scope });
   state.view = 'list';
@@ -725,6 +851,14 @@ function onAccountTabsBarClick(ev) {
   const scope = tab.getAttribute('data-account-scope');
   if (!scope) return;
   activateAccountScope(scope);
+}
+
+function initIndexDrawerGlobalListeners() {
+  if (window.__indexDrawerGlobalListeners) return;
+  window.__indexDrawerGlobalListeners = true;
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && state.indexDrawerOpen) closeIndexDrawer();
+  });
 }
 
 function initAccountTabsGlobalListeners() {
@@ -813,8 +947,10 @@ function renderStatusStrip() {
   const note = ctx?.realtimeNote || ctx?.dailyNote || '';
   return `
     <div class="status-strip">
-      <span class="status-strip-chip">${escapeHtml(marketStatusHint())}</span>
-      <span class="status-strip-time">${escapeHtml(clock)}</span>
+      <div class="status-strip-meta">
+        <span class="status-strip-chip">${escapeHtml(marketStatusHint())}</span>
+        <span class="status-strip-time">${escapeHtml(clock)}</span>
+      </div>
       ${note ? `<span class="status-strip-note">${escapeHtml(note)}</span>` : ''}
     </div>`;
 }
@@ -1488,7 +1624,8 @@ function renderListPage() {
         <div class="holding-list-scroll" id="holding-list-scroll">
           <section class="account-summary-list">${cards}</section>
         </div>
-        ${renderIndexTicker()}
+        ${renderIndexDock()}
+        ${renderIndexDrawer()}
       </section>`,
     );
   }
@@ -1822,6 +1959,10 @@ function paint() {
   const root = document.getElementById('app');
   if (!root) return;
 
+  if (state.view !== 'list' || state.activeScope !== SCOPE_SUMMARY) {
+    state.indexDrawerOpen = false;
+  }
+
   if (state.view === 'loading') root.innerHTML = renderLoading();
   else if (state.view === 'error') root.innerHTML = renderError(state.error || '未知错误');
   else if (state.view === 'list') root.innerHTML = renderListPage();
@@ -1838,10 +1979,30 @@ function paint() {
   if (isLiveView()) scheduleRefresh();
 }
 
+function patchThemeToggleLabels() {
+  const label = themeToggleLabel();
+  document.querySelectorAll('.theme-toggle-label').forEach((el) => {
+    el.textContent = label;
+  });
+}
+
 function bindEvents() {
+  document.getElementById('btn-index-dock')?.addEventListener('click', () => openIndexDrawer());
+  document.getElementById('btn-index-drawer-close')?.addEventListener('click', () => closeIndexDrawer());
+  document.getElementById('index-drawer-backdrop')?.addEventListener('click', () => closeIndexDrawer());
+  document.querySelectorAll('.index-drawer-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-index-tab');
+      if (!tab || tab === state.indexDrawerTab) return;
+      state.indexDrawerTab = tab;
+      patchIndexDrawerTab();
+    });
+  });
+  syncIndexDrawerUi();
+
   document.getElementById('btn-theme')?.addEventListener('click', () => {
     toggleTheme();
-    paint();
+    patchThemeToggleLabels();
   });
 
   document.getElementById('btn-retry')?.addEventListener('click', () => bootstrap());
@@ -2209,4 +2370,5 @@ window.addEventListener('hashchange', () => {
 
 initTheme();
 initAccountTabsGlobalListeners();
+initIndexDrawerGlobalListeners();
 bootstrap();
