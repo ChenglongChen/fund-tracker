@@ -1,6 +1,7 @@
 import { extractQuotedVar } from './quote-utils.js';
 import { isKrMarketOpen } from './holding-market.js';
 import { parseGbSinaQuote } from './gb-quote-parse.js';
+import { runWithConcurrency } from './concurrency.js';
 
 const SINA_ORIGIN = 'https://hq.sinajs.cn';
 const SINA_HEADERS = { Referer: 'https://finance.sina.com.cn/' };
@@ -36,23 +37,34 @@ export function isLikelyKoreanHolding(code, name) {
   return false;
 }
 
+/** 北交所 / 新三板 */
+function isBseCode(code) {
+  return /^\d{6}$/.test(code) && (code.startsWith('92') || code.startsWith('4') || code.startsWith('8'));
+}
+
+/** @param {string} code @param {number|null|undefined} marketId */
+function cnSinaPrefix(code, marketId) {
+  if (isBseCode(code)) return `bj${code}`;
+  if (marketId === 1 || code.startsWith('6') || code.startsWith('9')) return `sh${code}`;
+  if (marketId === 0) return `sz${code}`;
+  return `sz${code}`;
+}
+
 /** @param {string} stockCode @param {number|null} marketId @param {string} [name] */
 export function toSinaFetchCode(stockCode, marketId, name = '') {
   const raw = String(stockCode).trim();
   const code = raw.replace(/\.$/, '');
+  if (/^\d{3,4}[A-Z]?JP$/i.test(code)) return null;
+  if (/^[A-Z]{2,}FP$/i.test(code) || /^[A-Z]{2,}GR$/i.test(code)) return null;
+  if (code.length > 10 && !/^\d+$/.test(code)) return null;
   if (isLikelyKoreanHolding(code, name)) return null;
   if (marketId != null) {
-    if (marketId === 0) return `sz${code}`;
-    if (marketId === 1) return `sh${code}`;
+    if (marketId === 0 || marketId === 1) return cnSinaPrefix(code, marketId);
     if (marketId === 116) return `rt_hk${code.padStart(5, '0')}`;
     if (marketId >= 100) return `gb_${code.toLowerCase()}`;
   }
   if (/^[A-Za-z]/.test(code)) return `gb_${code.toLowerCase()}`;
-  if (/^\d{6}$/.test(code)) {
-    if (code.startsWith('6') || code.startsWith('9')) return `sh${code}`;
-    if (code.startsWith('4') || code.startsWith('8')) return `bj${code}`;
-    return `sz${code}`;
-  }
+  if (/^\d{6}$/.test(code)) return cnSinaPrefix(code, marketId);
   if (code.length <= 5 && /^\d+$/.test(code)) return `rt_hk${code.padStart(5, '0')}`;
   return `gb_${code.toLowerCase()}`;
 }
@@ -93,7 +105,7 @@ export async function fetchSinaQuoteKeys(fetchCodes) {
 
 /** @param {string} url @param {Record<string,string>} [headers] */
 async function fetchText(url, headers = {}) {
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (/sinajs\.cn/i.test(url)) return new TextDecoder('gbk').decode(buf);
@@ -133,11 +145,138 @@ async function fetchTencentQuotes(symbols) {
   return parseTencentList(text, unique);
 }
 
+/** 东财/基金年报代码 → 腾讯美股 OTC/ADR ticker */
+const TENCENT_US_BY_CODE = {
+  AIRFP: 'EADSY',
+  RMSFP: 'HESAY',
+  RHMGR: 'RNMBF',
+  '8035JP': 'TOELY',
+  '6594JP': 'NJDCY',
+  '4062JP': 'IBIDF',
+};
+
+/** @type {[RegExp, string][]} */
+const TENCENT_US_BY_NAME = [
+  [/东京电子|Tokyo Electron/i, 'TOELY'],
+  [/日本电产|Nidec/i, 'NJDCY'],
+  [/揖斐电|Ibiden/i, 'IBIDF'],
+  [/空客|Airbus/i, 'EADSY'],
+  [/爱马仕|Herm[eè]s/i, 'HESAY'],
+  [/莱茵金属|Rheinmetall/i, 'RNMBF'],
+];
+
+/** @type {Map<string, string|null>} */
+const tencentUsSymbolCache = new Map();
+
+/** @param {string} code @param {string} [name] */
+export function resolveTencentUsSymbolFromMap(code, name = '') {
+  const raw = String(code || '').trim().toUpperCase();
+  if (TENCENT_US_BY_CODE[raw]) return TENCENT_US_BY_CODE[raw];
+  const n = String(name || '');
+  for (const [re, sym] of TENCENT_US_BY_NAME) {
+    if (re.test(n)) return sym;
+  }
+  return null;
+}
+
+/** @param {string} raw */
+function parseTencentUsLine(raw) {
+  const parts = raw.split('~');
+  if (parts[0] !== '200' || parts.length < 10) return null;
+  const price = parseFloat(parts[3]);
+  const dateIdx = parts.findIndex((x) => /^\d{4}-\d{2}-\d{2}/.test(x));
+  if (dateIdx < 0 || dateIdx + 2 >= parts.length) return null;
+  const changePct = parseFloat(parts[dateIdx + 2]);
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(changePct)) return null;
+  return {
+    name: parts[1] || undefined,
+    price,
+    changePct,
+    quoteSource: 'tencent-us-adr',
+  };
+}
+
+/** @param {string} text @param {string[]} symbols uppercase without us prefix */
+function parseTencentUsList(text, symbols) {
+  /** @type {Record<string, { name?: string, price: number, changePct: number, quoteSource: string }>} */
+  const out = {};
+  for (const sym of symbols) {
+    const m = text.match(new RegExp(`v_us${sym}="([^"]+)"`, 'i'));
+    if (!m) continue;
+    const q = parseTencentUsLine(m[1]);
+    if (q && isValidQuote(q)) out[sym] = q;
+  }
+  return out;
+}
+
+/** @param {string} code @param {string} [name] */
+export async function resolveTencentUsSymbol(code, name = '') {
+  const mapped = resolveTencentUsSymbolFromMap(code, name);
+  if (mapped) return mapped;
+  const cacheKey = `${String(code || '').trim().toUpperCase()}\0${String(name || '').trim()}`;
+  if (tencentUsSymbolCache.has(cacheKey)) return tencentUsSymbolCache.get(cacheKey);
+  const query = String(name || code || '').trim();
+  if (!query) return null;
+  try {
+    const url = `https://smartbox.gtimg.cn/s3/?v=2&q=${encodeURIComponent(query)}&t=all&c=1`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) {
+      tencentUsSymbolCache.set(cacheKey, null);
+      return null;
+    }
+    const text = await res.text();
+    const m = text.match(/v_hint="([^"]*)"/);
+    let sym = null;
+    if (m) {
+      const parts = m[1].split('^');
+      for (let i = 0; i < parts.length; i += 4) {
+        if (parts[i] === 'us' && parts[i + 1]) {
+          sym = parts[i + 1].replace(/\.ps$/i, '').toUpperCase();
+          break;
+        }
+      }
+    }
+    tencentUsSymbolCache.set(cacheKey, sym);
+    return sym;
+  } catch {
+    tencentUsSymbolCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+/** @param {string[]} symbols uppercase without us prefix */
+export async function fetchTencentUsQuotes(symbols) {
+  const unique = [...new Set(symbols.filter(Boolean).map((s) => String(s).toUpperCase()))];
+  if (!unique.length) return {};
+  const url = `${TENCENT_ORIGIN}/q=${unique.map((s) => `us${s}`).join(',')}`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return {};
+    const buf = Buffer.from(await res.arrayBuffer());
+    const text = new TextDecoder('gbk').decode(buf);
+    return parseTencentUsList(text, unique);
+  } catch {
+    return {};
+  }
+}
+
+/** 新浪 list= 过长会截断，分批请求 */
+const SINA_BATCH_SIZE = 60;
+const SINA_BATCH_CONCURRENCY = 3;
+
 /**
  * @param {Array<{ fetchCode?: string|null, code: string, name?: string, marketId?: number|null }>} holdings
  * @param {Date} [now]
+ * @param {{ supplementAsia?: boolean, awaitStooq?: boolean }} [opts]
  */
-export async function fetchHoldingQuotes(holdings, now = new Date()) {
+export async function fetchHoldingQuotes(holdings, now = new Date(), opts = {}) {
+  const { supplementAsia = true, awaitStooq = false } = opts;
   const krSessionLive = isKrMarketOpen(now);
   const keys = [
     ...new Set(
@@ -148,9 +287,19 @@ export async function fetchHoldingQuotes(holdings, now = new Date()) {
   ];
   if (!keys.includes(SEMI_FALLBACK_KEY)) keys.push(SEMI_FALLBACK_KEY);
 
-  const url = `${SINA_ORIGIN}/list=${keys.join(',')}`;
-  const text = await fetchText(url, SINA_HEADERS);
-  const quotes = parseSinaList(text, keys);
+  /** @type {Record<string, { name: string, price: number, changePct: number, quoteSource?: string }>} */
+  const quotes = {};
+  /** @type {string[][]} */
+  const batches = [];
+  for (let i = 0; i < keys.length; i += SINA_BATCH_SIZE) {
+    batches.push(keys.slice(i, i + SINA_BATCH_SIZE));
+  }
+  const parsedBatches = await runWithConcurrency(batches, SINA_BATCH_CONCURRENCY, async (batch) => {
+    const url = `${SINA_ORIGIN}/list=${batch.join(',')}`;
+    const text = await fetchText(url, SINA_HEADERS);
+    return parseSinaList(text, batch);
+  });
+  for (const parsed of parsedBatches) Object.assign(quotes, parsed);
 
   /** @type {Record<string, { name: string, price: number, changePct: number, quoteSource?: string }>} */
   const byHoldingKey = {};
@@ -187,6 +336,11 @@ export async function fetchHoldingQuotes(holdings, now = new Date()) {
         byHoldingKey[`${h.code}\0${h.name}`] = { ...q, quoteSource: 'tencent' };
       }
     }
+  }
+
+  if (supplementAsia) {
+    const { supplementAsiaQuotes } = await import('./asia-quotes.js');
+    await supplementAsiaQuotes(holdings, byHoldingKey, now, { awaitStooq });
   }
 
   return { quotes, byHoldingKey };

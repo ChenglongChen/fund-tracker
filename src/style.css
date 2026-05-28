@@ -461,6 +461,22 @@ html[data-theme='dark'] .portfolio-sticky {
   --list-grid: minmax(0, 1fr);
 }
 
+.portfolio-page--with-share.portfolio-page--grid-4 {
+  --list-grid: minmax(0, 1.32fr) minmax(52px, 0.56fr) minmax(76px, 0.78fr) minmax(76px, 0.78fr) minmax(76px, 0.78fr);
+}
+
+.portfolio-page--with-share.portfolio-page--grid-3 {
+  --list-grid: minmax(0, 1.36fr) minmax(52px, 0.56fr) minmax(82px, 0.84fr) minmax(82px, 0.84fr);
+}
+
+.portfolio-page--with-share.portfolio-page--grid-2 {
+  --list-grid: minmax(0, 1.42fr) minmax(52px, 0.56fr) minmax(88px, 0.9fr);
+}
+
+.portfolio-page--with-share.portfolio-page--grid-1 {
+  --list-grid: minmax(0, 1fr) minmax(52px, 0.56fr);
+}
+
 .holding-list-scroll::-webkit-scrollbar {
   display: none;
 }
@@ -929,6 +945,10 @@ html[data-theme='dark'] .account-summary-card {
   gap: 4px;
 }
 
+.yj-summary-col--share-gap {
+  min-width: 0;
+}
+
 .privacy-toggle {
   display: inline-flex;
   align-items: center;
@@ -983,6 +1003,7 @@ html[data-theme='dark'] .account-summary-card {
   align-items: center;
   padding: 6px var(--list-pad-x) 5px;
   background: transparent;
+  border-top: 1px solid var(--border-light);
   border-bottom: 1px solid var(--border-light);
 }
 
@@ -1162,6 +1183,15 @@ html[data-theme='dark'] .account-summary-card {
   text-align: right;
 }
 
+.list-table-head-col.list-table-head-sort--left {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.list-table-head-col.list-table-head-sort--left .list-table-head-label {
+  align-items: flex-start;
+}
+
 .list-table-head-label {
   display: flex;
   flex-direction: column;
@@ -1324,10 +1354,17 @@ html[data-theme='dark'] .account-summary-card {
 
 .holding-col--settled,
 .holding-col--rt,
-.holding-col--total {
+.holding-col--total,
+.holding-col--share {
   text-align: right;
   padding-right: 1px;
   min-width: 0;
+}
+
+.holding-col--share .holding-val {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .holding-val {
@@ -3266,6 +3303,18 @@ html[data-theme='dark'] .bottom-tabs {
 
   .portfolio-page--grid-3 {
     --list-grid: minmax(0, 1.22fr) minmax(68px, 0.78fr) minmax(68px, 0.78fr);
+  }
+
+  .portfolio-page--with-share.portfolio-page--grid-4 {
+    --list-grid: minmax(0, 1.02fr) minmax(46px, 0.5fr) minmax(62px, 0.72fr) minmax(62px, 0.72fr) minmax(62px, 0.72fr);
+  }
+
+  .portfolio-page--with-share.portfolio-page--grid-3 {
+    --list-grid: minmax(0, 1.06fr) minmax(46px, 0.5fr) minmax(68px, 0.78fr) minmax(68px, 0.78fr);
+  }
+
+  .portfolio-page--with-share.portfolio-page--grid-2 {
+    --list-grid: minmax(0, 1.1fr) minmax(46px, 0.5fr) minmax(68px, 0.78fr);
   }
 
   .watchlist-page {

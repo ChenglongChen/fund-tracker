@@ -1,7 +1,6 @@
 import { escapeHtml } from '../format.js';
 import { app } from '../app/context.js';
 import { formatClockLabel } from './status.js';
-import { renderThemeToggle } from './theme-chrome.js';
 
 export function renderShell(inner) {
   return `<div class="app-shell"><main class="phone-page">${inner}</main><div class="sr-live" id="live-region" aria-live="polite" aria-atomic="true"></div></div>`;
@@ -44,7 +43,7 @@ export function renderSubpageNav(title, { backId = 'btn-back', rightHtml = '' } 
       </div>
       <h1 class="subpage-nav-title">${escapeHtml(title)}</h1>
       <div class="subpage-nav-side subpage-nav-side--end">
-        ${rightHtml}${renderThemeToggle()}
+        ${rightHtml}
       </div>
     </nav>`;
 }

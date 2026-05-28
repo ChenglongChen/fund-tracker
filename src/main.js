@@ -29,6 +29,8 @@ import {
   loadActiveScope,
   rowsForScope,
   saveActiveScope,
+  buildAccountDisplayRows,
+  attachAssetSharePct,
 } from './accounts.js';
 import { loadHideAssets, saveHideAssets } from './privacy.js';
 import { fmtTime } from './format.js';
@@ -76,7 +78,8 @@ import {
   resolvePortfolioFund,
 } from './fund-live-display.js';
 
-const REFRESH_MS = 1_000;
+const REFRESH_MS = 500;
+const REFRESH_MS_HIDDEN = 500;
 const DETAIL_HOLDINGS_REFRESH_MS = REFRESH_MS;
 
 /** @type {import('./portfolio.js').PortfolioMeta} */
@@ -101,8 +104,10 @@ const state = {
   fundRows: [],
   displayRows: [],
   summary: null,
-  /** API /api/live totals — portfolio 级 canonical RT1/EST（SCOPE_ALL 顶栏使用） */
+  /** API /api/live totals — portfolio 级 canonical RT1/EST（SCOPE_ALL / 账户概况顶栏） */
   liveTotals: null,
+  /** API /api/live totalsByAccount — 单账户 scope 顶栏 */
+  liveTotalsByAccount: null,
   detail: null,
   error: null,
   busy: false,
@@ -120,8 +125,8 @@ const state = {
   metricColumnVisible: loadMetricColumnVisible(),
   nameSubline: loadNameSubline(),
   hideAssets: loadHideAssets(),
-  sortKey: 'amount',
-  sortDir: 'desc',
+  sortKey: 'name',
+  sortDir: 'asc',
   holdingsSortKey: 'weight',
   holdingsSortDir: 'desc',
   indexDrawerOpen: false,
@@ -295,16 +300,26 @@ function setActiveScope(scope) {
   applyDisplayScope();
 }
 
+function resolveCanonicalTotals() {
+  if (!state.liveTotals) return null;
+  if (state.activeScope === SCOPE_ALL || state.activeScope === SCOPE_SUMMARY) {
+    return state.liveTotals;
+  }
+  return state.liveTotalsByAccount?.[state.activeScope] ?? null;
+}
+
 function applyDisplayScope() {
-  state.displayRows = rowsForScope(state.fundRows, state.activeScope);
+  if (state.activeScope === SCOPE_SUMMARY) {
+    state.displayRows = applySort(
+      buildAccountDisplayRows(state.fundRows, ACCOUNTS, state.liveTotalsByAccount),
+    );
+  } else {
+    const scoped = rowsForScope(state.fundRows, state.activeScope);
+    state.displayRows = finalizeFundRows(attachAssetSharePct(scoped));
+  }
   const summaryRows =
     state.activeScope === SCOPE_SUMMARY ? state.fundRows : state.displayRows;
-  const canonicalTotals =
-    state.activeScope === SCOPE_ALL && state.liveTotals ? state.liveTotals : null;
-  const displayState =
-    state.activeScope === SCOPE_ALL ? state.lastLive?.displayState ?? null : null;
-  state.summary = buildSummary(summaryRows, canonicalTotals, displayState);
-  state.displayRows = finalizeFundRows(state.displayRows);
+  state.summary = buildSummary(summaryRows, resolveCanonicalTotals(), null);
 }
 
 function fundById(id) {
@@ -324,16 +339,24 @@ function calcRealTime(amount, impactPct) {
 /** @param {object} f @param {string} key */
 function sortValue(f, key) {
   switch (key) {
+    case 'name':
+      return (f.name || f.code || '').trim();
     case 'realtime':
       return f.realTimeProfit != null && Number.isFinite(f.realTimeProfit) ? f.realTimeProfit : null;
     case 'daily':
       return f.settledProfit != null && Number.isFinite(f.settledProfit) ? f.settledProfit : null;
     case 'holding':
       return f.totalProfit != null && Number.isFinite(f.totalProfit) ? f.totalProfit : null;
-    case 'amount':
+    case 'share':
+      return f.assetSharePct != null && Number.isFinite(f.assetSharePct) ? f.assetSharePct : null;
     default:
       return f.displayAmount ?? f.amount ?? 0;
   }
+}
+
+function rowSortTiebreak(a, b) {
+  if (typeof a.id === 'number' && typeof b.id === 'number') return a.id - b.id;
+  return String(a.id).localeCompare(String(b.id), 'zh-CN');
 }
 
 /** @param {object[]} rows */
@@ -343,10 +366,15 @@ function applySort(rows) {
   return [...rows].sort((a, b) => {
     const va = sortValue(a, sortKey);
     const vb = sortValue(b, sortKey);
-    if (va == null && vb == null) return a.id - b.id;
+    if (typeof va === 'string' && typeof vb === 'string') {
+      const cmp = va.localeCompare(vb, 'zh-CN');
+      if (cmp === 0) return rowSortTiebreak(a, b);
+      return cmp * mul;
+    }
+    if (va == null && vb == null) return rowSortTiebreak(a, b);
     if (va == null) return 1;
     if (vb == null) return -1;
-    if (va === vb) return a.id - b.id;
+    if (va === vb) return rowSortTiebreak(a, b);
     return (va - vb) * mul;
   });
 }
@@ -367,7 +395,7 @@ function applyFundOrder(rows) {
 
 function finalizeFundRows(rows) {
   const sorted = applySort(rows);
-  if (state.useColumnSort || state.sortKey !== 'amount' || state.sortDir !== 'desc') return sorted;
+  if (state.useColumnSort || state.sortKey !== 'name' || state.sortDir !== 'asc') return sorted;
   return applyFundOrder(sorted);
 }
 
@@ -467,8 +495,8 @@ function finishManagePage() {
   if (state.manageFundOrderDraft.length && isEditableScope(state.activeScope)) {
     saveFundOrder(state.manageFundOrderDraft, state.activeScope);
     state.useColumnSort = false;
-    state.sortKey = 'amount';
-    state.sortDir = 'desc';
+    state.sortKey = 'name';
+    state.sortDir = 'asc';
   }
   state.manageError = null;
   state.manageSelected = [];
@@ -813,7 +841,7 @@ function toggleSort(key) {
     state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
   } else {
     state.sortKey = key;
-    state.sortDir = 'desc';
+    state.sortDir = key === 'name' ? 'asc' : 'desc';
   }
   applyDisplayScope();
   paint();
@@ -947,7 +975,7 @@ function bindEvents() {
     });
   });
 
-  document.querySelectorAll('.account-summary-card[data-account-scope]').forEach((btn) => {
+  document.querySelectorAll('.holding-row[data-account-scope]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const scope = btn.getAttribute('data-account-scope');
       if (!scope) return;
@@ -1142,12 +1170,15 @@ async function loadPortfolioState() {
 }
 
 function applyLive(live) {
+  if (live.unchanged) return false;
   state.lastLive = live;
   state.liveTotals = live.totals ?? null;
+  state.liveTotalsByAccount = live.totalsByAccount ?? null;
   state.indices = live.indices ?? [];
   state.fxPct = live.fxPct;
   state.updatedAt = live.updatedAt || fmtTime();
   state.quoteUpdatedAt = live.quoteUpdatedAt || live.updatedAt || state.updatedAt;
+  state.liveRevision = live.liveRevision ?? state.liveRevision ?? '';
   state.displayContext = live.displayContext ?? state.displayContext;
   if (live.error) {
     state.liveBanner = live.error;
@@ -1160,12 +1191,26 @@ function applyLive(live) {
   if (state.serverStatus?.live) {
     state.serverStatus.live.beijingDate = live.beijingDate ?? state.serverStatus.live.beijingDate;
   }
+  return true;
+}
+
+async function pullLive() {
+  const live = await fetchLive(state.lastLive);
+  if (live.unchanged) return false;
+  if (
+    live.portfolioUpdatedAt &&
+    live.portfolioUpdatedAt !== state.portfolioUpdatedAt
+  ) {
+    state.portfolioUpdatedAt = live.portfolioUpdatedAt;
+    await loadPortfolioState();
+  }
+  applyLive(live);
+  return true;
 }
 
 async function reloadPortfolioAndLive() {
   await loadPortfolioState();
-  const live = await fetchLive();
-  applyLive(live);
+  await pullLive();
 }
 
 async function refreshListView() {
@@ -1175,20 +1220,13 @@ async function refreshListView() {
   }
   state.busy = true;
   try {
-    const live = await fetchLive();
-    if (
-      live.portfolioUpdatedAt &&
-      live.portfolioUpdatedAt !== state.portfolioUpdatedAt
-    ) {
-      state.portfolioUpdatedAt = live.portfolioUpdatedAt;
-      await loadPortfolioState();
-    }
-    applyLive(live);
+    const changed = await pullLive();
     if (state.view === 'loading') state.view = 'list';
     if (canPatchListDom() && patchListDom()) {
       patchBottomTabs();
       return;
     }
+    if (!changed) return;
     paint();
   } catch (e) {
     state.liveBanner = e instanceof Error ? e.message : String(e);
@@ -1216,16 +1254,20 @@ async function refreshWatchlistView() {
   }
   state.busy = true;
   try {
-    const [live, wl] = await Promise.all([fetchLive(), fetchWatchlistLive()]);
-    state.indices = live.indices ?? state.indices;
-    state.fundRows = mergeLiveIntoFunds(FUNDS, live);
-    state.updatedAt = wl.updatedAt || live.updatedAt || state.updatedAt;
-    state.quoteUpdatedAt = wl.quoteUpdatedAt || live.quoteUpdatedAt || state.quoteUpdatedAt;
+    const [changed, wl] = await Promise.all([
+      pullLive().catch(() => false),
+      fetchWatchlistLive(),
+    ]);
+    state.indices = state.lastLive?.indices ?? state.indices;
+    state.fundRows = mergeLiveIntoFunds(FUNDS, state.lastLive ?? { funds: [] });
+    state.updatedAt = wl.updatedAt || state.updatedAt;
+    state.quoteUpdatedAt = wl.quoteUpdatedAt || state.quoteUpdatedAt;
     applyWatchlistLive(wl);
     if (canPatchWatchlistDom() && patchWatchlistDom()) {
       patchBottomTabs();
       return;
     }
+    if (!changed) return;
     paint();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -1248,12 +1290,12 @@ async function refreshMarketView() {
   if (state.busy) return;
   state.busy = true;
   try {
-    const live = await fetchLive();
-    applyLive(live);
+    const changed = await pullLive();
     if (patchMarketDom()) {
       patchBottomTabs();
       return;
     }
+    if (!changed) return;
     paint();
   } catch {
     /* ignore */
@@ -1300,8 +1342,8 @@ async function refreshFundLive() {
     state.updatedAt = wl.updatedAt || state.updatedAt;
     state.quoteUpdatedAt = wl.quoteUpdatedAt || state.quoteUpdatedAt || state.updatedAt;
   } else {
-    const live = await fetchLive();
-    applyLive(live);
+    const live = await fetchLive(state.lastLive);
+    if (!live.unchanged) applyLive(live);
   }
 }
 
@@ -1423,6 +1465,7 @@ function scheduleRefresh() {
     stopIndexDockCarousel();
     return;
   }
+  const intervalMs = document.hidden ? REFRESH_MS_HIDDEN : REFRESH_MS;
   refreshTimer = setInterval(() => {
     if (state.detailCode && (state.view === 'detail' || state.view === 'detail-loading')) {
       refreshDetailView();
@@ -1433,7 +1476,7 @@ function scheduleRefresh() {
     } else if (state.view === 'market') {
       refreshMarketView();
     }
-  }, REFRESH_MS);
+  }, intervalMs);
 }
 
 async function bootstrap() {
@@ -1486,6 +1529,10 @@ window.addEventListener('hashchange', () => {
       refreshTimer = null;
     }
   });
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (isLiveView()) scheduleRefresh();
 });
 
 initTheme();

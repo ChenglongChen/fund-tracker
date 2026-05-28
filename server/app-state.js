@@ -8,14 +8,25 @@ export const APP_STATE_PATH = path.join(DATA_DIR, 'app-state.json');
 
 const MAX_INTRADAY_TICKS = 480;
 
+/** @type {{ mtimeMs: number, data: object | null }} */
+let appStateCache = { mtimeMs: 0, data: null };
+
 /** @returns {Promise<object>} */
 export async function readAppState() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   try {
+    const stat = await fs.stat(APP_STATE_PATH);
+    if (appStateCache.data && appStateCache.mtimeMs === stat.mtimeMs) {
+      return appStateCache.data;
+    }
     const raw = await fs.readFile(APP_STATE_PATH, 'utf8');
-    return normalizeAppState(JSON.parse(raw));
+    const data = normalizeAppState(JSON.parse(raw));
+    appStateCache = { mtimeMs: stat.mtimeMs, data };
+    return data;
   } catch {
-    return defaultAppState();
+    const data = defaultAppState();
+    appStateCache = { mtimeMs: 0, data };
+    return data;
   }
 }
 
@@ -45,6 +56,12 @@ export async function writeAppState(patch) {
   const current = await readAppState();
   const next = normalizeAppState({ ...current, ...patch });
   await fs.writeFile(APP_STATE_PATH, JSON.stringify(next, null, 2), 'utf8');
+  try {
+    const stat = await fs.stat(APP_STATE_PATH);
+    appStateCache = { mtimeMs: stat.mtimeMs, data: next };
+  } catch {
+    appStateCache = { mtimeMs: 0, data: next };
+  }
   return next;
 }
 

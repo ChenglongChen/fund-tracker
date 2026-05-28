@@ -65,7 +65,7 @@
 
 ## 6. 自动入账
 
-服务端约每 30 分钟检测净值是否更新；若 `navDate > lastNavDate`，自动：
+服务端约每 1 分钟检测净值是否更新；若 `navDate > lastNavDate`，自动：
 
 - 更新份额、`amount`、当日收益、持有收益
 

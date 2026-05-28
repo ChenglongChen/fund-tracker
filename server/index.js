@@ -1,16 +1,19 @@
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
+import zlib from 'node:zlib';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { getLiveCache, refreshLiveDisplay, startSchedulers } from './live.js';
+import { getLiveCache, refreshLiveDisplay, startSchedulers, buildLiveRevision, requestLiveRefresh } from './live.js';
 import { runSettlement, settleIfNeeded } from './settle.js';
 import { ensurePortfolio, readPortfolio, writePortfolio } from './store.js';
-import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay } from './market.js';
+import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, mergeSharedHoldingQuotes } from './market.js';
 import { classifyFundMarket } from './components/market-hours.js';
 import { resolveLiveDisplayImpact, seedFundRegularSnapshots } from './market-session.js';
 import { loadImpactSnapshots, getFundSnapshotRecords } from './impact-snapshots.js';
 import { loadDayDisplayState } from './day-display-state.js';
 import { seedSessionQuoteSnapshots } from './session-quotes.js';
+import { setStooqQuotesUpdatedHandler } from './asia-quotes.js';
 import { readAppState, setAssetViewMode, listDailyRecords } from './app-state.js';
 import { addFund, deleteFund, updateFund } from './fund-crud.js';
 import {
@@ -24,6 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
 const PORT = Number(process.env.PORT) || 8788;
+const gzipAsync = promisify(zlib.gzip);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -45,10 +49,25 @@ function readBody(req) {
   });
 }
 
-/** @param {http.ServerResponse} res @param {number} code @param {unknown} data */
-function json(res, code, data) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(data));
+/** @param {http.ServerResponse} res @param {number} code @param {unknown} data @param {{ req?: http.IncomingMessage, etag?: string }} [opts] */
+async function json(res, code, data, opts = {}) {
+  const { req = null, etag = null } = opts;
+  const body = JSON.stringify(data);
+  /** @type {Record<string, string | number>} */
+  const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+  if (etag) headers.ETag = etag;
+  const acceptEncoding = String(req?.headers['accept-encoding'] || '');
+  if (req && acceptEncoding.includes('gzip') && body.length >= 1024) {
+    const compressed = await gzipAsync(body);
+    headers['Content-Encoding'] = 'gzip';
+    headers.Vary = 'Accept-Encoding';
+    headers['Content-Length'] = compressed.length;
+    res.writeHead(code, headers);
+    res.end(compressed);
+    return;
+  }
+  res.writeHead(code, headers);
+  res.end(body);
 }
 
 /** @param {http.ServerResponse} res @param {string} filePath */
@@ -134,7 +153,13 @@ async function handler(req, res) {
   }
 
   if (req.method === 'GET' && pathname === '/api/live') {
-    return json(res, 200, getLiveCache());
+    const live = getLiveCache();
+    const etag = `"${live.liveRevision || buildLiveRevision(live)}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag });
+      return res.end();
+    }
+    return json(res, 200, live, { req, etag });
   }
 
   if (req.method === 'GET' && pathname === '/api/watchlist') {
@@ -271,7 +296,7 @@ async function handler(req, res) {
         fundName = nav?.name ?? '';
       }
       const r = await refreshFundHoldingsDisplay(
-        getCachedFundImpactDetail(code, fundName) ??
+        getCachedFundImpactDetail(code, fundName, 120_000) ??
           (await resolveFundImpact(code, live.fxPct, fundName, live.indices ?? [])),
       );
       const market = classifyFundMarket(fund ?? { name: fundName, code });
@@ -332,6 +357,10 @@ await loadImpactSnapshots();
 await loadDayDisplayState();
 seedSessionQuoteSnapshots();
 seedFundRegularSnapshots(getFundSnapshotRecords());
+setStooqQuotesUpdatedHandler((partial) => {
+  mergeSharedHoldingQuotes(partial);
+  requestLiveRefresh();
+});
 startSchedulers(settleIfNeeded);
 
 http.createServer((req, res) => {

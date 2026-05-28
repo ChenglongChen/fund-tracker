@@ -12,6 +12,7 @@ import {
   normalizeJpTicker,
   rememberAsiaPrevClose,
   supplementAsiaQuotes,
+  normalizeEuStooqSymbol,
 } from './asia-quotes.js';
 import {
   getHoldingRegular,
@@ -99,11 +100,13 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
         ensureRegularSnapFromDisk(cacheKey);
         closeSnapshot.set(cacheKey, snap);
       }
-      if ((market === 'jp' || market === 'kr') && snap.price != null) {
+      if ((market === 'jp' || market === 'kr' || market === 'eu') && snap.price != null) {
         const ticker =
           market === 'jp'
             ? normalizeJpTicker(h.code, h.name)
-            : String(h.code).padStart(6, '0');
+            : market === 'eu'
+              ? normalizeEuStooqSymbol(h.code, h.name)?.split('.')[0]?.toUpperCase()
+              : String(h.code).padStart(6, '0');
         if (ticker) rememberAsiaPrevClose(ticker, snap.price);
       }
       const regularSnap = regularCloseSnapshot.get(cacheKey);

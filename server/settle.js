@@ -12,7 +12,10 @@ import { ensureDayBaseline } from './day-display-state.js';
  * @param {object} fund
  */
 async function loadNavSnapshot(fund) {
-  const [gz, navInfo] = await Promise.all([fetchFundGz(fund.code), fetchFundNavInfo(fund.code)]);
+  const [gz, navInfo] = await Promise.all([
+    fetchFundGz(fund.code),
+    fetchFundNavInfo(fund.code, { maxAgeMs: 0 }),
+  ]);
 
   /** @type {{ nav: number, navDate: string, navChgRt: number|null, source: string } | null} */
   let best = null;

@@ -2,7 +2,7 @@
  * 展示层唯一流水线：per-fund 计算 → snap 状态机 → snap 应用 → 组合求和。
  * refreshLive 与测试均应调用本模块，避免 live.js 与 snap 组件各自拼装。
  */
-import { computePortfolioTotals } from './aggregate.js';
+import { computeAccountTotalsMap, computePortfolioTotals } from './aggregate.js';
 import {
   applyFundRt1Snap,
   applyPortfolioTotalsSnap,
@@ -72,9 +72,16 @@ export async function runLiveDisplayPipeline(portfolio, impactRawList, navInfos,
   );
 
   const snapped = applyDisplaySnapAndTotals(portfolio, funds, now, session);
+  const totalsByAccount = computeAccountTotalsMap(
+    portfolio,
+    snapped.funds,
+    portfolio.accounts ?? [],
+    now,
+  );
   return {
     funds: snapped.funds,
     totals: snapped.totals,
+    totalsByAccount,
     displayState,
     accrualDay: session.accrualDay,
     session,
@@ -88,5 +95,12 @@ export async function runLiveDisplayPipeline(portfolio, impactRawList, navInfos,
  * @param {Date} [now]
  */
 export function reapplyDisplayFromCachedFunds(portfolio, cachedFunds, now = new Date()) {
-  return applyDisplaySnapAndTotals(portfolio, cachedFunds, now);
+  const snapped = applyDisplaySnapAndTotals(portfolio, cachedFunds, now);
+  const totalsByAccount = computeAccountTotalsMap(
+    portfolio,
+    snapped.funds,
+    portfolio.accounts ?? [],
+    now,
+  );
+  return { ...snapped, totalsByAccount };
 }

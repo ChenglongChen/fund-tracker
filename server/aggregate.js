@@ -6,27 +6,26 @@ import { getBaselineForDay } from './day-display-state.js';
 import { getRt1AccrualDay } from './display-session.js';
 
 /**
- * 组合合计：仅对 per-fund 展示字段求和，禁止在此重算 estimateProfit。
- * canonical RT1 来源：fund-display.buildDisplayFundRow → live-pipeline。
- * @param {{ funds: object[] }} portfolio
- * @param {object[]} liveFunds
+ * scope 内 per-fund 展示字段求和（禁止重算 estimateProfit）。
+ * @param {object[]} portfolioFunds
+ * @param {Map<number, object>} liveById
  */
-export function computePortfolioTotals(portfolio, liveFunds, now = new Date()) {
-  const byId = new Map(liveFunds.map((f) => [f.id, f]));
+function accumulateScopeTotals(portfolioFunds, liveById) {
   let settledAssets = 0;
   let settledProfit = 0;
   let realtimeProfit = 0;
   let holdingProfit = 0;
+  let estimateAssetsSum = 0;
 
-  for (const f of portfolio.funds) {
-    const live = byId.get(f.id);
+  for (const f of portfolioFunds) {
+    const live = liveById.get(f.id);
     const amount = f.amount ?? 0;
     settledAssets += amount;
     holdingProfit += f.totalProfit ?? 0;
 
     if (!live?.dailyPending) {
-      const sp = live?.settledProfit ?? f.yesterdayProfit ?? 0;
-      if (Number.isFinite(sp)) settledProfit += sp;
+      const sp = live?.settledProfit;
+      if (sp != null && Number.isFinite(sp)) settledProfit += sp;
     }
 
     const ep =
@@ -34,25 +33,87 @@ export function computePortfolioTotals(portfolio, liveFunds, now = new Date()) {
         ? live.estimateProfit
         : null;
     if (ep != null) realtimeProfit += ep;
-  }
 
-  const accrualDay = getRt1AccrualDay(now);
-  const baseline = getBaselineForDay(accrualDay, 'portfolio');
-  const portfolioEst =
-    baseline != null && Number.isFinite(realtimeProfit)
-      ? round2(baseline + realtimeProfit)
-      : round2(settledAssets + realtimeProfit);
+    const ea =
+      live?.estimateAssets != null && Number.isFinite(live.estimateAssets)
+        ? live.estimateAssets
+        : amount;
+    estimateAssetsSum += ea;
+  }
 
   return {
     settledAssets: round2(settledAssets),
-    realtimeAssets: portfolioEst,
     settledProfit: round2(settledProfit),
     realtimeProfit: round2(realtimeProfit),
     holdingProfit: round2(holdingProfit),
-    settledProfitPct: dayProfitPct(settledAssets, settledProfit),
-    realtimeProfitPct: settledAssets > 0 ? round4((realtimeProfit / settledAssets) * 100) : null,
-    fundCount: portfolio.funds.length,
+    estimateAssetsSum: round2(estimateAssetsSum),
+    fundCount: portfolioFunds.length,
   };
+}
+
+/**
+ * 组合合计：仅对 per-fund 展示字段求和，禁止在此重算 estimateProfit。
+ * canonical RT1 来源：fund-display.buildDisplayFundRow → live-pipeline。
+ * @param {{ funds: object[] }} portfolio
+ * @param {object[]} liveFunds
+ */
+export function computePortfolioTotals(portfolio, liveFunds, now = new Date()) {
+  const liveById = new Map(liveFunds.map((f) => [f.id, f]));
+  const acc = accumulateScopeTotals(portfolio.funds, liveById);
+  const accrualDay = getRt1AccrualDay(now);
+  const baseline = getBaselineForDay(accrualDay, 'portfolio');
+  const portfolioEst =
+    baseline != null && Number.isFinite(acc.realtimeProfit)
+      ? round2(baseline + acc.realtimeProfit)
+      : acc.estimateAssetsSum;
+
+  return {
+    settledAssets: acc.settledAssets,
+    realtimeAssets: portfolioEst,
+    settledProfit: acc.settledProfit,
+    realtimeProfit: acc.realtimeProfit,
+    holdingProfit: acc.holdingProfit,
+    settledProfitPct: dayProfitPct(acc.settledAssets, acc.settledProfit),
+    realtimeProfitPct:
+      acc.settledAssets > 0 ? round4((acc.realtimeProfit / acc.settledAssets) * 100) : null,
+    fundCount: acc.fundCount,
+  };
+}
+
+/**
+ * 账户 / 子 scope 合计：预估资产 = Σ per-fund estimateAssets（与列表行一致）。
+ * @param {{ funds: object[] }} portfolio
+ * @param {object[]} liveFunds
+ * @param {{ accountId: string }} opts
+ */
+export function computeAccountTotals(portfolio, liveFunds, accountId, now = new Date()) {
+  const liveById = new Map(liveFunds.map((f) => [f.id, f]));
+  const scoped = portfolio.funds.filter((f) => f.accountId === accountId);
+  const acc = accumulateScopeTotals(scoped, liveById);
+  return {
+    settledAssets: acc.settledAssets,
+    realtimeAssets: acc.estimateAssetsSum,
+    settledProfit: acc.settledProfit,
+    realtimeProfit: acc.realtimeProfit,
+    holdingProfit: acc.holdingProfit,
+    settledProfitPct: dayProfitPct(acc.settledAssets, acc.settledProfit),
+    realtimeProfitPct:
+      acc.settledAssets > 0 ? round4((acc.realtimeProfit / acc.settledAssets) * 100) : null,
+    fundCount: acc.fundCount,
+  };
+}
+
+/** @param {{ funds: object[] }} portfolio @param {object[]} liveFunds @param {object[]} accounts */
+export function computeAccountTotalsMap(portfolio, liveFunds, accounts, now = new Date()) {
+  /** @type {Record<string, ReturnType<typeof computeAccountTotals>>} */
+  const map = {};
+  for (const acc of accounts ?? []) {
+    if (!acc?.id) continue;
+    const scoped = portfolio.funds.filter((f) => f.accountId === acc.id);
+    if (!scoped.length) continue;
+    map[acc.id] = computeAccountTotals(portfolio, liveFunds, acc.id, now);
+  }
+  return map;
 }
 
 /** @param {'settled'|'realtime'} mode @param {ReturnType<typeof computePortfolioTotals>} totals */

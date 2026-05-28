@@ -5,6 +5,23 @@ async function apiJson(path, opts = {}) {
     headers: { Accept: 'application/json', ...opts.headers },
     ...opts,
   });
+  if (res.status === 204) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+  return body;
+}
+
+/**
+ * @param {{ liveRevision?: string } | null} [cached]
+ * @returns {Promise<object>}
+ */
+export async function fetchLive(cached = null) {
+  const headers = { Accept: 'application/json' };
+  if (cached?.liveRevision) headers['If-None-Match'] = `"${cached.liveRevision}"`;
+  const res = await fetch(`${API_BASE}/api/live`, { headers });
+  if (res.status === 304) {
+    return { unchanged: true, liveRevision: cached?.liveRevision ?? '' };
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
   return body;
@@ -56,11 +73,6 @@ export async function removeWatchlistApi(code) {
 /** @returns {Promise<{ meta: object, funds: object[] }>} */
 export async function fetchPortfolio() {
   return apiJson('/api/portfolio');
-}
-
-/** @returns {Promise<{ updatedAt: string, indices: object[], fxPct: number|null, funds: object[] }>} */
-export async function fetchLive() {
-  return apiJson('/api/live');
 }
 
 /**

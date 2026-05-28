@@ -4,7 +4,7 @@
 import { beijingMinutesOfDay, beijingParts, beijingWeekday } from './time.js';
 import { isLikelyKoreanHolding } from './quotes.js';
 
-/** @typedef {'cn'|'hk'|'us'|'jp'|'kr'|'tw'|'gold_cn'|'other'} HoldingMarket */
+/** @typedef {'cn'|'hk'|'us'|'jp'|'kr'|'tw'|'eu'|'gold_cn'|'other'} HoldingMarket */
 
 /** @param {{ hour: string, minute: string }} parts */
 function minutesOfDay(parts) {
@@ -58,6 +58,13 @@ export function isKrMarketOpen(date = new Date()) {
   if (!isWeekday(date)) return false;
   const mins = minutesOfDay(beijingParts(date));
   return mins >= 8 * 60 + 30 && mins <= 14 * 60 + 30;
+}
+
+/** 欧股（法/德等）：15:00–23:30 北京时间（夏令时近似 9:00–17:30 CET/CEST） */
+export function isEuMarketOpen(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return mins >= 15 * 60 && mins <= 23 * 60 + 30;
 }
 
 /** 美股：21:30–次日 04:00 北京时间（正盘） */
@@ -140,7 +147,8 @@ export function isOverseasSessionOpen(date = new Date()) {
     isUsQuoteLive(date) ||
     isJpMarketOpen(date) ||
     isKrMarketOpen(date) ||
-    isHkMarketOpen(date)
+    isHkMarketOpen(date) ||
+    isEuMarketOpen(date)
   );
 }
 
@@ -175,6 +183,8 @@ export function isHoldingMarketOpen(market, date = new Date()) {
       return isJpMarketOpen(date);
     case 'kr':
       return isKrMarketOpen(date);
+    case 'eu':
+      return isEuMarketOpen(date);
     case 'us':
       return isUsHoldingMarketOpen(date);
     case 'gold_cn':
@@ -195,12 +205,19 @@ export function classifyHoldingMarket(h) {
   if (/黄金|AU9999|Gold/i.test(name) || code === 'AU9999') return 'gold_cn';
   if (mid === 0 || mid === 1) return 'cn';
   if (mid === 116) return 'hk';
-  if (mid === 106) return 'tw';
+  if (mid === 106) {
+    // 东财 106：台股或美股 ADR（如 TSM）；字母 ticker 按美股时段
+    if (/^[A-Za-z][A-Za-z0-9.-]*$/i.test(code)) return 'us';
+    return 'tw';
+  }
+  if (/^\d{3,4}[A-Z]?JP$/i.test(code)) return 'jp';
   if (isLikelyKoreanHolding(code, name)) return 'kr';
-  if (/日本|东京|东洋|株式会社|铠侠|NITTO|日産|丰田|索尼|软银|Keyence|东京电子|日本电产/i.test(name)) {
+  if (/日本|东京|东洋|株式会社|铠侠|NITTO|日産|丰田|索尼|软银|Keyence|东京电子|日本电产|揖斐电|藤仓|古河|佑能|三井金属|奥加诺/i.test(name)) {
     return 'jp';
   }
   if (/^JP/i.test(code)) return 'jp';
+  if (/^[A-Z]{2,}FP$/i.test(code) || /^[A-Z]{2,}GR$/i.test(code)) return 'eu';
+  if (/爱马仕|Herm[eè]s|空客|Airbus|莱茵金属|Rheinmetall/i.test(name)) return 'eu';
   if (mid === 105 || /^[A-Z][A-Z0-9.-]*$/i.test(code)) return 'us';
   if (/^77(09|47)$/.test(code) || /南方两倍做多|CSOP.*2x/i.test(name)) return 'hk';
   if (/^\d{6}$/.test(code)) {

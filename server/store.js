@@ -9,6 +9,9 @@ export const DATA_DIR = path.join(ROOT, 'data');
 export const PORTFOLIO_PATH = path.join(DATA_DIR, 'portfolio.json');
 const SEED_PATH = path.join(ROOT, 'src', 'portfolio.json');
 
+/** @type {{ mtimeMs: number, data: { meta: object, funds: object[], accounts: object[] } | null }} */
+let portfolioCache = { mtimeMs: 0, data: null };
+
 /** @returns {Promise<{ meta: object, funds: object[] }>} */
 export async function ensurePortfolio() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -23,9 +26,14 @@ export async function ensurePortfolio() {
 /** @returns {Promise<{ meta: object, funds: object[], accounts: object[] }>} */
 export async function readPortfolio() {
   await ensurePortfolio();
+  const stat = await fs.stat(PORTFOLIO_PATH);
+  if (portfolioCache.data && portfolioCache.mtimeMs === stat.mtimeMs) {
+    return portfolioCache.data;
+  }
   const raw = await fs.readFile(PORTFOLIO_PATH, 'utf8');
   const data = migratePortfolio(JSON.parse(raw));
   if (!data.funds?.length) throw new Error('portfolio.json 缺少 funds');
+  portfolioCache = { mtimeMs: stat.mtimeMs, data };
   return data;
 }
 
@@ -40,6 +48,8 @@ export async function writePortfolio(data) {
     },
   });
   await fs.writeFile(PORTFOLIO_PATH, JSON.stringify(payload, null, 2), 'utf8');
+  const stat = await fs.stat(PORTFOLIO_PATH);
+  portfolioCache = { mtimeMs: stat.mtimeMs, data: payload };
   return payload;
 }
 

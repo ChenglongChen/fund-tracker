@@ -1,6 +1,6 @@
 import { extractQuotedVar } from './quote-utils.js';
-import { fetchHoldingQuotes, quoteForHolding } from './quotes.js';
-import { applySessionMarketStrip, applySessionQuotes, supplementAsiaQuotes } from './session-quotes.js';
+import { fetchHoldingQuotes, isValidQuote, quoteForHolding } from './quotes.js';
+import { applySessionMarketStrip, applySessionQuotes } from './session-quotes.js';
 import { getUsSessionPhase, holdingCacheKey } from './holding-market.js';
 import {
   fundHasRegularHolding,
@@ -49,10 +49,26 @@ export function getCachedFundImpactDetail(code, fundName = '', maxAgeMs = FUND_D
   return hit.result;
 }
 
-/** @param {string} code @param {string} [fundName] @param {object} result */
-function rememberFundImpactDetail(code, fundName, result) {
+/** @param {object} pack */
+function holdingsPackSnapshot(pack) {
+  return {
+    reportDate: pack.reportDate ?? null,
+    recentReportDate: pack.recentReportDate ?? null,
+    annualReportDate: pack.annualReportDate ?? null,
+    reportMeta: pack.reportMeta ?? null,
+    reportFundCount: pack.reportFundCount ?? 0,
+    holdings: pack.holdings ?? [],
+  };
+}
+
+/** @param {string} code @param {string} [fundName] @param {object} result @param {object} [pack] */
+function rememberFundImpactDetail(code, fundName, result, pack = null) {
   if (!result) return;
-  fundDetailImpactCache.set(fundDetailCacheKey(code, fundName), { at: Date.now(), result });
+  const snapshot = pack ? holdingsPackSnapshot(pack) : result._holdingsPack ?? null;
+  fundDetailImpactCache.set(fundDetailCacheKey(code, fundName), {
+    at: Date.now(),
+    result: snapshot ? { ...result, _holdingsPack: snapshot } : result,
+  });
 }
 
 /** @param {Record<string, object>} byHoldingKey */
@@ -64,6 +80,13 @@ function rememberSharedHoldingQuotes(byHoldingKey) {
 function getSharedHoldingQuotes(maxAgeMs = FUND_DETAIL_CACHE_TTL_MS) {
   if (!sharedHoldingQuotes.at || Date.now() - sharedHoldingQuotes.at > maxAgeMs) return null;
   return sharedHoldingQuotes.byHoldingKey;
+}
+
+/** @param {Record<string, object>} partial */
+export function mergeSharedHoldingQuotes(partial) {
+  if (!partial || !Object.keys(partial).length) return;
+  const shared = getSharedHoldingQuotes(10 * 60 * 1000) ?? {};
+  rememberSharedHoldingQuotes({ ...shared, ...partial });
 }
 
 /**
@@ -78,7 +101,7 @@ async function resolveHoldingQuotesForFund(holdings, now) {
     ? holdings.filter((h) => !quoteForHolding(h, shared))
     : holdings;
   if (shared && !missing.length) return shared;
-  const fetched = await fetchHoldingQuotes(holdings, now);
+  const fetched = await fetchHoldingQuotes(missing, now);
   const merged = shared ? { ...shared, ...fetched.byHoldingKey } : fetched.byHoldingKey;
   rememberSharedHoldingQuotes(merged);
   return merged;
@@ -239,7 +262,6 @@ export async function computeFundImpact(code, fxPct = null, fundName = '', now =
   if (!holdings.length) return emptyHoldingsImpact(pack);
 
   const byHoldingKey = await resolveHoldingQuotesForFund(holdings, now);
-  await supplementAsiaQuotes(holdings, byHoldingKey, now);
   return computeFundImpactFromPack(pack, fxPct, byHoldingKey, now);
 }
 
@@ -275,7 +297,14 @@ export async function resolvePortfolioImpacts(
   const { skipAsiaSupplement = false } = opts;
   /** @type {object[]} */
   const packs = [];
-  for (const f of funds) {
+  for (let i = 0; i < funds.length; i++) {
+    const f = funds[i];
+    const cachedSource = f.id != null ? impactSourceById.get(f.id) ?? null : null;
+    const cached = getCachedFundImpactDetail(f.code, f.name ?? '');
+    if (cached?._holdingsPack && !fundNeedsHoldingQuoteRefresh(f, cached._holdingsPack, cachedSource, now)) {
+      packs.push(cached._holdingsPack);
+      continue;
+    }
     try {
       packs.push(await fetchFundHoldings(f.code, f.name ?? ''));
     } catch {
@@ -292,7 +321,8 @@ export async function resolvePortfolioImpacts(
   const liveHoldings = [];
   const seenKeys = new Set();
   for (let i = 0; i < funds.length; i++) {
-    if (!quoteRefreshFlags[i]) continue;
+    const cached = getCachedFundImpactDetail(funds[i].code, funds[i].name ?? '');
+    if (!quoteRefreshFlags[i] && cached) continue;
     for (const h of packs[i].holdings ?? []) {
       const key = holdingCacheKey(h);
       if (seenKeys.has(key)) continue;
@@ -305,13 +335,11 @@ export async function resolvePortfolioImpacts(
   let byHoldingKey = getSharedHoldingQuotes() ?? {};
 
   if (liveHoldings.length) {
-    const fetched = await fetchHoldingQuotes(liveHoldings, now);
+    const fetched = await fetchHoldingQuotes(liveHoldings, now, {
+      supplementAsia: !skipAsiaSupplement,
+    });
     byHoldingKey = { ...byHoldingKey, ...fetched.byHoldingKey };
     rememberSharedHoldingQuotes(byHoldingKey);
-    if (!skipAsiaSupplement) {
-      await supplementAsiaQuotes(liveHoldings, byHoldingKey, now);
-      rememberSharedHoldingQuotes(byHoldingKey);
-    }
   }
 
   const impacts = await Promise.all(
@@ -339,7 +367,7 @@ export async function resolvePortfolioImpacts(
     }),
   );
   for (let i = 0; i < funds.length; i++) {
-    rememberFundImpactDetail(funds[i].code, funds[i].name ?? '', impacts[i]);
+    rememberFundImpactDetail(funds[i].code, funds[i].name ?? '', impacts[i], packs[i]);
   }
   return impacts;
 }
@@ -479,13 +507,20 @@ async function resolveFundImpactWithQuotes(
   return attachFundEligibility(fund, { ...r, impactSource: null }, pack, cachedSource, now);
 }
 
-const NAV_INFO_TTL_MS = 5 * 60_000;
+const NAV_INFO_TTL_MS = 60_000;
 const navInfoCache = new Map();
 
-export async function fetchFundNavInfo(code) {
+function navInfoTtlMs(code) {
+  const n = parseInt(String(code).replace(/\D/g, ''), 10);
+  const jitter = Number.isFinite(n) ? n % 60_000 : 0;
+  return NAV_INFO_TTL_MS + jitter;
+}
+
+export async function fetchFundNavInfo(code, opts = {}) {
   const key = String(code).trim();
+  const ttlMs = opts.maxAgeMs ?? navInfoTtlMs(key);
   const hit = navInfoCache.get(key);
-  if (hit && Date.now() - hit.at < NAV_INFO_TTL_MS) return hit.data;
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
 
   const url = `https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo?pageIndex=1&pageSize=1&plat=Android&appVersion=3.0.0&product=EFund&Version=1&deviceid=1&Fcodes=${key}`;
   let data = null;
@@ -654,17 +689,23 @@ export async function resolveFundImpact(code, fxPct = null, fundName = '', strip
 export async function refreshFundHoldingsDisplay(result, now = new Date()) {
   if (!result?.holdings?.length) return result;
   const holdings = result.holdings;
-  if (!fundHasRegularHolding(holdings, now)) {
-    const shared = getSharedHoldingQuotes();
-    const byHoldingKey = shared ?? {};
-    return {
-      ...result,
-      holdings: sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now)),
+  const shared = getSharedHoldingQuotes() ?? {};
+  let byHoldingKey = { ...shared };
+
+  const needsLive = fundHasRegularHolding(holdings, now);
+  const missing = holdings.filter((h) => {
+    const q = quoteForHolding(h, byHoldingKey);
+    return !q || !isValidQuote(q);
+  });
+  const toFetch = needsLive ? holdings : missing;
+  if (toFetch.length) {
+    byHoldingKey = {
+      ...byHoldingKey,
+      ...(await resolveHoldingQuotesForFund(toFetch, now)),
     };
+    rememberSharedHoldingQuotes(byHoldingKey);
   }
-  const byHoldingKey = { ...(await resolveHoldingQuotesForFund(holdings, now)) };
-  await supplementAsiaQuotes(holdings, byHoldingKey, now);
-  rememberSharedHoldingQuotes(byHoldingKey);
+
   return {
     ...result,
     holdings: sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now)),

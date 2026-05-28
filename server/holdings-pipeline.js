@@ -218,8 +218,10 @@ async function fetchHoldingsPeriod(code, opts = {}) {
 
 /** §5.9 货币基金/债券等：不计入穿透估值（xyz 亦不在明细中展示） */
 export function isNonEquityReportFund(h) {
+  const t = `${h.rawName || ''}${h.name || ''}${h.code || ''}`;
+  if (/Money Market|Bond Fund|债券|货币|Income Bond|Unit Trust Series/i.test(t)) return true;
+  if (/^GFUSD|^GFIUnit|^KraneSharesArtif/i.test(String(h.code || ''))) return true;
   if (h?.source !== 'report-fund') return false;
-  const t = `${h.rawName || ''}${h.name || ''}`;
   return /Money Market|Bond Fund|债券|货币|Income Bond/i.test(t);
 }
 

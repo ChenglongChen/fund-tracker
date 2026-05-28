@@ -4,7 +4,6 @@ import { visibleMetricColumns } from '../column-layout.js';
 import { app } from '../app/context.js';
 import { setTextClass } from '../dom.js';
 import { renderShell, renderLoading, renderLiveBanner } from '../components/shell.js';
-import { renderThemeToggle } from '../components/theme-chrome.js';
 import { detailHoldingsMetaHtml } from '../components/status.js';
 import { renderPctSub, setPctSubEl } from '../components/metrics.js';
 import {
@@ -154,7 +153,6 @@ export function renderDetailNav(title, { showEdit = false } = {}) {
       </button>
       <h1 class="detail-nav-title">${escapeHtml(title)}</h1>
       <div class="detail-nav-actions">
-        ${renderThemeToggle()}
         ${editBtn}
       </div>
     </nav>`;

@@ -8,11 +8,17 @@ import {
   runLiveDisplayPipeline,
 } from './live-pipeline.js';
 
-const LIVE_REFRESH_MS = 1_000;
+const LIVE_REFRESH_MS = 500;
+const LIVE_REFRESH_SLOW_MS = 500;
 const LIVE_FULL_REFRESH_MS = 5 * 60_000;
-const SETTLE_CHECK_MS = 30 * 60_000;
+const SETTLE_CHECK_MS = 60_000;
 
-/** @type {{ updatedAt: string, quoteUpdatedAt: string, beijingDate: string, indices: object[], fxPct: number|null, funds: object[], totals: object|null, display: object|null, displayContext: object|null, assetViewMode: string, displayState: object|null, error: string|null }} */
+/** @param {typeof cache} live */
+export function buildLiveRevision(live) {
+  return `${live.updatedAt}|${live.quoteUpdatedAt}|${live.funds.length}|${live.error ?? ''}`;
+}
+
+/** @type {{ updatedAt: string, quoteUpdatedAt: string, beijingDate: string, indices: object[], fxPct: number|null, funds: object[], totals: object|null, totalsByAccount: Record<string, object>|null, display: object|null, displayContext: object|null, assetViewMode: string, displayState: object|null, error: string|null, liveRevision: string, needsLiveQuotes: boolean }} */
 let cache = {
   updatedAt: '',
   quoteUpdatedAt: '',
@@ -21,18 +27,27 @@ let cache = {
   fxPct: null,
   funds: [],
   totals: null,
+  totalsByAccount: null,
   display: null,
   displayContext: null,
   assetViewMode: 'settled',
   displayState: null,
   error: null,
+  liveRevision: '',
+  needsLiveQuotes: true,
 };
 
 let liveBusy = false;
 let livePending = false;
+
+/** 后台 Stooq 补全完成后触发下一轮 live 刷新 */
+export function requestLiveRefresh() {
+  livePending = true;
+}
 let settleBusy = false;
 let lastFullRefreshAt = 0;
 let lastQuoteFingerprint = '';
+let refreshTimer = null;
 
 /** @type {Map<number, string>} */
 const fundImpactSourceCache = new Map();
@@ -86,9 +101,10 @@ export async function refreshLiveDisplay() {
   const portfolio = await readPortfolio();
   const appState = await readAppState();
   const now = new Date();
-  const { funds, totals } = reapplyDisplayFromCachedFunds(portfolio, cache.funds, now);
+  const { funds, totals, totalsByAccount } = reapplyDisplayFromCachedFunds(portfolio, cache.funds, now);
   cache.funds = funds;
   cache.totals = totals;
+  cache.totalsByAccount = totalsByAccount;
   cache.display = pickDisplayTotals(appState.assetViewMode, totals);
   cache.assetViewMode = appState.assetViewMode;
   cache.displayContext = buildDisplayContext(
@@ -99,6 +115,7 @@ export async function refreshLiveDisplay() {
     now,
     cache.quoteUpdatedAt || cache.updatedAt,
   );
+  cache.liveRevision = buildLiveRevision(cache);
   return cache;
 }
 
@@ -135,7 +152,7 @@ async function refreshLive() {
     rememberImpactSources(portfolio.funds, impacts);
     if (!useSourceCache) lastFullRefreshAt = Date.now();
 
-    const { funds: results, totals, displayState } = await runLiveDisplayPipeline(
+    const { funds: results, totals, totalsByAccount, displayState } = await runLiveDisplayPipeline(
       portfolio,
       impacts,
       navInfos,
@@ -171,6 +188,7 @@ async function refreshLive() {
       fxPct,
       funds: results,
       totals,
+      totalsByAccount,
       display,
       displayContext,
       assetViewMode: appState.assetViewMode,
@@ -178,7 +196,10 @@ async function refreshLive() {
       portfolioUpdatedAt:
         portfolio.meta?.lastAutoSettleAt ?? portfolio.meta?.importedAt ?? null,
       error: null,
+      needsLiveQuotes: impacts.some((r) => r?.shouldRefreshLiveRt1),
+      liveRevision: '',
     };
+    cache.liveRevision = buildLiveRevision(cache);
   } catch (e) {
     cache.error = e instanceof Error ? e.message : String(e);
   } finally {
@@ -192,8 +213,16 @@ async function refreshLive() {
 
 /** @param {() => Promise<unknown>} settleFn */
 export function startSchedulers(settleFn) {
-  refreshLive();
-  setInterval(refreshLive, LIVE_REFRESH_MS);
+  const scheduleNextLive = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    const delay = cache.needsLiveQuotes ? LIVE_REFRESH_MS : LIVE_REFRESH_SLOW_MS;
+    refreshTimer = setTimeout(async () => {
+      await refreshLive();
+      scheduleNextLive();
+    }, delay);
+  };
+
+  void refreshLive().then(scheduleNextLive);
 
   const runSettle = async () => {
     if (settleBusy) return;
@@ -212,5 +241,5 @@ export function startSchedulers(settleFn) {
   setInterval(runSettle, SETTLE_CHECK_MS);
 }
 
-export { LIVE_REFRESH_MS, LIVE_FULL_REFRESH_MS, SETTLE_CHECK_MS };
+export { LIVE_REFRESH_MS, LIVE_REFRESH_SLOW_MS, LIVE_FULL_REFRESH_MS, SETTLE_CHECK_MS };
 export { buildDisplayFundRow as buildLiveFundRow } from './fund-display.js';

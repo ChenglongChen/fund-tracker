@@ -11,7 +11,14 @@ export function buildAccountSummaries(rows, accounts) {
     .map((acc) => {
       const funds = rows.filter((f) => f.accountId === acc.id);
       const totalAssets = funds.reduce((s, f) => s + f.amount, 0);
-      const totalSettled = funds.reduce((s, f) => s + (f.settledProfit ?? f.yesterdayProfit ?? 0), 0);
+      let totalSettled = 0;
+      let hasDaily = false;
+      for (const f of funds) {
+        if (f.dailyPending) continue;
+        if (f.settledProfit == null || !Number.isFinite(f.settledProfit)) continue;
+        hasDaily = true;
+        totalSettled += f.settledProfit;
+      }
       const totalHolding = funds.reduce((s, f) => s + f.totalProfit, 0);
       const costBasis = totalAssets - totalHolding;
       const totalHoldingPct = costBasis > 0 ? (totalHolding / costBasis) * 100 : null;
@@ -26,8 +33,8 @@ export function buildAccountSummaries(rows, accounts) {
       return {
         ...acc,
         totalAssets,
-        totalSettled,
-        totalSettledPct: dayProfitPct(totalAssets, totalSettled),
+        totalSettled: hasDaily ? totalSettled : null,
+        totalSettledPct: hasDaily ? dayProfitPct(totalAssets, totalSettled) : null,
         totalRealTime,
         totalRealTimePct,
         hasRealtime,
@@ -37,6 +44,61 @@ export function buildAccountSummaries(rows, accounts) {
       };
     })
     .filter((a) => a.fundCount > 0);
+}
+
+/** @param {object[]} rows */
+export function attachAssetSharePct(rows) {
+  const total = rows.reduce((s, r) => s + (r.displayAmount ?? r.amount ?? 0), 0);
+  return rows.map((r) => ({
+    ...r,
+    assetSharePct:
+      total > 0 ? ((r.displayAmount ?? r.amount ?? 0) / total) * 100 : null,
+  }));
+}
+
+/** 账户概况列表行（字段与基金行对齐，供排序 / 列表渲染） */
+export function buildAccountDisplayRows(rows, accounts, totalsByAccount = null) {
+  const summaries = buildAccountSummaries(rows, accounts);
+  return attachAssetSharePct(
+    summaries.map((acc) => {
+      const canonical = totalsByAccount?.[acc.id];
+      const settledProfit =
+        canonical?.settledProfit != null && Number.isFinite(canonical.settledProfit)
+          ? canonical.settledProfit
+          : acc.totalSettled;
+      const settledPct =
+        settledProfit != null
+          ? (canonical?.settledProfitPct ?? acc.totalSettledPct)
+          : null;
+      const realTimeProfit =
+        canonical?.realtimeProfit != null && Number.isFinite(canonical.realtimeProfit)
+          ? canonical.realtimeProfit
+          : acc.hasRealtime
+            ? acc.totalRealTime
+            : null;
+      const realTimePct =
+        realTimeProfit != null
+          ? (canonical?.realtimeProfitPct ??
+            (acc.totalAssets > 0 ? (realTimeProfit / acc.totalAssets) * 100 : null))
+          : null;
+      return {
+        id: acc.id,
+        name: acc.name,
+        amount: canonical?.settledAssets ?? acc.totalAssets,
+        displayAmount: canonical?.settledAssets ?? acc.totalAssets,
+        realTimeProfit,
+        realTimePct,
+        hasRealtime: realTimeProfit != null && Number.isFinite(realTimeProfit),
+        settledProfit,
+        settledPct,
+        totalProfit: canonical?.holdingProfit ?? acc.totalHolding,
+        totalProfitPct: acc.totalHoldingPct,
+        accountId: acc.id,
+        isAccountRow: true,
+        fundCount: acc.fundCount,
+      };
+    }),
+  );
 }
 
 /** @param {object} target @param {string} field @param {number|null|undefined} value */

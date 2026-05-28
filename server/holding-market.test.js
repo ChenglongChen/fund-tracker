@@ -1,6 +1,7 @@
 import {
   classifyHoldingMarket,
   getUsSessionPhase,
+  isEuMarketOpen,
   isHkMarketOpen,
   isHoldingQuoteLive,
   isJpMarketOpen,
@@ -43,7 +44,17 @@ assert('us quote not live when closed', !isUsQuoteLive(usClosedMidday));
 assert('7747 is hk', classifyHoldingMarket({ code: '7747', name: '南方两倍做多三星' }) === 'hk');
 assert('005930 is kr', classifyHoldingMarket({ code: '005930', name: '三星电子' }) === 'kr');
 assert('NVDA is us', classifyHoldingMarket({ code: 'NVDA', marketId: 105 }) === 'us');
+assert('TSM mid106 is us', classifyHoldingMarket({ code: 'TSM', name: '台积电', marketId: 106 }) === 'us');
 assert('jp name', classifyHoldingMarket({ code: 'X', name: '东京电子' }) === 'jp');
+assert('jp code suffix', classifyHoldingMarket({ code: '4062JP', name: '揖斐电' }) === 'jp');
+assert('jp fujikura name', classifyHoldingMarket({ code: '5803JP', name: '藤仓株式会社' }) === 'jp');
+assert('eu airfp', classifyHoldingMarket({ code: 'AIRFP', name: '空客' }) === 'eu');
+assert('eu rhmgr', classifyHoldingMarket({ code: 'RHMGR', name: '莱茵金属' }) === 'eu');
+assert('eu hermes name', classifyHoldingMarket({ code: 'X', name: '爱马仕' }) === 'eu');
+
+const euOpen = new Date('2026-05-26T08:00:00.000Z');
+assert('eu open 16:00', isEuMarketOpen(euOpen));
+assert('eu closed midday', !isEuMarketOpen(jpOpen));
 
 const krH = { code: '005930', name: '三星电子' };
 const byKey = { '005930\0三星电子': { changePct: 2.5, price: 100, quoteSource: 'eastmoney' } };
@@ -73,6 +84,15 @@ const adiMid = applySessionQuotes(
 );
 assert('us midday closed mode', adiMid[0].quoteMode === 'close');
 assert('us midday closed session', adiMid[0].quoteSession === 'closed');
+
+const tsm = { code: 'TSM', name: '台积电', marketId: 106 };
+const tsmMid = applySessionQuotes(
+  [tsm],
+  { 'TSM\0台积电': { changePct: 2.52, price: 422.73, quoteSource: 'sina' } },
+  usMidday,
+);
+assert('TSM mid106 us closed session', tsmMid[0].quoteSession === 'closed');
+assert('TSM mid106 frozen when us closed', tsmMid[0].quoteMode === 'close');
 
 const cnMidday = new Date('2026-05-28T04:00:00.000Z');
 const cnH = { code: '600519', name: '贵州茅台' };
