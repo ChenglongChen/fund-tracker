@@ -23,31 +23,6 @@ export function buildAccountSummaries(rows, accounts) {
       const totalRealTimePct =
         hasRealtime && totalAssets > 0 ? (totalRealTime / totalAssets) * 100 : null;
 
-      let totalRealTimeExtended = 0;
-      let usAssets = 0;
-      let extendedSession = null;
-      for (const f of funds) {
-        const ext = f.realTimeProfitExtended;
-        if (ext != null && Number.isFinite(ext)) totalRealTimeExtended += ext;
-        if (f.market === 'us') {
-          usAssets += f.amount ?? 0;
-          if (
-            f.impactSession === 'premarket' ||
-            f.impactSession === 'afterhours' ||
-            f.impactSession === 'overnight'
-          ) {
-            extendedSession = f.impactSession;
-          }
-        }
-      }
-      totalRealTimeExtended = Math.round(totalRealTimeExtended * 100) / 100;
-      const totalRealTimeExtendedPct =
-        usAssets > 0 ? (totalRealTimeExtended / usAssets) * 100 : null;
-      const hasExtendedRealtime =
-        extendedSession != null &&
-        totalRealTimeExtended != null &&
-        Math.abs(totalRealTimeExtended) >= 0.001;
-
       return {
         ...acc,
         totalAssets,
@@ -56,10 +31,6 @@ export function buildAccountSummaries(rows, accounts) {
         totalRealTime,
         totalRealTimePct,
         hasRealtime,
-        totalRealTimeExtended,
-        totalRealTimeExtendedPct,
-        hasExtendedRealtime,
-        extendedSession,
         totalHolding,
         totalHoldingPct,
         fundCount: funds.length,

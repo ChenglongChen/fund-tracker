@@ -52,7 +52,7 @@ function buildNavBucketHeadLabel(liveFunds, pickDate) {
  * @param {string} updatedAt
  */
 export function buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt) {
-  const realtime = beijingDate ? `${fmtMd(beijingDate)} ${updatedAt}` : updatedAt;
+  const realtime = beijingDate ? fmtMd(beijingDate) : '—';
 
   const daily = buildNavBucketHeadLabel(liveFunds, (f) => f.settledNavDate || f.dailyAsOfDate);
   let holding = buildNavBucketHeadLabel(liveFunds, (f) => f.settledNavDate || f.lastNavDate);

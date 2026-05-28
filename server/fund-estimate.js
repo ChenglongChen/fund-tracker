@@ -2,7 +2,6 @@ import {
   getRt1AccrualDay,
   isUsExtendedEstimateWindow,
   isUsPremarketEstimateWindow,
-  resolveDisplaySession,
 } from './display-session.js';
 import {
   getActiveScopeSnap,
@@ -42,29 +41,8 @@ export function liveImpactForEstimate(r, market) {
  * @param {{ market?: string, impactPct?: number|null, impactPctRegular?: number|null, impactPctExtended?: number|null } | null} live
  * @param {Date} [now]
  */
-export function fundEstimateImpactPct(live, now = new Date()) {
+export function fundEstimateImpactPct(live, _now = new Date()) {
   if (!live || live.impactPct == null || !Number.isFinite(live.impactPct)) return null;
-
-  const market = live.market ?? 'cn';
-  if (market !== 'us') return live.impactPct;
-
-  const { usPhase } = resolveDisplaySession(now);
-  if (usPhase === 'premarket' || usPhase === 'afterhours' || usPhase === 'overnight') {
-    const regular = live.impactPctRegular ?? live.impactPct;
-    return regular != null && Number.isFinite(regular) ? regular : null;
-  }
-  if (usPhase === 'regular') {
-    const regular = live.impactPctRegular;
-    const extended = live.impactPctExtended;
-    if (
-      regular != null &&
-      extended != null &&
-      Number.isFinite(regular) &&
-      Number.isFinite(extended)
-    ) {
-      return regular + extended;
-    }
-  }
   return live.impactPct;
 }
 

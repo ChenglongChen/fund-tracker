@@ -1,17 +1,17 @@
 /* 涨跌色：中英文界面统一红涨绿跌 */
 :root {
-  --up: #e64340;
-  --down: #09bb07;
+  --up: #f54346;
+  --down: #00b376;
   --flat: #999999;
-  --primary: #2f6ef0;
+  --primary: #3b78ff;
   --accent: var(--primary);
-  --accent-soft: #eef2f8;
-  --header-grad: linear-gradient(180deg, #3d7dff 0%, var(--primary) 100%);
-  --header-up: #ffe8e8;
-  --header-down: #d4ffe8;
+  --accent-soft: #f0f4ff;
+  --header-grad: linear-gradient(180deg, #5a92ff 0%, var(--primary) 100%);
+  --header-up: #fff0f0;
+  --header-down: #edf9f4;
   --list-grid: minmax(0, 1.48fr) minmax(76px, 0.78fr) minmax(76px, 0.78fr) minmax(76px, 0.78fr);
-  --list-col-gap: 6px;
-  --list-pad-x: 14px;
+  --list-col-gap: 8px;
+  --list-pad-x: 16px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -37,28 +37,31 @@
 
 html[data-theme='light'] {
   color-scheme: light;
-  --bg-shell: #f5f5f5;
+  --bg-shell: #ffffff;
   --bg-page: #ffffff;
-  --bg-muted: #fafafa;
+  --bg-muted: #f7f8fa;
   --bg-row: #ffffff;
-  --bg-row-active: #f7f7f7;
-  --bg-elevated: #fafafa;
+  --bg-row-active: #f5f6f8;
+  --bg-elevated: #f7f8fa;
   --bg-card: #ffffff;
-  --text: #111111;
+  --text: #1a1a1a;
   --text-secondary: #333333;
-  --text-muted: #888888;
-  --text-dim: #aaaaaa;
+  --text-muted: #999999;
+  --text-dim: #b3b3b3;
   --border: #eeeeee;
-  --border-light: #f0f0f0;
+  --border-light: #eeeeee;
   --shadow-page: none;
-  --badge-bg: #eef2f8;
+  --shadow-bar: 0 -1px 0 #eeeeee, 0 -4px 10px rgba(0, 0, 0, 0.05);
+  --up-soft: rgba(245, 67, 70, 0.08);
+  --down-soft: rgba(0, 179, 118, 0.08);
+  --badge-bg: #f0f4ff;
   --badge-text: var(--primary);
   --btn-border: var(--primary);
-  --btn-bg: #eef2f8;
+  --btn-bg: #f0f4ff;
   --btn-text: var(--primary);
   --toggle-bg: rgba(255, 255, 255, 0.95);
-  --toggle-border: rgba(0, 0, 0, 0.08);
-  --toggle-text: #333;
+  --toggle-border: rgba(0, 0, 0, 0.06);
+  --toggle-text: #333333;
 }
 
 html[data-theme='dark'] {
@@ -93,6 +96,9 @@ html[data-theme='dark'] {
   --toggle-bg: rgba(40, 42, 48, 0.92);
   --toggle-border: rgba(255, 255, 255, 0.12);
   --toggle-text: #e8ebf3;
+  --shadow-bar: 0 -1px 0 var(--border-light), 0 -4px 12px rgba(0, 0, 0, 0.32);
+  --up-soft: rgba(255, 77, 79, 0.12);
+  --down-soft: rgba(54, 194, 117, 0.12);
 }
 
 .is-up {
@@ -181,6 +187,11 @@ button {
   background: var(--bg-page);
   color: var(--text);
   box-shadow: var(--shadow-page);
+}
+
+html[data-theme='light'] .app-shell {
+  padding: 0;
+  background: var(--bg-page);
 }
 
 html[data-theme='light'] .phone-page {
@@ -373,6 +384,10 @@ button:focus-visible,
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
+html[data-theme='light'] .portfolio-sticky {
+  box-shadow: none;
+}
+
 html[data-theme='dark'] .portfolio-sticky {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
@@ -386,6 +401,7 @@ html[data-theme='dark'] .portfolio-sticky {
   overscroll-behavior: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  background: var(--bg-page);
 }
 
 .portfolio-page.has-index-dock,
@@ -480,11 +496,12 @@ html[data-theme='dark'] .portfolio-sticky {
 .account-tab {
   flex-shrink: 0;
   margin: 0;
-  padding: 10px 12px;
+  padding: 9px 11px 10px;
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
   white-space: nowrap;
   position: relative;
 }
@@ -550,15 +567,15 @@ html[data-theme='dark'] .portfolio-sticky {
 }
 
 .account-tab.is-active {
-  color: var(--primary);
+  color: var(--text);
   font-weight: 600;
 }
 
 .account-tab.is-active::after {
   content: '';
   position: absolute;
-  left: 18%;
-  right: 18%;
+  left: 22%;
+  right: 22%;
   bottom: 0;
   height: 2px;
   background: var(--primary);
@@ -566,27 +583,28 @@ html[data-theme='dark'] .portfolio-sticky {
 }
 
 .list-head-config-spacer {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
 }
 
 .account-summary-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 6px var(--list-pad-x) 0;
+  gap: 10px;
+  padding: 8px var(--list-pad-x) 0;
 }
 
 .account-summary-card {
   width: 100%;
   margin: 0;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
   background: var(--bg-card);
   text-align: left;
   color: inherit;
+  box-shadow: none;
 }
 
 html[data-theme='dark'] .account-summary-card {
@@ -602,8 +620,8 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .account-summary-name {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -692,11 +710,25 @@ html[data-theme='dark'] .account-summary-card {
 
 .account-summary-val {
   margin: 2px 0 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   color: var(--text);
+}
+
+.account-summary-card .holding-sub.is-up {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--up-soft);
+}
+
+.account-summary-card .holding-sub.is-down {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--down-soft);
 }
 
 .account-summary-sub {
@@ -726,10 +758,10 @@ html[data-theme='dark'] .account-summary-card {
 .status-strip {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 var(--list-pad-x) 6px;
+  gap: 3px;
+  padding: 0 var(--list-pad-x) 8px;
   background: var(--bg-page);
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 0;
 }
 
 .status-strip-meta {
@@ -740,12 +772,12 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .status-strip-chip {
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--badge-bg);
   color: var(--badge-text);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
 }
 
@@ -854,13 +886,14 @@ html[data-theme='dark'] .account-summary-card {
 .yj-summary-val {
   margin: 2px 0 0;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
 }
 
 .yj-summary-col--amount .yj-summary-val {
-  font-size: 22px;
+  font-size: 26px;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);
 }
@@ -871,7 +904,7 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .yj-summary {
-  padding: 2px var(--list-pad-x) 8px;
+  padding: 4px var(--list-pad-x) 10px;
   background: transparent;
   border-bottom: 0;
 }
@@ -886,6 +919,7 @@ html[data-theme='dark'] .account-summary-card {
 .yj-summary-label {
   margin: 0;
   font-size: 12px;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
@@ -946,11 +980,10 @@ html[data-theme='dark'] .account-summary-card {
   display: grid;
   grid-template-columns: var(--list-grid);
   column-gap: var(--list-col-gap);
-  align-items: end;
-  padding: 8px var(--list-pad-x) 8px;
-  background: var(--bg-muted);
-  border-bottom: 1px solid var(--border);
-  border-top: 1px solid var(--border-light);
+  align-items: center;
+  padding: 6px var(--list-pad-x) 5px;
+  background: transparent;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .list-table-head-name {
@@ -969,17 +1002,22 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .list-table-head-sort--left {
-  align-items: flex-start;
+  align-items: center;
+  justify-content: flex-start;
   text-align: left;
   padding-right: 0;
 }
 
+.list-table-head-sort--left .list-table-head-label {
+  align-items: flex-start;
+}
+
 .list-table-head-sort.is-active .list-table-head-title {
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 .list-table-head-sort:active {
-  opacity: 0.72;
+  opacity: 0.68;
 }
 
 .sort-indicator {
@@ -997,7 +1035,7 @@ html[data-theme='dark'] .account-summary-card {
 
 .list-table-head-first {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 0;
   min-width: 0;
 }
@@ -1012,13 +1050,13 @@ html[data-theme='dark'] .account-summary-card {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  margin: 0 0 0 0;
+  width: 24px;
+  height: 24px;
+  margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 8px;
-  background: var(--bg-muted);
+  border-radius: 6px;
+  background: transparent;
   color: var(--text-muted);
   line-height: 0;
   touch-action: manipulation;
@@ -1026,8 +1064,8 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .list-head-config-icon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
   pointer-events: none;
 }
@@ -1115,32 +1153,86 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .list-table-head-col {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+  text-align: right;
+}
+
+.list-table-head-label {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: flex-end;
-  gap: 2px;
-  text-align: right;
-  padding-right: 1px;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.list-table-head-sort-arrows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  gap: 0;
+  width: 8px;
+  height: 18px;
+}
+
+.sort-arrow {
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  opacity: 0.38;
+}
+
+.sort-arrow--up {
+  border-bottom: 3.5px solid var(--accent);
+  margin-bottom: 1px;
+}
+
+.sort-arrow--down {
+  border-top: 3.5px solid var(--accent);
+}
+
+.sort-arrow.is-on {
+  opacity: 0.95;
+}
+
+.list-table-head-sort.is-active .sort-arrow:not(.is-on) {
+  opacity: 0.22;
 }
 
 .list-table-head-title {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  line-height: 1.25;
-  letter-spacing: 0.01em;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.15;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
+.list-table-head-title--static {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 .list-table-head-date {
-  min-height: 14px;
-  line-height: 1.2;
+  min-height: 0;
+  line-height: 1.15;
 }
 
 .list-table-head-date-text {
   font-size: 10px;
-  color: var(--text-dim);
+  font-weight: 400;
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1157,7 +1249,7 @@ html[data-theme='dark'] .account-summary-card {
   column-gap: var(--list-col-gap);
   align-items: center;
   width: 100%;
-  padding: 9px var(--list-pad-x);
+  padding: 11px var(--list-pad-x);
   border: 0;
   border-bottom: 1px solid var(--border-light);
   background: var(--bg-row);
@@ -1181,13 +1273,13 @@ html[data-theme='dark'] .account-summary-card {
 
 .holding-name {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .holding-meta {
@@ -1212,7 +1304,7 @@ html[data-theme='dark'] .account-summary-card {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .holding-account-badge {
@@ -1240,7 +1332,7 @@ html[data-theme='dark'] .account-summary-card {
 
 .holding-val {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
@@ -1320,61 +1412,52 @@ html[data-theme='dark'] .account-summary-card {
   width: 100%;
   box-sizing: border-box;
   min-height: var(--index-dock-h);
-  padding: 4px 12px 4px;
+  padding: 4px var(--list-pad-x);
   border: 0;
-  border-top: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--bg-page);
   color: var(--text);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.35s ease;
-}
-
-html[data-theme='light'] .index-dock-bar.is-up {
-  background: #fff3f3;
-}
-
-html[data-theme='light'] .index-dock-bar.is-down {
-  background: #f0faf4;
-}
-
-html[data-theme='dark'] .index-dock-bar.is-up {
-  background: rgba(42, 24, 24, 0.98);
-}
-
-html[data-theme='dark'] .index-dock-bar.is-down {
-  background: rgba(20, 36, 28, 0.98);
+  box-shadow: var(--shadow-bar, 0 -1px 0 var(--border-light), 0 -4px 10px rgba(0, 0, 0, 0.05));
 }
 
 html[data-theme='dark'] .index-dock-bar {
-  background: rgba(30, 30, 30, 0.98);
-}
-
-html[data-theme='dark'] .index-dock-bar.is-flat {
-  background: rgba(30, 30, 30, 0.98);
+  box-shadow:
+    0 -1px 0 var(--border-light),
+    0 -4px 12px rgba(0, 0, 0, 0.32);
 }
 
 .index-dock-bar:active {
-  filter: brightness(0.98);
+  background: var(--bg-row-active);
 }
 
 .index-dock-carousel {
   flex: 1;
-  height: var(--index-dock-h);
   min-width: 0;
-  opacity: 1;
-  transition: opacity 0.16s ease;
+  height: var(--index-dock-h);
 }
 
-.index-dock-carousel.is-fading {
-  opacity: 0;
+.index-dock-carousel-viewport {
+  height: var(--index-dock-h);
+  overflow: hidden;
+}
+
+.index-dock-carousel-track {
+  display: flex;
+  flex-direction: column;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+.index-dock-carousel-track.is-scrolling {
+  transform: translate3d(0, calc(-1 * var(--index-dock-h)), 0);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .index-dock-slide {
   display: flex;
   align-items: center;
+  flex: 0 0 var(--index-dock-h);
   width: 100%;
   height: var(--index-dock-h);
   box-sizing: border-box;
@@ -2009,28 +2092,8 @@ html[data-theme='dark'] .index-drawer {
   padding: 16px 14px 18px;
   border-radius: 12px;
   text-align: center;
-  background: var(--bg-muted);
+  background: transparent;
   border: 1px solid var(--border-light);
-}
-
-html[data-theme='light'] .detail-hero.is-up {
-  background: linear-gradient(180deg, var(--header-up) 0%, var(--bg-page) 100%);
-  border-color: rgba(230, 67, 64, 0.12);
-}
-
-html[data-theme='light'] .detail-hero.is-down {
-  background: linear-gradient(180deg, var(--header-down) 0%, var(--bg-page) 100%);
-  border-color: rgba(9, 187, 7, 0.12);
-}
-
-html[data-theme='dark'] .detail-hero.is-up {
-  background: linear-gradient(180deg, rgba(255, 77, 79, 0.16) 0%, var(--bg-card) 100%);
-  border-color: transparent;
-}
-
-html[data-theme='dark'] .detail-hero.is-down {
-  background: linear-gradient(180deg, rgba(54, 194, 117, 0.14) 0%, var(--bg-card) 100%);
-  border-color: transparent;
 }
 
 .detail-hero-code {
@@ -2050,7 +2113,7 @@ html[data-theme='dark'] .detail-hero.is-down {
 .detail-hero-pct {
   margin: 4px 0 0;
   font-size: 34px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -2078,7 +2141,7 @@ html[data-theme='dark'] .detail-hero.is-down {
 .detail-metric {
   padding: 10px 8px;
   border-radius: 10px;
-  background: var(--bg-muted);
+  background: transparent;
   border: 1px solid var(--border-light);
   text-align: center;
 }
@@ -2092,7 +2155,7 @@ html[data-theme='dark'] .detail-hero.is-down {
 .detail-metric-val {
   margin: 6px 0 0;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
@@ -2116,7 +2179,7 @@ html[data-theme='dark'] .detail-hero.is-down {
 .detail-section-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -2135,9 +2198,9 @@ html[data-theme='dark'] .detail-hero.is-down {
   flex-direction: column;
   overflow: hidden;
   margin: 0 var(--list-pad-x);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
 }
 
 html[data-theme='dark'] .holdings-card {
@@ -2204,6 +2267,13 @@ html[data-theme='dark'] .holdings-card {
   text-align: right;
 }
 
+.table-head-sort--center {
+  justify-content: center;
+  justify-self: stretch;
+  width: 100%;
+  text-align: center;
+}
+
 .table-head-sort.is-active {
   color: var(--accent);
 }
@@ -2236,9 +2306,13 @@ html[data-theme='dark'] .holdings-card {
 
 .stock-weight,
 .stock-change,
-.stock-status,
 .table-head-sort--right {
   text-align: right;
+}
+
+.stock-status,
+.table-head-sort--center {
+  text-align: center;
 }
 
 .stock-change {
@@ -2267,7 +2341,8 @@ html[data-theme='dark'] .holdings-card {
   color: var(--text-secondary);
 }
 
-.stock-status.is-close {
+.stock-status.is-close,
+.stock-status.is-midday {
   color: var(--text-muted);
 }
 
@@ -2504,14 +2579,13 @@ html[data-theme='dark'] .holdings-card {
   align-items: stretch;
   min-height: var(--bottom-nav-h);
   padding-bottom: var(--safe-bottom);
-  border-top: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-page);
 }
 
 html[data-theme='dark'] .bottom-tabs {
   background: rgba(30, 30, 30, 0.96);
+  border-top-color: var(--border);
 }
 
 .bottom-tab {
@@ -2524,7 +2598,7 @@ html[data-theme='dark'] .bottom-tabs {
   padding: 4px 4px 2px;
   border: 0;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-dim);
   font-size: 10px;
   line-height: 1.1;
   cursor: pointer;
@@ -2534,6 +2608,7 @@ html[data-theme='dark'] .bottom-tabs {
 
 .bottom-tab.is-active {
   color: var(--primary);
+  font-weight: 500;
 }
 
 .bottom-tab-icon {

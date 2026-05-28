@@ -11,6 +11,7 @@ import {
   clearScopeSnap,
   loadDayDisplayState,
   setBaselineForDay,
+  setCurrentPhase,
 } from './day-display-state.js';
 import { finalizeLiveFundDisplayRow } from './components/suppress.js';
 
@@ -24,7 +25,7 @@ function assert(name, cond) {
 
 await loadDayDisplayState();
 
-const afterhours = new Date('2026-05-27T21:40:00.000Z');
+const eodWindow = new Date('2026-05-28T08:30:00.000Z');
 const accrualDay = '2026-05-28';
 
 const portfolio = {
@@ -35,7 +36,7 @@ const portfolio = {
 };
 
 const impacts = [
-  { impactPct: 1.2, impactPctRegular: 1.2, impactPctExtended: 0.3 },
+  { impactPct: 1.2, impactPctRegular: 1.2 },
   { impactPct: null, impactPctRegular: null },
 ];
 
@@ -46,7 +47,8 @@ const liveFunds = [
     market: 'us',
     estimateProfit: 6000,
     impactPctRegular: 1.2,
-    impactSession: 'afterhours',
+    impactSession: 'closed',
+    shouldRefreshLiveRt1: false,
   },
   {
     id: 2,
@@ -59,24 +61,25 @@ const liveFunds = [
 ];
 
 setBaselineForDay(accrualDay, 'portfolio', 625000);
-clearScopeSnap(accrualDay, 'afterhoursSnap', 'portfolio');
+clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+setCurrentPhase('eod_freeze', eodWindow);
 
-const totalsPre = computePortfolioTotals(portfolio, liveFunds, afterhours);
-reconcileDisplayState(portfolio, liveFunds, totalsPre, impacts, afterhours);
+const totalsPre = computePortfolioTotals(portfolio, liveFunds, eodWindow);
+reconcileDisplayState(portfolio, liveFunds, totalsPre, impacts, eodWindow);
 
 const snapped = portfolio.funds.map((f) => {
   const row = liveFunds.find((x) => x.id === f.id);
   return finalizeLiveFundDisplayRow(
-    applyFundRt1Snap(f.id, row, accrualDay, afterhours),
-    afterhours,
+    applyFundRt1Snap(f.id, row, accrualDay, eodWindow),
+    eodWindow,
   );
 });
 
 assert('cn suppressed after snap', snapped[1].estimateProfit == null && !snapped[1].displaySnap);
 assert('us snapped row1', snapped[0].displaySnap && snapped[0].estimateProfit === 6000);
 
-const totalsLive = computePortfolioTotals(portfolio, snapped, afterhours);
-const totals = applyPortfolioTotalsSnap(totalsLive, accrualDay, afterhours);
+const totalsLive = computePortfolioTotals(portfolio, snapped, eodWindow);
+const totals = applyPortfolioTotalsSnap(totalsLive, accrualDay, eodWindow);
 const sumEp = snapped.reduce((s, r) => s + (r.estimateProfit ?? 0), 0);
 
 assert('header equals sum row1', totals.realtimeProfit === Math.round(sumEp * 100) / 100);

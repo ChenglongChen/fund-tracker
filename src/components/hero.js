@@ -1,18 +1,14 @@
-import { escapeHtml, fmtPct, pctClass } from '../format.js';
+import { escapeHtml, fmtHeadDateLabel, fmtPct, pctClass } from '../format.js';
 import { fmtEstimatedAssets, fmtMoney } from '../display-format.js';
-import { hasExtendedSummaryLayout } from '../summary.js';
 import { buildAccountSummaries } from '../accounts.js';
 import { visibleMetricColumns } from '../column-layout.js';
 import { app } from '../app/context.js';
 import { setTextClass } from '../dom.js';
 import {
   renderPctSub,
-  renderRealtimeSplitRow,
   setPctSubEl,
 } from './metrics.js';
-import { extendedSessionLabel } from './session.js';
 import { renderPrivacyToggle, patchPrivacyToggle } from './privacy-ui.js';
-import { renderStatusStrip } from './status.js';
 
 function orderedMetrics() {
   return visibleMetricColumns(app().state.metricColumnOrder, app().state.metricColumnVisible);
@@ -52,7 +48,7 @@ export function renderAccountSummaryCard(acc) {
           <p class="account-summary-val">${fmtMoney(acc.totalAssets)}</p>
           <p class="account-summary-sub account-summary-sub--combo">${fmtMoney(acc.totalHolding, true)} · ${renderPctSub(acc.totalHoldingPct, { tag: 'span', extraClass: '' })}</p>
         </div>
-        <div class="account-summary-col account-summary-col--center${acc.hasExtendedRealtime ? ' account-summary-col--rt-split' : ''}">
+        <div class="account-summary-col account-summary-col--center">
           <div class="account-summary-label-row account-summary-label-row--center">
             <span class="account-summary-label">实时收益</span>
           </div>
@@ -71,35 +67,23 @@ export function renderAccountSummaryCard(acc) {
 
 function summaryHeadDate(col) {
   const head = app().state.displayContext?.tableHead?.[col];
-  const label = head?.label ?? head?.line1 ?? '';
+  const label = fmtHeadDateLabel(head?.label ?? head?.line1 ?? '');
   return label ? `<span class="yj-summary-date">${escapeHtml(label)}</span>` : '';
 }
 
 export function renderSummaryRealtimeBody(s) {
-  if (!hasExtendedSummaryLayout(s)) {
-    const rtCls = pctClass(s.totalRealTime);
-    return `
+  const rtCls = pctClass(s.totalRealTime);
+  return `
       <p class="yj-summary-val ${rtCls}">${fmtMoney(s.totalRealTime, true)}</p>
       ${renderPctSub(s.totalRealTimePct, { extraClass: 'yj-summary-sub' })}`;
-  }
-  const rtCls = pctClass(s.totalRealTime);
-  const tag = extendedSessionLabel(s.extendedSession);
-  return `
-    <div class="yj-summary-rt-split">
-      <p class="metric-split-row">
-        <span class="holding-val ${rtCls}">${fmtMoney(s.totalRealTime, true)}</span>
-        <span class="holding-sub ${rtCls}">${fmtPct(s.totalRealTimePct)}</span>
-      </p>
-      ${renderRealtimeSplitRow(s.totalRealTimeExtended ?? 0, s.totalRealTimeExtendedPct ?? 0, { tag })}
-    </div>`;
 }
 
 export function renderSummaryMetricCol(title, colKey, val, pct, { signed = false, amount = false, summary = null } = {}) {
   const dateHtml = colKey ? summaryHeadDate(colKey) : '';
   const valCls = pctClass(signed ? val : pct);
-  if (colKey === 'realtime' && summary && hasExtendedSummaryLayout(summary)) {
+  if (colKey === 'realtime' && summary) {
     return `
-    <div class="yj-summary-col yj-summary-col--rt-split" data-summary-col="${colKey}">
+    <div class="yj-summary-col" data-summary-col="${colKey}">
       <p class="yj-summary-label">${escapeHtml(title)}${dateHtml}</p>
       ${renderSummaryRealtimeBody(summary)}
     </div>`;
@@ -114,24 +98,9 @@ export function renderSummaryMetricCol(title, colKey, val, pct, { signed = false
 
 export function renderAccountRealtimeBody(acc) {
   const rtCls = pctClass(acc.hasRealtime ? acc.totalRealTime : null);
-  if (!acc.hasExtendedRealtime) {
-    return `
+  return `
           <p class="account-summary-val ${rtCls}" data-account-rt-val>${acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—'}</p>
           <p class="account-summary-sub account-summary-sub--combo" data-account-rt-pct>${renderPctSub(acc.hasRealtime ? acc.totalRealTimePct : null, { tag: 'span', extraClass: '' })}</p>`;
-  }
-  const tag = extendedSessionLabel(acc.extendedSession);
-  return `
-          <div class="account-summary-rt-split" data-account-rt-split>
-            <p class="metric-split-row">
-              <span class="holding-val ${rtCls}" data-account-rt-val>${acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—'}</span>
-              ${renderPctSub(acc.hasRealtime ? acc.totalRealTimePct : null, {
-                tag: 'span',
-                extraClass: 'holding-sub',
-                attrs: 'data-account-rt-pct',
-              })}
-            </p>
-            ${renderRealtimeSplitRow(acc.totalRealTimeExtended ?? 0, acc.totalRealTimeExtendedPct ?? 0, { tag })}
-          </div>`;
 }
 
 export function renderPortfolioHeader() {
@@ -159,8 +128,7 @@ export function renderPortfolioHeader() {
           })
           .join('')}
       </div>
-    </header>
-    ${renderStatusStrip()}`;
+    </header>`;
 }
 
 export function summaryAssetsLabel() {
@@ -169,32 +137,6 @@ export function summaryAssetsLabel() {
 
 export function patchSummaryRealtimeCol(colEl, s) {
   if (!colEl || !s) return;
-  if (hasExtendedSummaryLayout(s)) {
-    let split = colEl.querySelector('.yj-summary-rt-split');
-    if (!split) {
-      colEl.classList.add('yj-summary-col--rt-split');
-      const label = colEl.querySelector('.yj-summary-label');
-      colEl.innerHTML = `${label?.outerHTML ?? ''}${renderSummaryRealtimeBody(s)}`;
-      return;
-    }
-    const rows = split.querySelectorAll('.metric-split-row');
-    if (rows.length < 2) return;
-    const rtCls = pctClass(s.totalRealTime);
-    const patchRow = (rowEl, val, pct, signed = true) => {
-      const cls = pctClass(signed ? val : pct);
-      const valEl = rowEl.querySelector('.holding-val');
-      const subEl = rowEl.querySelector('.holding-sub');
-      if (valEl) {
-        valEl.textContent = fmtMoney(val, signed);
-        setTextClass(valEl, cls);
-      }
-      if (subEl) setPctSubEl(subEl, pct);
-    };
-    patchRow(rows[0], s.totalRealTime, s.totalRealTimePct);
-    patchRow(rows[1], s.totalRealTimeExtended ?? 0, s.totalRealTimeExtendedPct ?? 0);
-    return;
-  }
-
   colEl.classList.remove('yj-summary-col--rt-split');
   const valEl = colEl.querySelector('.yj-summary-val');
   const subEl = colEl.querySelector('.yj-summary-sub');
@@ -226,10 +168,11 @@ export function patchSummaryCol(col, { val, pct, signed = false, subText, subMut
       }
       patchPrivacyToggle();
     } else if (dateCol) {
-      const dateLabel =
+      const dateLabel = fmtHeadDateLabel(
         app().state.displayContext?.tableHead?.[dateCol]?.label ??
-        app().state.displayContext?.tableHead?.[dateCol]?.line1 ??
-        '';
+          app().state.displayContext?.tableHead?.[dateCol]?.line1 ??
+          '',
+      );
       labelEl.innerHTML = `${escapeHtml(titles[col] || '')}${dateLabel ? `<span class="yj-summary-date">${escapeHtml(dateLabel)}</span>` : ''}`;
     }
   }
@@ -286,36 +229,15 @@ export function patchAccountSummaryCards() {
     }
 
     if (rtCol) {
-      if (acc.hasExtendedRealtime) {
-        const split = rtCol.querySelector('[data-account-rt-split]');
-        if (!split) return false;
-        const rows = split.querySelectorAll('.metric-split-row');
-        if (rows.length < 2) return false;
-        const rtCls = pctClass(acc.hasRealtime ? acc.totalRealTime : null);
-        const patchRow = (rowEl, val, pct, signed = true) => {
-          const cls = pctClass(signed ? val : pct);
-          const valEl = rowEl.querySelector('.holding-val');
-          const subEl = rowEl.querySelector('.holding-sub');
-          if (valEl) {
-            valEl.textContent = fmtMoney(val, signed);
-            setTextClass(valEl, cls);
-          }
-          if (subEl) setPctSubEl(subEl, pct);
-        };
-        patchRow(rows[0], acc.totalRealTime, acc.totalRealTimePct);
-        patchRow(rows[1], acc.totalRealTimeExtended ?? 0, acc.totalRealTimeExtendedPct ?? 0);
-      } else {
-        const rtVal = rtCol.querySelector('.account-summary-val');
-        const rtSub = rtCol.querySelector('[data-account-rt-pct], .account-summary-sub--combo');
-        const rtCls = pctClass(acc.hasRealtime ? acc.totalRealTime : null);
-        if (rtVal) {
-          rtVal.textContent = acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—';
-          setTextClass(rtVal, rtCls);
-        }
-        if (rtSub) {
-          rtSub.className = 'account-summary-sub account-summary-sub--combo';
-          rtSub.innerHTML = renderPctSub(acc.hasRealtime ? acc.totalRealTimePct : null, { tag: 'span', extraClass: '' });
-        }
+      const rtVal = rtCol.querySelector('.account-summary-val');
+      const rtSub = rtCol.querySelector('[data-account-rt-pct], .account-summary-sub--combo');
+      if (rtVal) {
+        rtVal.textContent = acc.hasRealtime ? fmtMoney(acc.totalRealTime, true) : '—';
+        setTextClass(rtVal, rtCls);
+      }
+      if (rtSub) {
+        rtSub.className = 'account-summary-sub account-summary-sub--combo';
+        rtSub.innerHTML = renderPctSub(acc.hasRealtime ? acc.totalRealTimePct : null, { tag: 'span', extraClass: '' });
       }
     }
 

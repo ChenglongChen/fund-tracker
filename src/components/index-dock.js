@@ -1,7 +1,6 @@
 import { escapeHtml, fmtIndexChange, fmtIndexPrice, fmtPct, pctClass } from '../format.js';
 import { app } from '../app/context.js';
 import { setTextClass } from '../dom.js';
-import { extendedSessionLabel } from './session.js';
 import { renderBottomTabs, showAppBottomChrome } from './bottom-tabs.js';
 
 const INDEX_DOCK_CAROUSEL_MS = 4000;
@@ -72,30 +71,14 @@ function resolveIndexQuote(it) {
   return { price, change, changePct };
 }
 
-function indexShowsDual(it) {
-  return (
-    it?.market === 'us' &&
-    (it?.quoteSession === 'premarket' ||
-      it?.quoteSession === 'afterhours' ||
-      it?.quoteSession === 'overnight') &&
-    it?.changePctRegular != null &&
-    Number.isFinite(Number(it.changePctRegular))
-  );
+function indexShowsDual(_it) {
+  return false;
 }
 
 function renderIndexDockSlide(it) {
   const { price, change, changePct } = resolveIndexQuote(it);
   const cls = pctClass(changePct);
-  const extLabel = extendedSessionLabel(it?.quoteSession);
-  const quoteInner = indexShowsDual(it)
-    ? `
-        <span class="index-dock-price ${pctClass(it.changePctRegular)}">${fmtIndexPrice(price)}</span>
-        <span class="index-dock-pct ${pctClass(it.changePctRegular)}">${fmtPct(it.changePctRegular)}</span>
-        <span class="index-dock-ext">
-          <span class="index-dock-ext-pct ${cls}">${fmtPct(changePct)}</span>
-          <span class="metric-dual-line__tag">${extLabel}</span>
-        </span>`
-    : `
+  const quoteInner = `
         <span class="index-dock-price ${cls}">${fmtIndexPrice(price)}</span>
         <span class="index-dock-change ${cls}">${fmtIndexChange(change)}</span>
         <span class="index-dock-pct ${cls}">${fmtPct(changePct)}</span>`;
@@ -116,7 +99,11 @@ function renderIndexDockBar() {
     <div class="index-dock" id="index-dock">
       <button type="button" class="index-dock-bar ${tone}" id="btn-index-dock" aria-expanded="${app().state.indexDrawerOpen}" aria-controls="index-drawer">
         <span class="index-dock-carousel" aria-live="polite" aria-atomic="true">
-          ${renderIndexDockSlide(active)}
+          <span class="index-dock-carousel-viewport">
+            <span class="index-dock-carousel-track">
+              ${renderIndexDockSlide(active)}
+            </span>
+          </span>
         </span>
         <span class="index-dock-chevron" aria-hidden="true">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
@@ -246,33 +233,64 @@ function patchIndexDockSlideEl(slideEl, it) {
   }
 }
 
+function updateIndexDockBarTone(it) {
+  const bar = document.getElementById('btn-index-dock');
+  if (!bar || !it) return;
+  const tone = pctClass(it.changePct);
+  bar.classList.remove('is-up', 'is-down', 'is-flat');
+  bar.classList.add(tone);
+}
+
+function settleIndexDockTrack(track, it) {
+  track.classList.remove('is-scrolling');
+  track.innerHTML = renderIndexDockSlide(it);
+  updateIndexDockBarTone(it);
+}
+
 function patchIndexDockCarousel(animate = true) {
   const slides = dockCarouselIndices();
   if (!slides.length) return false;
   if (app().state.indexDockSlide >= slides.length) app().state.indexDockSlide = 0;
-  const carousel = document.querySelector('.index-dock-carousel');
-  if (!carousel) return false;
+  const track = document.querySelector('.index-dock-carousel-track');
+  if (!track) return false;
   const it = slides[app().state.indexDockSlide];
-  const apply = () => {
-    const slideEl = carousel.querySelector('.index-dock-slide');
-    if (slideEl) patchIndexDockSlideEl(slideEl, it);
-    else carousel.innerHTML = renderIndexDockSlide(it);
-    const bar = document.getElementById('btn-index-dock');
-    if (bar && it) {
-      const tone = pctClass(it.changePct);
-      bar.classList.remove('is-up', 'is-down', 'is-flat');
-      bar.classList.add(tone);
+  const currentSlide = track.querySelector('.index-dock-slide');
+
+  if (!animate || !currentSlide || track.classList.contains('is-scrolling')) {
+    if (currentSlide && track.children.length === 1) {
+      patchIndexDockSlideEl(currentSlide, it);
+      updateIndexDockBarTone(it);
+    } else {
+      settleIndexDockTrack(track, it);
     }
-  };
-  if (animate && carousel.querySelector('.index-dock-slide')) {
-    carousel.classList.add('is-fading');
-    window.setTimeout(() => {
-      apply();
-      carousel.classList.remove('is-fading');
-    }, 160);
-  } else {
-    apply();
+    return true;
   }
+
+  const temp = document.createElement('div');
+  temp.innerHTML = renderIndexDockSlide(it);
+  const nextSlide = temp.firstElementChild;
+  if (!nextSlide) return false;
+
+  track.appendChild(nextSlide);
+  track.classList.remove('is-scrolling');
+  void track.offsetHeight;
+  track.classList.add('is-scrolling');
+
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    settleIndexDockTrack(track, it);
+  };
+
+  track.addEventListener(
+    'transitionend',
+    (ev) => {
+      if (ev.propertyName === 'transform') finish();
+    },
+    { once: true },
+  );
+  window.setTimeout(finish, 360);
   return true;
 }
 

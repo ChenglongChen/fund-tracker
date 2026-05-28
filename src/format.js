@@ -66,3 +66,12 @@ export function fmtTableDate(dateStr) {
   if (s.length >= 10) return s.slice(5).replace('-', '/');
   return s;
 }
+
+/** 表头日期标签：仅保留 MM-DD（去掉 HH:mm:ss） */
+export function fmtHeadDateLabel(label) {
+  if (!label) return '';
+  const s = String(label).trim();
+  const md = s.match(/^(\d{2}-\d{2})\b/);
+  if (md) return md[1];
+  return s;
+}

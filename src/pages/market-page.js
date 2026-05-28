@@ -18,8 +18,6 @@ const MARKET_TABS = [
 
 const OVERVIEW_ORDER = ['cn', 'hk', 'jp', 'kr', 'us', 'fx'];
 
-const EXTENDED_SESSIONS = new Set(['premarket', 'afterhours', 'overnight']);
-
 function sparklineSvg(changePct) {
   const up = changePct == null || Number(changePct) >= 0;
   const stroke = up ? 'var(--up)' : 'var(--down)';
@@ -43,9 +41,7 @@ function resolveRegularQuote(it) {
   const price = it?.price != null && Number.isFinite(Number(it.price)) ? Number(it.price) : null;
   let change = it?.change != null && Number.isFinite(Number(it.change)) ? Number(it.change) : null;
 
-  if (EXTENDED_SESSIONS.has(it?.quoteSession) && changePct != null && price != null) {
-    change = price - price / (1 + changePct / 100);
-  } else if (change == null && price != null && changePct != null) {
+  if (change == null && price != null && changePct != null) {
     change = price - price / (1 + changePct / 100);
   }
 

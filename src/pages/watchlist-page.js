@@ -5,7 +5,7 @@ import { escapeHtml, fmtPct, pctClass } from '../format.js';
 import { app } from '../app/context.js';
 import { renderShell, renderLiveBanner, patchLiveBanner, renderEmptyState } from '../components/shell.js';
 import { renderBottomChrome, renderIndexSheetMask, showIndexTicker, patchIndexTicker } from '../components/index-dock.js';
-import { renderHeadDateBlock } from '../pages/list-page.js';
+import { renderHeadDateBlock, renderHeadSortArrows } from '../pages/list-page.js';
 import { hasRealtimeProfit } from '../components/session.js';
 import { setTextClass } from '../dom.js';
 
@@ -50,12 +50,6 @@ function patchWatchlistPctCell(cell, pct) {
   setTextClass(valEl, pctClass(pct));
 }
 
-function watchlistSortIndicator(key) {
-  const sk = app().state.watchlistSortKey;
-  const sd = app().state.watchlistSortDir;
-  if (sk !== key) return '<span class="sort-indicator" aria-hidden="true"></span>';
-  return `<span class="sort-indicator sort-indicator--on" aria-hidden="true">${sd === 'asc' ? '↑' : '↓'}</span>`;
-}
 
 export function renderWatchlistTableHead() {
   const rtDate = renderHeadDateBlock('realtime');
@@ -71,12 +65,18 @@ export function renderWatchlistTableHead() {
         <span class="list-table-head-title list-table-head-title--static">基金</span>
       </div>
       <button type="button" class="list-table-head-col list-table-head-sort${sk === 'realtime' ? ' is-active' : ''}" data-watchlist-sort="realtime" aria-sort="${ariaRt}">
-        <span class="list-table-head-title">实时收益${watchlistSortIndicator('realtime')}</span>
-        ${rtDate ? `<span class="list-table-head-date">${rtDate}</span>` : ''}
+        <span class="list-table-head-label">
+          <span class="list-table-head-title">实时收益</span>
+          ${rtDate ? `<span class="list-table-head-date">${rtDate}</span>` : ''}
+        </span>
+        ${renderHeadSortArrows('realtime', sk, sd)}
       </button>
       <button type="button" class="list-table-head-col list-table-head-sort${sk === 'daily' ? ' is-active' : ''}" data-watchlist-sort="daily" aria-sort="${ariaDaily}">
-        <span class="list-table-head-title">当日收益${watchlistSortIndicator('daily')}</span>
-        ${dailyDate ? `<span class="list-table-head-date">${dailyDate}</span>` : ''}
+        <span class="list-table-head-label">
+          <span class="list-table-head-title">当日收益</span>
+          ${dailyDate ? `<span class="list-table-head-date">${dailyDate}</span>` : ''}
+        </span>
+        ${renderHeadSortArrows('daily', sk, sd)}
       </button>
       <span class="list-table-head-action" aria-hidden="true"></span>
     </div>`;

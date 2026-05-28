@@ -73,32 +73,14 @@ export function mapLiveRowToDisplay(f, liveRow) {
   const realTimeProfit = ep;
   const realTimePct = ep != null && amount > 0 ? (ep / amount) * 100 : null;
 
-  const inExtended =
-    impactSession === 'premarket' ||
-    impactSession === 'afterhours' ||
-    impactSession === 'overnight';
-  const realTimeProfitRegular = inExtended ? ep : roundProfit(amount, impactPctRegularLive);
-  const realTimePctRegular = inExtended
-    ? realTimePct
-    : impactPctRegularLive != null && Number.isFinite(impactPctRegularLive)
-      ? impactPctRegularLive
-      : null;
-
   return {
     ...base,
     impactPct: liveRow?.impactPct ?? null,
     impactPctRegular: liveRow?.impactPctRegular ?? null,
-    impactPctExtended: liveRow?.impactPctExtended ?? null,
-    impactPctRegularLive,
-    impactPctExtendedLive:
-      liveRow?.impactPctExtendedLive ?? liveRow?.impactPctExtended ?? null,
     estimateImpactPct: liveRow?.estimateImpactPct ?? null,
     impactSession,
     realTimeProfit,
     realTimePct,
-    realTimeProfitRegular,
-    realTimePctRegular,
-    realTimeProfitExtended: liveRow?.realTimeProfitExtended ?? null,
     estimateProfit: ep,
     estimateAssets:
       liveRow?.estimateAssets != null && Number.isFinite(liveRow.estimateAssets)

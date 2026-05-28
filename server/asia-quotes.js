@@ -1,11 +1,24 @@
 /**
- * 日韩股实时行情：东财 push2 → 新浪港股 CSOP 代理 → Stooq（日股）。
+ * 日韩股实时行情：东财 push2 → Naver KRX → 港开时 CSOP 2x → Stooq（日股）。
  */
 import { isValidQuote, quoteForHolding, fetchSinaQuoteKeys } from './quotes.js';
 import {
   classifyHoldingMarket,
+  isHkMarketOpen,
   isHoldingMarketOpen,
 } from './holding-market.js';
+
+const EM_HEADERS = {
+  Referer: 'https://finance.eastmoney.com/',
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+};
+
+const NAVER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Referer: 'https://finance.naver.com/',
+};
 
 /** 东财 secid：韩股 100.xxxxxx */
 const KR_EASTMONEY = {
@@ -15,13 +28,12 @@ const KR_EASTMONEY = {
   '000270': '100.000270',
 };
 
-/** 韩股 → 港股 CSOP 2x 产品（涨跌幅 ÷ leverage 近似正股） */
+/** 韩股 → 港交所 CSOP 2x（涨跌幅 ÷ leverage 近似正股；仅港开时可用） */
 const KR_CSOP_PROXY = {
   '005930': { hkCode: '7747', leverage: 2 },
   '000660': { hkCode: '7709', leverage: 2 },
 };
 
-/** 东财日股 secid 候选（不同环境可用前缀不同） */
 const JP_EASTMONEY_PREFIXES = ['124', '107', '201'];
 
 /** ISIN / 东财年报代码 → 日股 ticker */
@@ -60,7 +72,7 @@ export function normalizeJpTicker(code, name = '') {
 async function fetchEastmoneyQuote(secid, prevCloseOnly = false) {
   try {
     const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${encodeURIComponent(secid)}&fields=f170,f43,f60,f169,f58`;
-    const res = await fetch(url, { headers: { Referer: 'https://finance.eastmoney.com/' } });
+    const res = await fetch(url, { headers: EM_HEADERS });
     if (!res.ok) return null;
     const j = await res.json();
     const d = j?.data;
@@ -99,7 +111,7 @@ async function fetchEastmoneyBatch(secids) {
 
   try {
     const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${encodeURIComponent(unique.join(','))}&fields=f170,f43,f60,f169,f58,f12`;
-    const res = await fetch(url, { headers: { Referer: 'https://finance.eastmoney.com/' } });
+    const res = await fetch(url, { headers: EM_HEADERS });
     if (res.ok) {
       const j = await res.json();
       const rows = j?.data?.diff;
@@ -187,8 +199,61 @@ function shouldReplaceQuote(q) {
   return !isValidQuote(q);
 }
 
-/** @param {object} h @param {Record<string, object>} proxyQuotes @param {number} leverage */
-function quoteFromCsopProxy(h, proxyQuotes, leverage) {
+/** @param {string} code */
+function normalizeKrCode(code) {
+  const digits = String(code || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.padStart(6, '0').slice(-6);
+}
+
+/** @param {object} row */
+function quoteFromNaverRow(row) {
+  if (!row?.cd) return null;
+  const changePct = Number(row.cr);
+  const price = Number(row.nv);
+  if (!Number.isFinite(changePct)) return null;
+  const prevClose = Number(row.sv);
+  if (Number.isFinite(prevClose) && prevClose > 0) {
+    prevCloseByTicker.set(String(row.cd), prevClose);
+  }
+  return {
+    changePct,
+    price: Number.isFinite(price) && price > 0 ? price : null,
+    quoteSource: 'naver',
+    name: row.nm || undefined,
+  };
+}
+
+/** @param {string[]} codes */
+async function fetchNaverKrQuotes(codes) {
+  const unique = [...new Set(codes.map(normalizeKrCode).filter(Boolean))];
+  /** @type {Record<string, object>} */
+  const out = {};
+  if (!unique.length) return out;
+
+  await Promise.all(
+    unique.map(async (code) => {
+      try {
+        const url = `https://polling.finance.naver.com/api/realtime?query=${encodeURIComponent(`SERVICE_ITEM:${code}`)}`;
+        const res = await fetch(url, { headers: NAVER_HEADERS, signal: AbortSignal.timeout(10000) });
+        if (!res.ok) return;
+        const j = await res.json();
+        if (j?.resultCode !== 'success') return;
+        const rows = j?.result?.areas?.flatMap((a) => a.datas || []) || [];
+        const row = rows.find((r) => normalizeKrCode(r.cd) === code) || rows[0];
+        const q = quoteFromNaverRow(row);
+        if (q && isValidQuote(q)) out[code] = q;
+      } catch {
+        /* ignore */
+      }
+    }),
+  );
+  return out;
+}
+
+/** @param {object} h @param {Record<string, object>} proxyQuotes @param {number} leverage @param {Date} now */
+function quoteFromCsopProxy(h, proxyQuotes, leverage, now = new Date()) {
+  if (!isHkMarketOpen(now)) return null;
   const proxy = KR_CSOP_PROXY[String(h.code).padStart(6, '0')];
   if (!proxy) return null;
   const hkKey = `rt_hk${proxy.hkCode.padStart(5, '0')}`;
@@ -211,6 +276,14 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
   const krOpen = isHoldingMarketOpen('kr', now);
   const jpOpen = isHoldingMarketOpen('jp', now);
 
+  for (const h of holdings) {
+    if (classifyHoldingMarket(h) !== 'kr') continue;
+    const key = holdingKey(h);
+    if (byHoldingKey[key]?.quoteSource === 'kr-csop-proxy' && !isHkMarketOpen(now)) {
+      delete byHoldingKey[key];
+    }
+  }
+
   /** @type {object[]} */
   const krNeeds = [];
   /** @type {object[]} */
@@ -218,9 +291,8 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
 
   for (const h of holdings) {
     const market = classifyHoldingMarket(h);
-    const q = quoteForHolding(h, byHoldingKey);
-    if (market === 'kr' && krOpen && shouldReplaceQuote(q)) krNeeds.push(h);
-    if (market === 'jp' && jpOpen && shouldReplaceQuote(q)) jpNeeds.push(h);
+    if (market === 'kr' && krOpen) krNeeds.push(h);
+    if (market === 'jp' && jpOpen) jpNeeds.push(h);
   }
 
   if (!krNeeds.length && !jpNeeds.length) return;
@@ -242,11 +314,13 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
   }
 
   const eastmoneyQuotes = await fetchEastmoneyBatch(eastmoneySecids);
+  const naverQuotes = krNeeds.length
+    ? await fetchNaverKrQuotes(krNeeds.map((h) => h.code))
+    : {};
 
-  /** CSOP 代理：批量拉新浪港股 */
   /** @type {Record<string, object>} */
   let proxyQuotes = {};
-  if (krNeeds.length) {
+  if (krNeeds.length && isHkMarketOpen(now)) {
     const hkCodes = [
       ...new Set(
         krNeeds
@@ -261,12 +335,26 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
   for (const h of krNeeds) {
     const key = holdingKey(h);
     const code = String(h.code).padStart(6, '0');
-    const em = eastmoneyQuotes[code];
+    const secid = KR_EASTMONEY[code];
+    let em = eastmoneyQuotes[code];
+    if ((!em || !isValidQuote(em)) && secid) {
+      em = await fetchEastmoneyQuote(secid);
+    }
     if (em && isValidQuote(em)) {
       byHoldingKey[key] = { ...em, name: h.name || em.name };
       continue;
     }
-    const proxy = quoteFromCsopProxy(h, proxyQuotes, KR_CSOP_PROXY[code]?.leverage ?? 2);
+    const naver = naverQuotes[code];
+    if (naver && isValidQuote(naver)) {
+      byHoldingKey[key] = { ...naver, name: h.name || naver.name };
+      continue;
+    }
+    const proxy = quoteFromCsopProxy(
+      h,
+      proxyQuotes,
+      KR_CSOP_PROXY[code]?.leverage ?? 2,
+      now,
+    );
     if (proxy && isValidQuote(proxy)) byHoldingKey[key] = proxy;
   }
 

@@ -1,10 +1,8 @@
 /**
  * Snap seed / reconcile / tick 回填。
  */
-import { readAppState } from '../app-state.js';
-import { canBackfillSnap, resolveDisplaySession, toDisplayStatePayload } from '../display-session.js';
+import { resolveDisplaySession, toDisplayStatePayload } from '../display-session.js';
 import {
-  clearScopeSnap,
   ensureDayBaseline,
   getBaselineForDay,
   getCurrentPhase,
@@ -12,20 +10,21 @@ import {
   round2,
   setCurrentPhase,
   setScopeSnap,
+  clearScopeSnap,
 } from '../day-display-state.js';
 import { buildFundSnapEntry, sessionSnapNeedsReseed } from './snap-entry.js';
 import { getReadyScopeSnap, isScopeSnapReady } from './snap-ready.js';
 
 /**
  * @param {string} accrualDay
- * @param {'premarketSnap'|'afterhoursSnap'|'overnightSnap'} snapKey
+ * @param {'eodSnap'} snapKey
  * @param {{ funds: object[] }} portfolio
  * @param {object[]} liveFunds
  * @param {object} totalsLive
  * @param {object[]} impactRawList
  * @param {Date} now
  */
-function seedSessionSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impactRawList, now) {
+function seedEodSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impactRawList, now) {
   /** @type {Record<string, object>} */
   const fundsSnap = {};
   for (let i = 0; i < portfolio.funds.length; i++) {
@@ -64,22 +63,13 @@ export function reconcileDisplayState(
   const s = session ?? resolveDisplaySession(now, { persistedPhase: getCurrentPhase() });
   const { accrualDay, clockPhase: targetPhase, snapKey } = s;
 
-  if (s.shouldClearPremarketSnap) {
-    clearScopeSnap(accrualDay, 'premarketSnap', 'portfolio');
-  }
-  if (s.shouldClearOvernightSnap) {
-    clearScopeSnap(accrualDay, 'overnightSnap', 'portfolio');
-  }
-
-  if (snapKey === 'premarketSnap' || snapKey === 'afterhoursSnap' || snapKey === 'overnightSnap') {
+  if (snapKey === 'eodSnap') {
     const existing = getScopeSnap(accrualDay, snapKey, 'portfolio');
     if (sessionSnapNeedsReseed(existing, portfolio, liveFunds, now)) {
       if (existing) clearScopeSnap(accrualDay, snapKey, 'portfolio');
-      seedSessionSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impactRawList, now);
+      seedEodSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impactRawList, now);
     }
-  }
-
-  if (targetPhase === 'eod_freeze' && !getScopeSnap(accrualDay, 'eodSnap', 'portfolio')) {
+  } else if (targetPhase === 'eod_freeze' && !getScopeSnap(accrualDay, 'eodSnap', 'portfolio')) {
     const baseline = getBaselineForDay(accrualDay, 'portfolio') ?? totalsLive.settledAssets;
     const rt1 = round2(totalsLive.realtimeProfit ?? 0);
     setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
@@ -90,12 +80,6 @@ export function reconcileDisplayState(
     });
   }
 
-  if (s.shouldDiscardPremarketSnap) {
-    clearScopeSnap(accrualDay, 'premarketSnap', 'portfolio');
-  }
-  if (s.shouldDiscardOvernightSnap) {
-    clearScopeSnap(accrualDay, 'overnightSnap', 'portfolio');
-  }
   setCurrentPhase(s.phaseToPersist, now);
 
   return {
@@ -105,47 +89,7 @@ export function reconcileDisplayState(
   };
 }
 
-/**
- * @param {string} accrualDay
- * @param {'premarketSnap'|'afterhoursSnap'|'overnightSnap'} snapKey
- * @param {Date} [now]
- */
-export async function tryBackfillSnapFromTicks(accrualDay, snapKey, now = new Date()) {
-  if (isScopeSnapReady(getScopeSnap(accrualDay, snapKey, 'portfolio'))) return false;
-
-  const session = resolveDisplaySession(now, { persistedPhase: getCurrentPhase() });
-  if (!canBackfillSnap(session, snapKey)) return false;
-
-  const appState = await readAppState();
-  const ticks = appState.intradayTicks ?? [];
-  /** @type {object[]} */
-  let candidates = [];
-  if (snapKey === 'premarketSnap') {
-    candidates = ticks
-      .filter((t) => t.beijingDate === accrualDay && t.updatedAt >= '16:00')
-      .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)));
-  } else if (snapKey === 'overnightSnap') {
-    candidates = ticks
-      .filter(
-        (t) =>
-          t.beijingDate === accrualDay && t.updatedAt >= '08:00' && t.updatedAt < '16:00',
-      )
-      .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)));
-  } else {
-    candidates = ticks
-      .filter((t) => t.beijingDate === accrualDay && t.updatedAt >= '04:00' && t.updatedAt <= '08:00')
-      .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)));
-  }
-  const hit = candidates[0];
-  if (!hit || hit.realtimeProfit == null) return false;
-
-  const baseline = getBaselineForDay(accrualDay, 'portfolio') ?? hit.settledAssets ?? 0;
-  setScopeSnap(accrualDay, snapKey, 'portfolio', {
-    at: hit.at ?? new Date().toISOString(),
-    rt1: round2(hit.realtimeProfit),
-    est: round2(hit.realtimeAssets ?? baseline + hit.realtimeProfit),
-    funds: {},
-    provisional: true,
-  });
-  return true;
+/** @deprecated 无盘前/盘后 snap，恒为 false */
+export async function tryBackfillSnapFromTicks(_accrualDay, _snapKey, _now = new Date()) {
+  return false;
 }

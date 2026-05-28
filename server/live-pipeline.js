@@ -6,9 +6,8 @@ import { computePortfolioTotals } from './aggregate.js';
 import {
   applyFundRt1Snap,
   applyPortfolioTotalsSnap,
-  sumExtendedProfit,
 } from './components/snap-apply.js';
-import { reconcileDisplayState, tryBackfillSnapFromTicks } from './components/snap-seed.js';
+import { reconcileDisplayState } from './components/snap-seed.js';
 import { getCurrentPhase } from './day-display-state.js';
 import { resolveDisplaySession } from './display-session.js';
 import { finalizeLiveFundDisplayRow } from './components/suppress.js';
@@ -48,13 +47,6 @@ export function applyDisplaySnapAndTotals(portfolio, liveRows, now = new Date(),
     accrualDay,
     now,
   );
-  const extended = sumExtendedProfit(funds, now, s);
-  totals = {
-    ...totals,
-    realtimeProfitExtended: extended.total,
-    realtimeProfitExtendedPct: extended.pct,
-    extendedSession: extended.session,
-  };
   return { funds, totals, accrualDay, session: s };
 }
 
@@ -78,10 +70,6 @@ export async function runLiveDisplayPipeline(portfolio, impactRawList, navInfos,
     now,
     session,
   );
-
-  await tryBackfillSnapFromTicks(session.accrualDay, 'premarketSnap', now);
-  await tryBackfillSnapFromTicks(session.accrualDay, 'afterhoursSnap', now);
-  await tryBackfillSnapFromTicks(session.accrualDay, 'overnightSnap', now);
 
   const snapped = applyDisplaySnapAndTotals(portfolio, funds, now, session);
   return {

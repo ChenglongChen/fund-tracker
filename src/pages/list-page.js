@@ -1,5 +1,5 @@
 import { SCOPE_ALL, SCOPE_SUMMARY, buildAccountSummaries, isEditableScope } from '../accounts.js';
-import { escapeHtml, pctClass } from '../format.js';
+import { escapeHtml, fmtHeadDateLabel, pctClass } from '../format.js';
 import { fmtEstimatedAssets, fmtHoldAmount, fmtMoney } from '../display-format.js';
 import { visibleMetricColumns } from '../column-layout.js';
 import { app } from '../app/context.js';
@@ -14,15 +14,12 @@ import {
   patchAccountSummaryCards,
   renderAccountSummaryCard,
 } from '../components/hero.js';
-import { patchStatusStripTimes } from '../components/status.js';
 import { showIndexTicker, renderBottomChrome, renderIndexSheetMask, patchIndexTicker } from '../components/index-dock.js';
 import {
-  combinedImpactTooltip,
   renderHoldingStackedMetricCol,
-  renderRealtimeSplitRow,
   setPctSubEl,
 } from '../components/metrics.js';
-import { extendedSessionLabel, hasExtendedRealtimeLayout, hasRealtimeProfit } from '../components/session.js';
+import { hasRealtimeProfit } from '../components/session.js';
 
 function orderedMetrics() {
   return visibleMetricColumns(app().state.metricColumnOrder, app().state.metricColumnVisible);
@@ -80,23 +77,6 @@ export function fundMetricCells(f, key) {
   const thCls = pctClass(f.totalProfit);
   switch (key) {
     case 'realtime':
-      if (hasExtendedRealtimeLayout(f)) {
-        const regularProfit =
-          f.realTimeProfitRegular != null && Number.isFinite(f.realTimeProfitRegular)
-            ? f.realTimeProfitRegular
-            : 0;
-        const regularPct =
-          f.realTimePctRegular != null && Number.isFinite(f.realTimePctRegular)
-            ? f.realTimePctRegular
-            : 0;
-        const extProfit = f.realTimeProfitExtended ?? 0;
-        const extPct = f.impactPctExtended ?? 0;
-        return `
-      <div class="holding-col holding-col--rt holding-col--split" data-col="realtime" title="${escapeHtml(combinedImpactTooltip(f))}">
-        ${renderRealtimeSplitRow(regularProfit, regularPct)}
-        ${renderRealtimeSplitRow(extProfit, extPct, { tag: extendedSessionLabel(f.impactSession) })}
-      </div>`;
-      }
       return renderHoldingStackedMetricCol({
         colClass: 'holding-col--rt',
         dataCol: 'realtime',
@@ -130,14 +110,24 @@ export function fundMetricCells(f, key) {
 
 export function renderHeadDateBlock(col) {
   const head = app().state.displayContext?.tableHead?.[col];
-  const label = head?.label ?? head?.line1 ?? '';
+  const label = fmtHeadDateLabel(head?.label ?? head?.line1 ?? '');
   if (!label) return '';
   return `<span class="list-table-head-date-text">${escapeHtml(label)}</span>`;
 }
 
+export function renderHeadSortArrows(sortKey, activeKey = app().state.sortKey, sortDir = app().state.sortDir) {
+  const isActive = activeKey === sortKey;
+  const ascOn = isActive && sortDir === 'asc';
+  const descOn = isActive && sortDir === 'desc';
+  return `
+    <span class="list-table-head-sort-arrows" aria-hidden="true">
+      <span class="sort-arrow sort-arrow--up${ascOn ? ' is-on' : ''}"></span>
+      <span class="sort-arrow sort-arrow--down${descOn ? ' is-on' : ''}"></span>
+    </span>`;
+}
+
 export function sortIndicator(key) {
-  if (app().state.sortKey !== key) return '<span class="sort-indicator" aria-hidden="true"></span>';
-  return `<span class="sort-indicator sort-indicator--on" aria-hidden="true">${app().state.sortDir === 'asc' ? '↑' : '↓'}</span>`;
+  return renderHeadSortArrows(key);
 }
 
 export function renderHeadSortCol(title, sortKey, dateCol = null) {
@@ -148,8 +138,11 @@ export function renderHeadSortCol(title, sortKey, dateCol = null) {
     app().state.sortKey === sortKey ? (app().state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
   return `
     <button type="button" class="list-table-head-col list-table-head-sort${left}${active}" data-sort-key="${sortKey}" aria-sort="${ariaSort}">
-      <span class="list-table-head-title">${title}${sortIndicator(sortKey)}</span>
-      ${dateHtml ? `<span class="list-table-head-date">${dateHtml}</span>` : ''}
+      <span class="list-table-head-label">
+        <span class="list-table-head-title">${title}</span>
+        ${dateHtml ? `<span class="list-table-head-date">${dateHtml}</span>` : ''}
+      </span>
+      ${renderHeadSortArrows(sortKey)}
     </button>`;
 }
 
@@ -193,43 +186,6 @@ export function renderFundRow(f) {
 
 export function patchRealtimeMetricCell(cell, f) {
   if (!cell) return false;
-  const wantsSplit = hasExtendedRealtimeLayout(f);
-  const hasSplit = cell.classList.contains('holding-col--split');
-  if (wantsSplit !== hasSplit) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = fundMetricCells(f, 'realtime').trim();
-    const fresh = wrapper.firstElementChild;
-    if (!fresh) return false;
-    cell.replaceWith(fresh);
-    return true;
-  }
-  if (wantsSplit) {
-    const splitRows = cell.querySelectorAll('.metric-split-row');
-    if (splitRows.length < 2) return false;
-    const regularProfit =
-      f.realTimeProfitRegular != null && Number.isFinite(f.realTimeProfitRegular)
-        ? f.realTimeProfitRegular
-        : 0;
-    const regularPct =
-      f.realTimePctRegular != null && Number.isFinite(f.realTimePctRegular) ? f.realTimePctRegular : 0;
-    const extProfit = f.realTimeProfitExtended ?? 0;
-    const extPct = f.impactPctExtended ?? 0;
-    const patchSplitRow = (rowEl, val, pct, signed = true) => {
-      const cls = pctClass(signed ? val : pct);
-      const valEl = rowEl.querySelector('.holding-val');
-      const subEl = rowEl.querySelector('.holding-sub');
-      if (valEl) {
-        valEl.textContent = fmtMoney(val, signed);
-        setTextClass(valEl, cls);
-      }
-      if (subEl) setPctSubEl(subEl, pct);
-    };
-    patchSplitRow(splitRows[0], regularProfit, regularPct);
-    patchSplitRow(splitRows[1], extProfit, extPct);
-    cell.title = combinedImpactTooltip(f);
-    return true;
-  }
-
   const valEl = cell.querySelector('.holding-val');
   const subEl = cell.querySelector('.holding-sub');
   if (!valEl && !subEl) return false;
@@ -275,7 +231,7 @@ export function patchListDom() {
   if (tableHead) {
     for (const col of orderedMetrics()) {
       const headCol = col.dateCol || col.key;
-      const label = tableHead[headCol]?.label ?? tableHead[headCol]?.line1 ?? '';
+      const label = fmtHeadDateLabel(tableHead[headCol]?.label ?? tableHead[headCol]?.line1 ?? '');
       const btn = document.querySelector(`.list-table-head-sort[data-sort-key="${col.key}"] .list-table-head-date`);
       if (btn) {
         btn.innerHTML = label
@@ -287,7 +243,6 @@ export function patchListDom() {
 
   reorderListRows();
 
-  patchStatusStripTimes();
   patchLiveBanner();
   announceLiveUpdate();
 

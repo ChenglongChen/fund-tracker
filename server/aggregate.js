@@ -1,5 +1,5 @@
 import { dayProfitPct } from './store.js';
-import { marketChipLabel, openMarketLabels } from './components/market-hours.js';
+import { marketChipLabel } from './components/market-hours.js';
 import { buildTableHeadLabels } from './components/table-head.js';
 import { fundEstimatedAssets, liveImpactForEstimate } from './fund-estimate.js';
 import { getBaselineForDay } from './day-display-state.js';
@@ -123,8 +123,8 @@ export function buildDisplayContext(
   now = new Date(),
   quoteUpdatedAt = updatedAt,
 ) {
-  const labels = openMarketLabels(now);
-  const liveText = labels.length ? `${labels.join(' / ')} 盘中` : '全市场休市';
+  const chip = marketChipLabel(now);
+  const liveText = chip === '休市' ? '全市场休市' : chip;
   const quoteAt = quoteUpdatedAt || updatedAt;
   return {
     beijingDate,
@@ -132,7 +132,7 @@ export function buildDisplayContext(
     quoteUpdatedAt: quoteAt,
     clockLabel: beijingDate && updatedAt ? `${beijingDate.slice(5)} ${updatedAt}` : updatedAt,
     quoteClockLabel: beijingDate && quoteAt ? `${beijingDate.slice(5)} ${quoteAt}` : quoteAt,
-    marketChip: marketChipLabel(now),
+    marketChip: chip,
     realtimeNote: `实时收益=盘中最新估值 · 收市沿用最近收盘 · 盘中标记仅交易时段点亮 · 当前 ${liveText}`,
     dailyNote: '当日收益=净值公布后入账更新（通常晚间）· A股/黄金=当天 · QDII=最新公布净值日',
     holdingNote: '持有收益=累计盈亏，截至各基金已入账净值日',

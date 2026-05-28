@@ -36,14 +36,21 @@ export function isHkMarketOpen(date = new Date()) {
   );
 }
 
-/** 日股：8:00–10:30、11:30–14:00（东京 9:00–15:00 JST） */
+/** 日股：8:00–10:30、11:30–14:00（东京 9:00–11:30 / 12:30–15:00 JST） */
 export function isJpMarketOpen(date = new Date()) {
   if (!isWeekday(date)) return false;
   const mins = minutesOfDay(beijingParts(date));
   return (
-    (mins >= 8 * 60 && mins <= 10 * 60 + 30) ||
+    (mins >= 8 * 60 && mins < 10 * 60 + 30) ||
     (mins >= 11 * 60 + 30 && mins <= 14 * 60)
   );
+}
+
+/** 日股午间休市：10:30–11:30（东京 11:30–12:30 JST） */
+export function isJpMiddayBreak(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  return mins >= 10 * 60 + 30 && mins < 11 * 60 + 30;
 }
 
 /** 韩股：8:30–14:30 北京时间（首尔 9:30–15:30 KST） */
@@ -64,27 +71,22 @@ export function isUsHoldingMarketOpen(date = new Date()) {
   return false;
 }
 
-/** @typedef {'premarket'|'regular'|'afterhours'|'overnight'|'closed'} UsSessionPhase */
+/** @typedef {'premarket'|'regular'|'afterhours'|'closed'} UsSessionPhase */
 
 /**
  * 美股交易阶段（北京时间，固定窗口近似美东 DST）
+ * 仅正盘 21:30–04:00；其余时段 closed（无盘前/盘后）
  * @param {Date} [date]
  * @returns {UsSessionPhase}
  */
 export function getUsSessionPhase(date = new Date()) {
   const wd = beijingWeekday(date);
   const mins = minutesOfDay(beijingParts(date));
-  const premarketStart = 16 * 60;
   const eveningStart = 21 * 60 + 30;
   const morningEnd = 4 * 60;
-  const afterhoursEnd = 8 * 60;
-  const overnightEnd = 16 * 60;
 
   if (mins >= eveningStart && wd >= 1 && wd <= 5) return 'regular';
   if (mins < morningEnd && wd >= 2 && wd <= 6) return 'regular';
-  if (mins >= morningEnd && mins < afterhoursEnd && wd >= 2 && wd <= 6) return 'afterhours';
-  if (mins >= afterhoursEnd && mins < overnightEnd && wd >= 1 && wd <= 5) return 'overnight';
-  if (mins >= premarketStart && mins < eveningStart && wd >= 1 && wd <= 5) return 'premarket';
   return 'closed';
 }
 
@@ -93,18 +95,35 @@ export function isUsQuoteLive(date = new Date()) {
   return getUsSessionPhase(date) !== 'closed';
 }
 
-/** @typedef {'premarket'|'regular'|'afterhours'|'overnight'|'closed'} HoldingSessionPhase */
+/** A 股午间休市：11:30–13:00 */
+export function isCnMiddayBreak(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = beijingMinutesOfDay(date);
+  return mins >= 11 * 60 + 30 && mins < 13 * 60;
+}
+
+/** 港股午间休市：12:00–13:00 */
+export function isHkMiddayBreak(date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = beijingMinutesOfDay(date);
+  return mins >= 12 * 60 && mins < 13 * 60;
+}
+
+/** @typedef {'premarket'|'regular'|'afterhours'|'midday'|'closed'} HoldingSessionPhase */
 
 /** @param {HoldingMarket} market @param {Date} [date] */
 export function getHoldingSessionPhase(market, date = new Date()) {
   if (market === 'us' || market === 'other') return getUsSessionPhase(date);
+  if ((market === 'cn' || market === 'tw') && isCnMiddayBreak(date)) return 'midday';
+  if (market === 'hk' && isHkMiddayBreak(date)) return 'midday';
+  if (market === 'jp' && isJpMiddayBreak(date)) return 'midday';
   if (isHoldingMarketOpen(market, date)) return 'regular';
   return 'closed';
 }
 
 /** @param {HoldingMarket} market @param {Date} [date] */
 export function isHoldingQuoteLive(market, date = new Date()) {
-  return getHoldingSessionPhase(market, date) !== 'closed';
+  return getHoldingSessionPhase(market, date) === 'regular';
 }
 
 /** @param {Date} [date] */
@@ -112,7 +131,6 @@ export function usSessionPhaseLabel(phase) {
   if (phase === 'premarket') return '盘前';
   if (phase === 'regular') return '盘中';
   if (phase === 'afterhours') return '盘后';
-  if (phase === 'overnight') return '夜盘';
   return '已收盘';
 }
 
@@ -124,6 +142,11 @@ export function isOverseasSessionOpen(date = new Date()) {
     isKrMarketOpen(date) ||
     isHkMarketOpen(date)
   );
+}
+
+/** 亚太正盘（日/韩/港），不含 A 股 */
+export function isAsiaPacificSessionOpen(date = new Date()) {
+  return isJpMarketOpen(date) || isKrMarketOpen(date) || isHkMarketOpen(date);
 }
 
 /** 国内黄金：日盘 9:00–15:30；夜盘 20:00–次日 02:30 */

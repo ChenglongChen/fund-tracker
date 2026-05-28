@@ -120,15 +120,6 @@ async function refreshLive() {
     ]);
     const fxPct = strip.find((x) => x.label === '汇率')?.changePct ?? null;
 
-    cache = {
-      ...cache,
-      updatedAt,
-      beijingDate,
-      indices: strip,
-      fxPct,
-      error: null,
-    };
-
     const useSourceCache = !shouldRunFullImpactRefresh();
     const [impacts, navInfos] = await Promise.all([
       resolvePortfolioImpacts(
@@ -137,7 +128,7 @@ async function refreshLive() {
         fxPct,
         now,
         useSourceCache ? fundImpactSourceCache : new Map(),
-        { skipAsiaSupplement: useSourceCache },
+        { skipAsiaSupplement: false },
       ),
       Promise.all(portfolio.funds.map((f) => fetchFundNavInfo(f.code))),
     ]);

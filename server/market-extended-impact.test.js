@@ -9,8 +9,7 @@ function holdingsWithRegularChange(holdings) {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
     const extended =
       h.quoteSession === 'premarket' ||
-      h.quoteSession === 'afterhours' ||
-      h.quoteSession === 'overnight';
+      h.quoteSession === 'afterhours';
     if (isUs && extended) {
       const regular = h.changePctRegular;
       return {
@@ -27,8 +26,7 @@ function holdingsWithExtendedChange(holdings) {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
     const extended =
       h.quoteSession === 'premarket' ||
-      h.quoteSession === 'afterhours' ||
-      h.quoteSession === 'overnight';
+      h.quoteSession === 'afterhours';
     if (!isUs || !extended) {
       return { ...h, changePct: 0 };
     }

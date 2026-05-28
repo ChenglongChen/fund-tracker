@@ -8,7 +8,6 @@ import {
   resolveLiveDisplayImpact,
 } from './market-session.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './components/suppress.js';
-import { extendedProfitFromPct } from './components/extended-row.js';
 import { enrichFundSettled } from './nav.js';
 import {
   fundEstimateImpactPct,
@@ -60,10 +59,6 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
       : null;
   const estimateImpactPct = displayLive ? fundEstimateImpactPct(displayLive, now) : null;
   const estimateProfit = displayLive ? fundEstimateProfit(amount, displayLive, now) : null;
-  const realTimeProfitExtended =
-    displayLive && impactPctExtendedLive != null
-      ? extendedProfitFromPct(amount, impactPctExtendedLive)
-      : null;
   const dailyPending = isDailyProfitPending(f, windows.market, navInfo, beijingDate, now);
   const settledFields = dailyPending
     ? {
@@ -102,7 +97,6 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
     impactSession,
     estimateProfit,
     estimateAssets,
-    realTimeProfitExtended,
     dailyPending,
     weightCoverage: impactRaw.weightCoverage ?? null,
     quoteCoverage: impactRaw.quoteCoverage ?? null,
@@ -115,6 +109,8 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
     rawImpactPct,
     impactSource: impactRaw.impactSource ?? null,
     estimateSource: impactRaw.impactSource ?? null,
+    hasRegularHolding: impactRaw.hasRegularHolding ?? false,
+    shouldRefreshLiveRt1: impactRaw.shouldRefreshLiveRt1 ?? false,
     officialNavDate: navInfo?.pdate ?? null,
     officialDisplayDate: navInfo?.displayDate ?? null,
   };

@@ -7,6 +7,7 @@ import {
   resolveLiveDisplayImpact,
   shouldDisplayRealtimeProfit,
 } from './market-session.js';
+import { resolveDisplaySession } from './display-session.js';
 import {
   classifyFundMarket,
   isCnMarketOpen,
@@ -17,7 +18,7 @@ import {
   marketChipLabel,
   openMarketLabels,
 } from './components/market-hours.js';
-import { isHkMarketOpen } from './holding-market.js';
+import { isHkMarketOpen, isJpMarketOpen, getUsSessionPhase } from './holding-market.js';
 
 const ok = [];
 const fail = [];
@@ -98,7 +99,7 @@ assert('cn session keeps impact', effectiveImpactPct('cn', -1.5, cnMorning) === 
 
 const jpMorning = new Date('2026-05-26T01:00:00.000Z');
 assert(
-  'us qdii not live before us open (asia only)',
+  'us qdii not live badge when us closed',
   !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-26', jpMorning).realtimeActive,
 );
 assert(
@@ -144,10 +145,10 @@ assert(
   'cn display null during us regular',
   resolveLiveDisplayImpact(7, 'cn', { impactPct: -2.5 }, cnUsRegular).impactPct == null,
 );
-const cnUsPremarket = new Date('2026-05-27T08:27:00.000Z');
+const cnUsEod = new Date('2026-05-27T08:27:00.000Z');
 assert(
-  'cn keeps snapshot during us premarket same day',
-  resolveFundImpactPct(7, 'cn', -2.5, cnUsPremarket) === -1.1,
+  'cn keeps snapshot during us eod window same day',
+  resolveFundImpactPct(7, 'cn', -2.5, cnUsEod) === -1.1,
 );
 const cnNextMorning = new Date('2026-05-27T16:01:00.000Z');
 assert(
@@ -161,69 +162,41 @@ assert(
 );
 clearFundImpactSnapshots();
 
-const usPreCn = new Date('2026-05-26T21:45:00.000Z');
+const usClosedEarly = new Date('2026-05-26T21:45:00.000Z');
 resolveFundImpactPct(1, 'us', 2.75, usOpen);
-assert('us afterhours updates impact', resolveFundImpactPct(1, 'us', 3.1, usPreCn) === 3.1);
+assert('us closed early keeps close snapshot', resolveFundImpactPct(1, 'us', 3.1, usClosedEarly) === 2.75);
 assert(
-  'us afterhours realtime badge',
-  getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-26', usPreCn).realtimeActive,
+  'us closed early no live badge',
+  !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-26', usClosedEarly).realtimeActive,
 );
 assert(
   'us still display profit when overseas closed',
   shouldDisplayRealtimeProfit('cn', false, 2.75),
 );
 
-const usPremarket = new Date('2026-05-27T08:27:00.000Z');
+const usEodWindow = new Date('2026-05-27T08:27:00.000Z');
 clearFundImpactSnapshots();
 resolveFundImpactPct(2, 'us', 1.78, usOpen);
-assert('us premarket not live window', !isFundImpactLiveWindow('us', usPremarket));
+assert('us eod window not live', !isFundImpactLiveWindow('us', usEodWindow));
 assert(
-  'us premarket keeps prior close snapshot',
-  resolveFundImpactPct(2, 'us', 0.44, usPremarket) === 1.78,
+  'us eod keeps prior close snapshot',
+  resolveFundImpactPct(2, 'us', 0.44, usEodWindow) === 1.78,
 );
 assert(
-  'us premarket no live badge',
-  !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-27', usPremarket).realtimeActive,
+  'us eod no live badge',
+  !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-27', usEodWindow).realtimeActive,
 );
-assert('us premarket chip', marketChipLabel(usPremarket).startsWith('盘前'));
-assert('us premarket label', openMarketLabels(usPremarket).includes('美股'));
+assert('us eod no us label', !openMarketLabels(usEodWindow).includes('美股'));
 
-const premarketImpact = resolveLiveDisplayImpact(
+const eodImpact = resolveLiveDisplayImpact(
   2,
   'us',
-  { impactPct: 2.31, impactPctRegular: 1.76, impactPctExtended: 0.55, impactSession: 'premarket' },
-  usPremarket,
+  { impactPct: 2.31, impactPctRegular: 1.76, impactPctExtended: 0.55, impactSession: 'closed' },
+  usEodWindow,
 );
-assert('premarket display uses regular row', premarketImpact.impactPct === 1.76);
-assert('premarket display keeps extended', premarketImpact.impactPctExtended === 0.55);
-assert('premarket display not total', premarketImpact.impactPct !== 2.31);
-assert('premarket display session', premarketImpact.impactSession === 'premarket');
-
+assert('eod display uses close snapshot', eodImpact.impactPct === 1.78);
+assert('eod display no extended', eodImpact.impactPctExtended == null);
 clearFundImpactSnapshots();
-const premarketFrozen = resolveLiveDisplayImpact(
-  2,
-  'us',
-  { impactPct: 2.31, impactPctRegular: 1.76, impactPctExtended: 0.55, impactSession: 'premarket' },
-  usPremarket,
-);
-const premarketFrozen2 = resolveLiveDisplayImpact(
-  2,
-  'us',
-  { impactPct: 2.5, impactPctRegular: 1.95, impactPctExtended: 0.62, impactSession: 'premarket' },
-  usPremarket,
-);
-assert('premarket row1 frozen', premarketFrozen2.impactPctRegular === premarketFrozen.impactPctRegular);
-assert('premarket row1 first seed', premarketFrozen.impactPctRegular === 1.76);
-assert('premarket row2 still live', premarketFrozen2.impactPctExtended === 0.62);
-clearFundImpactSnapshots();
-
-const premarketDisk = resolveLiveDisplayImpact(
-  2,
-  'us',
-  { impactPct: 2.31, impactPctRegular: null, impactPctExtended: 0.44, impactSession: 'premarket' },
-  usPremarket,
-);
-assert('premarket disk fallback regular', premarketDisk.impactPct === 1.78);
 
 const sat = new Date('2026-05-30T02:00:00.000Z');
 assert('weekend no domestic session', !isDomesticRealtimeSession(sat));
@@ -236,10 +209,22 @@ assert(
   !openMarketLabels(cnHkGap).includes('A股'),
 );
 assert(
-  '15:03 status includes hk and us overnight',
-  openMarketLabels(cnHkGap).join('/') === '港股/美股',
+  '15:03 status hk only',
+  openMarketLabels(cnHkGap).join('/') === '港股',
 );
-assert('15:03 chip', marketChipLabel(cnHkGap) === '盘中 · 港股/美股');
+assert('15:03 chip', marketChipLabel(cnHkGap) === '盘中 · 港股');
+
+const asiaUsClosed = new Date('2026-05-28T00:22:09.000Z');
+assert('08:22 jp open', isJpMarketOpen(asiaUsClosed));
+assert('08:22 us closed', getUsSessionPhase(asiaUsClosed) === 'closed');
+assert(
+  '08:22 asia regular chip only',
+  marketChipLabel(asiaUsClosed) === '盘中 · 亚太',
+);
+
+const asiaRelay = new Date('2026-05-28T00:24:00.000Z');
+assert('asia relay rt1 live', resolveDisplaySession(asiaRelay).rt1Source === 'live');
+clearFundImpactSnapshots();
 
 const cnPending = new Date('2026-05-27T10:30:00.000Z');
 const cnAfterMidnight = new Date('2026-05-27T16:01:00.000Z');
@@ -337,7 +322,7 @@ assert(
 const hkPostClose = new Date('2026-05-27T08:00:21.000Z');
 assert('16:00:21 hk closed', !isHkMarketOpen(hkPostClose));
 assert('16:00:21 no hk label', !openMarketLabels(hkPostClose).includes('港股'));
-assert('16:00:21 us premarket chip', marketChipLabel(hkPostClose) === '盘前 · 美股');
+assert('16:00:21 us closed chip', marketChipLabel(hkPostClose) === '休市');
 
 console.log(`market-session tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {

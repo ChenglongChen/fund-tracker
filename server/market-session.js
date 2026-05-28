@@ -25,41 +25,6 @@ function minutesOfDay(parts) {
 const fundImpactCloseSnapshot = new Map();
 /** @type {Map<number, number>} */
 const fundImpactRegularSnapshot = new Map();
-/** @type {Map<number, number>} */
-const fundPremarketRegularSnapshot = new Map();
-/** @type {string|null} */
-let premarketSnapshotBeijingDate = null;
-/** @type {string|null} */
-let sessionRegularSnapshotPhase = null;
-
-/** @param {number|null|undefined} fundId @param {number|null|undefined} rawRegular @param {string} beijingDate @param {'premarket'|'afterhours'|'overnight'} sessionPhase */
-function resolveSessionRegularSnapshot(fundId, rawRegular, beijingDate, sessionPhase) {
-  if (
-    premarketSnapshotBeijingDate !== beijingDate ||
-    sessionRegularSnapshotPhase !== sessionPhase
-  ) {
-    fundPremarketRegularSnapshot.clear();
-    premarketSnapshotBeijingDate = beijingDate;
-    sessionRegularSnapshotPhase = sessionPhase;
-  }
-  if (fundId == null) return rawRegular ?? null;
-  if (fundPremarketRegularSnapshot.has(fundId)) {
-    return fundPremarketRegularSnapshot.get(fundId);
-  }
-  const seeded =
-    rawRegular != null && Number.isFinite(rawRegular)
-      ? rawRegular
-      : getFundRegularImpactPct(fundId);
-  if (seeded != null && Number.isFinite(seeded)) {
-    fundPremarketRegularSnapshot.set(fundId, seeded);
-    rememberFundRegular(fundId, seeded);
-  }
-  return seeded ?? null;
-}
-
-function resolvePremarketRegularSnapshot(fundId, rawRegular, beijingDate) {
-  return resolveSessionRegularSnapshot(fundId, rawRegular, beijingDate, 'premarket');
-}
 
 /** @param {number} fundId */
 export function getFundRegularImpactPct(fundId) {
@@ -85,8 +50,6 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
   const live = isFundImpactLiveWindow(market, now);
   const session = resolveDisplaySession(now);
   const usPhase = market === 'us' ? session.usPhase : null;
-  const isUsExtended =
-    usPhase === 'premarket' || usPhase === 'afterhours' || usPhase === 'overnight';
 
   if (live && hasRaw) {
     if (fundId != null) {
@@ -94,14 +57,6 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
         fundImpactRegularSnapshot.set(fundId, rawImpactPct);
         fundImpactCloseSnapshot.set(fundId, rawImpactPct);
         rememberFundRegular(fundId, rawImpactPct);
-      } else if (isUsExtended) {
-        fundImpactCloseSnapshot.set(fundId, rawImpactPct);
-        if (!fundImpactRegularSnapshot.has(fundId) && (usPhase === 'afterhours' || usPhase === 'overnight')) {
-          const disk = getFundRegular(fundId);
-          if (disk != null && Number.isFinite(disk)) {
-            fundImpactRegularSnapshot.set(fundId, disk);
-          }
-        }
       } else {
         fundImpactCloseSnapshot.set(fundId, rawImpactPct);
       }
@@ -113,13 +68,7 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
     return fundImpactCloseSnapshot.get(fundId);
   }
 
-  if (market === 'us' && (usPhase === 'premarket' || usPhase === 'overnight') && fundId != null) {
-    const disk = getFundRegular(fundId);
-    if (disk != null && Number.isFinite(disk)) return disk;
-  }
-
   if (hasRaw && fundId != null) {
-    if (market === 'us' && (usPhase === 'premarket' || usPhase === 'overnight')) return null;
     fundImpactCloseSnapshot.set(fundId, rawImpactPct);
     return rawImpactPct;
   }
@@ -142,70 +91,16 @@ export function resolveLiveDisplayImpact(fundId, market, impactResult, now = new
   const session = resolveDisplaySession(now);
   const usPhase = market === 'us' ? session.usPhase : null;
 
-  if (market === 'us' && usPhase === 'premarket') {
-    const beijingDate = beijingDateString(now);
-    const impactPctRegular = resolvePremarketRegularSnapshot(fundId, rawRegular, beijingDate);
-    const impactPctExtended = rawExtended;
-    const impactPct = impactPctRegular;
-    return {
-      impactPct,
-      impactPctRegular,
-      impactPctExtended,
-      impactSession: 'premarket',
-      rawImpactPct: rawTotal,
-    };
-  }
-
-  if (market === 'us' && usPhase === 'afterhours') {
-    const beijingDate = beijingDateString(now);
-    const impactPctRegular = resolveSessionRegularSnapshot(
-      fundId,
-      rawRegular,
-      beijingDate,
-      'afterhours',
-    );
-    const impactPctExtended = rawExtended;
-    const impactPct = impactPctRegular;
-    return {
-      impactPct,
-      impactPctRegular,
-      impactPctExtended,
-      impactSession: 'afterhours',
-      rawImpactPct: rawTotal,
-    };
-  }
-
-  if (market === 'us' && usPhase === 'overnight') {
-    const beijingDate = beijingDateString(now);
-    const impactPctRegular = resolveSessionRegularSnapshot(
-      fundId,
-      rawRegular,
-      beijingDate,
-      'overnight',
-    );
-    const impactPctExtended = rawExtended;
-    const impactPct = impactPctRegular;
-    return {
-      impactPct,
-      impactPctRegular,
-      impactPctExtended,
-      impactSession: 'overnight',
-      rawImpactPct: rawTotal,
-    };
-  }
-
   let impactPct = resolveFundImpactPct(fundId, market, rawTotal, now);
   let impactPctRegular = rawRegular;
-  let impactPctExtended = rawExtended;
   let impactSession = impactResult?.impactSession ?? (market === 'us' ? usPhase : 'closed');
   if (impactPctRegular == null && impactPct != null && impactSession === 'regular') {
     impactPctRegular = impactPct;
   }
   if (market !== 'us') {
-    if (impactSession === 'premarket' || impactSession === 'afterhours' || impactSession === 'overnight') {
+    if (impactSession === 'premarket' || impactSession === 'afterhours') {
       impactSession = 'closed';
     }
-    impactPctExtended = null;
     if (impactPctRegular == null && impactPct != null) {
       impactPctRegular = impactPct;
     }
@@ -213,7 +108,7 @@ export function resolveLiveDisplayImpact(fundId, market, impactResult, now = new
   return {
     impactPct,
     impactPctRegular,
-    impactPctExtended,
+    impactPctExtended: null,
     impactSession,
     rawImpactPct: rawTotal,
   };
@@ -231,14 +126,10 @@ export function shouldDisplayRealtimeProfit(_market, _realtimeActive, impactPct)
 export function clearFundImpactSnapshots(fundIds = null) {
   if (fundIds == null) {
     fundImpactCloseSnapshot.clear();
-    fundPremarketRegularSnapshot.clear();
-    premarketSnapshotBeijingDate = null;
-    sessionRegularSnapshotPhase = null;
     return;
   }
   for (const id of fundIds) {
     fundImpactCloseSnapshot.delete(id);
-    fundPremarketRegularSnapshot.delete(id);
   }
 }
 

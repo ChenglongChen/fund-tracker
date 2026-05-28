@@ -2,7 +2,7 @@
  * 各市场交易时段判定与基金市场分类。
  */
 import { beijingMinutesOfDay, beijingParts, beijingWeekday } from '../time.js';
-import { getUsSessionPhase, isUsQuoteLive } from '../holding-market.js';
+import { getUsSessionPhase, isUsQuoteLive, usSessionPhaseLabel } from '../holding-market.js';
 import { isHkMarketOpen, isJpMarketOpen, isKrMarketOpen } from '../holding-market.js';
 
 /** @typedef {'cn' | 'us' | 'gold_cn'} MarketType */
@@ -78,8 +78,7 @@ export function isCnMiddayBreak(date = new Date()) {
 }
 
 export function isUsFundImpactLive(now = new Date()) {
-  const phase = getUsSessionPhase(now);
-  return phase === 'regular' || phase === 'afterhours';
+  return getUsSessionPhase(now) === 'regular';
 }
 
 export function isFundImpactLiveWindow(market, now = new Date()) {
@@ -108,17 +107,31 @@ export function isRealtimeMarketOpen(market, date = new Date()) {
 }
 
 /** @param {Date} [now] */
-function displayPhasePrefix(now = new Date()) {
-  if (isCnMarketOpen(now) || isHkMarketOpen(now) || isJpMarketOpen(now) || isKrMarketOpen(now)) {
-    return '盘中';
-  }
-  if (isUsMarketOpen(now)) return '盘中';
+export function marketChipLabel(now = new Date()) {
+  /** @type {Map<string, string[]>} */
+  const byPhase = new Map();
+  const add = (phase, market) => {
+    if (!byPhase.has(phase)) byPhase.set(phase, []);
+    byPhase.get(phase).push(market);
+  };
+
+  if (isCnMarketOpen(now) || isCnMiddayBreak(now)) add('盘中', 'A股');
+  if (isHkMarketOpen(now)) add('盘中', '港股');
+  if (isJpMarketOpen(now) || isKrMarketOpen(now)) add('盘中', '亚太');
+
   const usPhase = getUsSessionPhase(now);
-  if (usPhase === 'premarket') return '盘前';
-  if (usPhase === 'afterhours') return '盘后';
-  if (usPhase === 'overnight') return '夜盘';
-  if (isCnMiddayBreak(now)) return '盘中';
-  return '盘中';
+  if (usPhase !== 'closed') add(usSessionPhaseLabel(usPhase), '美股');
+
+  if (!byPhase.size) return '休市';
+
+  const phaseOrder = ['盘中', '盘前', '盘后'];
+  /** @type {string[]} */
+  const segments = [];
+  for (const phase of phaseOrder) {
+    const markets = byPhase.get(phase);
+    if (markets?.length) segments.push(`${phase} · ${markets.join('/')}`);
+  }
+  return segments.join(' / ');
 }
 
 /** @param {Date} [now] */
@@ -130,12 +143,6 @@ export function openMarketLabels(now = new Date()) {
   if (isJpMarketOpen(now) || isKrMarketOpen(now)) out.push('亚太');
   if (isUsQuoteLive(now)) out.push('美股');
   return out;
-}
-
-/** @param {Date} [now] */
-export function marketChipLabel(now = new Date()) {
-  const labels = openMarketLabels(now);
-  return labels.length ? `${displayPhasePrefix(now)} · ${labels.join('/')}` : '休市';
 }
 
 /** @param {string} iso YYYY-MM-DD @returns {string} MM-DD */

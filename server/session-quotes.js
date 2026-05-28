@@ -70,6 +70,7 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
   return holdings.map((h) => {
     const market = classifyHoldingMarket(h);
     const quoteSession = getHoldingSessionPhase(market, now);
+    const closeSession = quoteSession === 'regular' ? 'closed' : quoteSession;
     const open = isHoldingQuoteLive(market, now);
     const cacheKey = `${holdingCacheKey(h)}|${market}`;
     const q = quoteForHolding(h, byHoldingKey);
@@ -126,16 +127,27 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
       };
     }
 
+    if (open) {
+      return {
+        ...h,
+        holdingMarket: market,
+        quoteMode: 'missing',
+        quoteSession,
+        changePct: null,
+        changePctRegular: null,
+        changePctPremarket: null,
+      };
+    }
+
     const frozen = closeSnapshot.get(cacheKey);
     if (frozen && isValidQuote(frozen)) {
       const regularSnap = regularCloseSnapshot.get(cacheKey);
-      const frozenSession = getHoldingSessionPhase(market, now);
       let changePctRegular = frozen.changePct;
       let changePctPremarket = null;
       if (market === 'us' || market === 'other') {
         if (regularSnap && isValidQuote(regularSnap) && regularSnap.source !== 'live') {
           changePctRegular = regularSnap.changePct;
-        } else if (frozenSession === 'premarket' || frozenSession === 'afterhours' || frozenSession === 'overnight') {
+        } else if (closeSession === 'premarket' || closeSession === 'afterhours') {
           changePctRegular = null;
         }
       }
@@ -147,7 +159,7 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
         price: frozen.price ?? h.price,
         quoteSource: 'session-close',
         quoteMode: 'close',
-        quoteSession: 'closed',
+        quoteSession: closeSession,
         holdingMarket: market,
       };
     }
@@ -166,12 +178,12 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
         price: q.price ?? h.price,
         quoteSource: q.quoteSource || 'sina',
         quoteMode: 'close',
-        quoteSession: 'closed',
+        quoteSession: closeSession,
         holdingMarket: market,
       };
     }
 
-    return { ...h, holdingMarket: market, quoteMode: 'missing', quoteSession: 'closed' };
+    return { ...h, holdingMarket: market, quoteMode: 'missing', quoteSession: closeSession };
   });
 }
 
@@ -272,7 +284,7 @@ export function applySessionMarketStrip(strip, now = new Date()) {
                 ? item.changePct
                 : null);
       let changePctPremarket = null;
-      if (phase === 'premarket' || phase === 'afterhours' || phase === 'overnight') {
+      if (phase === 'premarket' || phase === 'afterhours') {
         if (item.changePctPremarket != null && Number.isFinite(item.changePctPremarket) && item.changePctPremarket !== 0) {
           changePctPremarket = item.changePctPremarket;
         } else {

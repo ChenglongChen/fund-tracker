@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { getLiveCache, refreshLiveDisplay, startSchedulers } from './live.js';
 import { runSettlement, settleIfNeeded } from './settle.js';
 import { ensurePortfolio, readPortfolio, writePortfolio } from './store.js';
-import { resolveFundImpact, fetchFundNavInfo } from './market.js';
+import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay } from './market.js';
 import { classifyFundMarket } from './components/market-hours.js';
 import { resolveLiveDisplayImpact, seedFundRegularSnapshots } from './market-session.js';
 import { loadImpactSnapshots, getFundSnapshotRecords } from './impact-snapshots.js';
@@ -270,7 +270,10 @@ async function handler(req, res) {
         const nav = await fetchFundNavInfo(code);
         fundName = nav?.name ?? '';
       }
-      const r = await resolveFundImpact(code, live.fxPct, fundName, live.indices ?? []);
+      const r = await refreshFundHoldingsDisplay(
+        getCachedFundImpactDetail(code, fundName) ??
+          (await resolveFundImpact(code, live.fxPct, fundName, live.indices ?? [])),
+      );
       const market = classifyFundMarket(fund ?? { name: fundName, code });
       const displayImpact = resolveLiveDisplayImpact(fund?.id ?? null, market, r);
       const impactPct = displayImpact.impactPct;

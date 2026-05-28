@@ -34,7 +34,7 @@ const HOLDING_DISPLAY_ALIASES = {
 };
 
 async function fetchText(url, headers = {}) {
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   return Buffer.from(await res.arrayBuffer()).toString('utf8');
 }

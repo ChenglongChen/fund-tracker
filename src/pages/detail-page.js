@@ -5,19 +5,11 @@ import { app } from '../app/context.js';
 import { setTextClass } from '../dom.js';
 import { renderShell, renderLoading, renderLiveBanner } from '../components/shell.js';
 import { renderThemeToggle } from '../components/theme-chrome.js';
-import { detailHoldingsMetaHtml, patchStatusStripTimes } from '../components/status.js';
+import { detailHoldingsMetaHtml } from '../components/status.js';
+import { renderPctSub, setPctSubEl } from '../components/metrics.js';
 import {
-  combinedImpactTooltip,
-  renderMetricDualLine,
-  renderPctSub,
-  setPctSubEl,
-} from '../components/metrics.js';
-import {
-  extendedSessionLabel,
-  holdingShowsDualChange,
   holdingStatusClass,
   holdingStatusLabel,
-  shouldShowExtendedMetric,
 } from '../components/session.js';
 import { detailProfile } from '../fund-live-display.js';
 
@@ -42,10 +34,9 @@ export function holdingSortValue(h, key) {
     case 'status': {
       const session = h?.quoteSession;
       if (session === 'regular' && h?.quoteMode === 'live') return 0;
-      if (session === 'premarket') return 1;
-      if (session === 'afterhours') return 2;
-      if (session === 'closed' || h?.quoteMode === 'close') return 3;
-      return 4;
+      if (session === 'midday') return 1;
+      if (session === 'closed' || session === 'overnight' || h?.quoteMode === 'close') return 2;
+      return 3;
     }
     case 'weight':
     default:
@@ -88,7 +79,12 @@ export function holdingsSortIndicator(key) {
 
 export function renderHoldingsSortCol(title, key, align = 'right') {
   const active = app().state.holdingsSortKey === key ? ' is-active' : '';
-  const alignCls = align === 'left' ? ' table-head-sort--left' : ' table-head-sort--right';
+  const alignCls =
+    align === 'left'
+      ? ' table-head-sort--left'
+      : align === 'center'
+        ? ' table-head-sort--center'
+        : ' table-head-sort--right';
   const ariaSort =
     app().state.holdingsSortKey === key
       ? app().state.holdingsSortDir === 'asc'
@@ -107,26 +103,13 @@ export function renderHoldingsTableHead() {
       ${renderHoldingsSortCol('名称', 'name', 'left')}
       ${renderHoldingsSortCol('占比', 'weight', 'right')}
       ${renderHoldingsSortCol('涨跌幅', 'change', 'right')}
-      ${renderHoldingsSortCol('状态', 'status', 'right')}
+      ${renderHoldingsSortCol('状态', 'status', 'center')}
     </div>`;
 }
 
 export function renderStockChangeCell(h) {
-  if (!holdingShowsDualChange(h)) {
-    const cls = pctClass(h.changePct);
-    return `<span class="stock-change ${cls}">${fmtPct(h.changePct)}</span>`;
-  }
-  const extLabel = h.quoteSession === 'afterhours' ? '盘后' : '盘前';
-  const mainCls = pctClass(h.changePctRegular);
-  const extCls = pctClass(h.changePct);
-  return `
-    <div class="metric-dual-line metric-dual-line--holdings">
-      <span class="stock-change ${mainCls}">${fmtPct(h.changePctRegular)}</span>
-      <div class="metric-dual-line__ext">
-        <span class="metric-dual-line__ext-pct ${extCls}">${fmtPct(h.changePct)}</span>
-        <span class="metric-dual-line__tag">${extLabel}</span>
-      </div>
-    </div>`;
+  const cls = pctClass(h.changePct);
+  return `<span class="stock-change ${cls}">${fmtPct(h.changePct)}</span>`;
 }
 
 export function renderStockStatusCell(h) {
@@ -136,21 +119,8 @@ export function renderStockStatusCell(h) {
 }
 
 export function patchStockChangeCell(row, h) {
-  if (holdingShowsDualChange(h)) {
-    const wrap = row.querySelector('.metric-dual-line--holdings');
-    if (!wrap) return false;
-    const mainEl = wrap.querySelector('.stock-change');
-    const extPctEl = wrap.querySelector('.metric-dual-line__ext-pct');
-    const tagEl = wrap.querySelector('.metric-dual-line__tag');
-    if (!mainEl || !extPctEl || !tagEl) return false;
-    setPctSubEl(mainEl, h.changePctRegular);
-    setPctSubEl(extPctEl, h.changePct);
-    tagEl.textContent = h.quoteSession === 'afterhours' ? '盘后' : '盘前';
-    return true;
-  }
   const changeEl = row.querySelector('.stock-change');
   if (!changeEl) return false;
-  if (row.querySelector('.metric-dual-line--holdings')) return false;
   setPctSubEl(changeEl, h.changePct);
   return true;
 }
@@ -190,22 +160,7 @@ export function renderDetailNav(title, { showEdit = false } = {}) {
     </nav>`;
 }
 
-export function renderDetailMetric(label, val, pct, { signed = false, metrics = null, dual = false } = {}) {
-  if (dual && metrics && shouldShowExtendedMetric(metrics)) {
-    return `
-    <div class="detail-metric detail-metric--dual">
-      <p class="detail-metric-label">${escapeHtml(label)}</p>
-      ${renderMetricDualLine({
-        mainVal: metrics.realTimeProfitRegular,
-        mainPct: metrics.realTimePctRegular,
-        extVal: metrics.realTimeProfitExtended,
-        extPct: metrics.impactPctExtended,
-        extLabel: extendedSessionLabel(metrics.impactSession),
-        tooltip: combinedImpactTooltip(metrics),
-        valSigned: signed,
-      })}
-    </div>`;
-  }
+export function renderDetailMetric(label, val, pct, { signed = false } = {}) {
   const cls = pctClass(signed ? val : pct);
   return `
     <div class="detail-metric">
@@ -226,18 +181,8 @@ function renderDetailPctMetric(label, pct) {
 }
 
 export function renderDetailHero(fund, metrics, profile) {
-  const showExt = shouldShowExtendedMetric(metrics);
-  const mainPct = showExt ? metrics.impactPctRegular : metrics.impactPct;
-  const cls = pctClass(mainPct);
-  const pctBlock = showExt
-    ? `<div class="detail-hero-pct-wrap">${renderMetricDualLine({
-        mainPct: metrics.impactPctRegular,
-        extPct: metrics.impactPctExtended,
-        extLabel: extendedSessionLabel(metrics.impactSession),
-        tooltip: combinedImpactTooltip({ ...metrics, realTimePct: metrics.realTimePct ?? metrics.impactPct }),
-        compact: true,
-      })}</div>`
-    : `<p class="detail-hero-pct ${cls}">${fmtPct(metrics.impactPct)}</p>`;
+  const cls = pctClass(metrics.impactPct);
+  const pctBlock = `<p class="detail-hero-pct ${cls}">${fmtPct(metrics.impactPct)}</p>`;
   const amountLine = profile.showAmount
     ? `<p class="detail-hero-amount">持仓 ${fmtHoldAmount(fund.amount)}</p>`
     : '';
@@ -265,8 +210,6 @@ export function renderDetailStats(metrics, profile) {
           if (col.key === 'realtime') {
             return renderDetailMetric(col.title, metrics.realTimeProfit, metrics.realTimePct, {
               signed: true,
-              metrics,
-              dual: true,
             });
           }
           if (col.key === 'daily') {
@@ -346,9 +289,6 @@ export function renderDetailPage() {
 
 export function canPatchDetailDom() {
   if (app().state.view !== 'detail' || !document.getElementById('holdings-list-scroll')) return false;
-  const { row } = detailBundle();
-  if (shouldShowExtendedMetric(row)) return false;
-  if (getSortedDetailHoldings().some(holdingShowsDualChange)) return false;
   return true;
 }
 
@@ -357,7 +297,7 @@ export function patchDetailMetricsDom() {
   if (!fund || !metrics || !app().state.detail) return false;
 
   const profile = detailProfile(app().state.detailSource);
-  const heroCls = pctClass(metrics.impactPctRegular ?? metrics.impactPct);
+  const heroCls = pctClass(metrics.impactPct);
   const hero = document.querySelector('.detail-hero');
   if (hero) {
     hero.className = `detail-hero ${heroCls}`;
@@ -419,7 +359,6 @@ export function patchDetailMetricsDom() {
     metaEl.innerHTML = detailHoldingsMetaHtml(app().state.detail.holdings.length);
   }
 
-  patchStatusStripTimes();
   return true;
 }
 

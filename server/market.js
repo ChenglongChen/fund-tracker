@@ -1,7 +1,12 @@
 import { extractQuotedVar } from './quote-utils.js';
-import { fetchHoldingQuotes } from './quotes.js';
-import { applySessionMarketStrip, applySessionQuotes, supplementAsiaQuotes, getIndexSessionRegular } from './session-quotes.js';
-import { getUsSessionPhase } from './holding-market.js';
+import { fetchHoldingQuotes, quoteForHolding } from './quotes.js';
+import { applySessionMarketStrip, applySessionQuotes, supplementAsiaQuotes } from './session-quotes.js';
+import { getUsSessionPhase, holdingCacheKey } from './holding-market.js';
+import {
+  fundHasRegularHolding,
+  fundNeedsHoldingQuoteRefresh,
+  fundShouldRefreshLiveRt1,
+} from './fund-regular-eligibility.js';
 import {
   fetchFundHoldings,
   sortHoldingsByWeight,
@@ -25,6 +30,59 @@ import {
 
 const MIN_QUOTED_FOR_HOLDINGS = 3;
 const MIN_QUOTE_COVERAGE = 40;
+const FUND_DETAIL_CACHE_TTL_MS = 120_000;
+
+/** @type {Map<string, { at: number, result: object }>} */
+const fundDetailImpactCache = new Map();
+/** @type {{ at: number, byHoldingKey: Record<string, object> }} */
+let sharedHoldingQuotes = { at: 0, byHoldingKey: {} };
+
+/** @param {string} code @param {string} [fundName] */
+function fundDetailCacheKey(code, fundName = '') {
+  return `${String(code).trim()}|${String(fundName || '').trim()}`;
+}
+
+/** @param {string} code @param {string} [fundName] @param {number} [maxAgeMs] */
+export function getCachedFundImpactDetail(code, fundName = '', maxAgeMs = FUND_DETAIL_CACHE_TTL_MS) {
+  const hit = fundDetailImpactCache.get(fundDetailCacheKey(code, fundName));
+  if (!hit || Date.now() - hit.at > maxAgeMs) return null;
+  return hit.result;
+}
+
+/** @param {string} code @param {string} [fundName] @param {object} result */
+function rememberFundImpactDetail(code, fundName, result) {
+  if (!result) return;
+  fundDetailImpactCache.set(fundDetailCacheKey(code, fundName), { at: Date.now(), result });
+}
+
+/** @param {Record<string, object>} byHoldingKey */
+function rememberSharedHoldingQuotes(byHoldingKey) {
+  sharedHoldingQuotes = { at: Date.now(), byHoldingKey: { ...byHoldingKey } };
+}
+
+/** @param {number} [maxAgeMs] */
+function getSharedHoldingQuotes(maxAgeMs = FUND_DETAIL_CACHE_TTL_MS) {
+  if (!sharedHoldingQuotes.at || Date.now() - sharedHoldingQuotes.at > maxAgeMs) return null;
+  return sharedHoldingQuotes.byHoldingKey;
+}
+
+/**
+ * 优先复用组合 refresh 已拉取的行情，避免详情页单独打 96 支穿透行情。
+ * @param {object[]} holdings
+ * @param {Date} now
+ */
+async function resolveHoldingQuotesForFund(holdings, now) {
+  if (!holdings.length) return {};
+  const shared = getSharedHoldingQuotes();
+  const missing = shared
+    ? holdings.filter((h) => !quoteForHolding(h, shared))
+    : holdings;
+  if (shared && !missing.length) return shared;
+  const fetched = await fetchHoldingQuotes(holdings, now);
+  const merged = shared ? { ...shared, ...fetched.byHoldingKey } : fetched.byHoldingKey;
+  rememberSharedHoldingQuotes(merged);
+  return merged;
+}
 
 const SINA_ORIGIN = 'https://hq.sinajs.cn';
 const FUNDGZ_ORIGIN = 'https://fundgz.1234567.com.cn';
@@ -35,7 +93,7 @@ import {
   parseFxChangePct,
   parseIndexQuote,
 } from './market-indices.js';
-import { getQqqPremarketPct, parseGbSinaQuote } from './gb-quote-parse.js';
+import { parseGbSinaQuote } from './gb-quote-parse.js';
 
 export {
   holdingMergeKey,
@@ -130,134 +188,17 @@ function emptyHoldingsImpact(pack) {
     quoteCoverage: 0,
     usdWeight: 0,
     quotedCount: 0,
+    hasRegularHolding: false,
   };
 }
 
-const MAX_DAILY_REGULAR_PCT = 12;
-
-function resolveUsRegularChangePct(h, ndxRegular) {
-  const pct = h.changePct;
-  const pre = h.changePctPremarket;
-  let regular = h.changePctRegular;
-
-  if (regular != null && Number.isFinite(regular) && ndxRegular != null && Number.isFinite(ndxRegular)) {
-    const ndxSignificant = Math.abs(ndxRegular) >= 0.3;
-    const signMismatch = ndxSignificant && regular * ndxRegular < 0;
-    const farFromIndex = Math.abs(regular - ndxRegular) > 5;
-    if (signMismatch || farFromIndex) regular = null;
-  }
-
-  if (regular != null && Number.isFinite(regular)) return regular;
-
-  if (pct != null && Number.isFinite(pct)) {
-    const preAbs = pre != null && Number.isFinite(pre) ? Math.abs(pre) : 0;
-    if (Math.abs(pct) > Math.max(2, preAbs * 1.5) && Math.abs(pct) <= MAX_DAILY_REGULAR_PCT) {
-      return pct;
-    }
-  }
-
-  if (ndxRegular != null && Number.isFinite(ndxRegular)) return ndxRegular;
-  return null;
-}
-
-function fillUsRegularFromIndex(holdings) {
-  const ndxRegular = getIndexSessionRegular('纳斯达克100');
-  return holdings.map((h) => {
-    const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended =
-      h.quoteSession === 'premarket' ||
-      h.quoteSession === 'afterhours' ||
-      h.quoteSession === 'overnight';
-    if (!isUs || !extended) return h;
-    const resolved = resolveUsRegularChangePct(h, ndxRegular);
-    if (resolved == null) return h;
-    return { ...h, changePctRegular: resolved };
-  });
-}
-
-function holdingsWithRegularChange(holdings) {
-  const ndxRegular = getIndexSessionRegular('纳斯达克100');
-  return holdings.map((h) => {
-    const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended =
-      h.quoteSession === 'premarket' ||
-      h.quoteSession === 'afterhours' ||
-      h.quoteSession === 'overnight';
-    if (isUs && extended) {
-      const regular = resolveUsRegularChangePct(h, ndxRegular);
-      return {
-        ...h,
-        changePct: regular != null && Number.isFinite(regular) ? regular : null,
-      };
-    }
-    return { ...h, changePct: h.changePct };
-  });
-}
-
-function holdingsWithExtendedChange(holdings) {
-  return holdings.map((h) => {
-    const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    const extended =
-      h.quoteSession === 'premarket' ||
-      h.quoteSession === 'afterhours' ||
-      h.quoteSession === 'overnight';
-    if (!isUs || !extended) {
-      return { ...h, changePct: 0 };
-    }
-    if (h.changePctPremarket != null && Number.isFinite(h.changePctPremarket)) {
-      return { ...h, changePct: h.changePctPremarket };
-    }
-    if (
-      h.changePct != null &&
-      Number.isFinite(h.changePct) &&
-      h.changePctRegular != null &&
-      Number.isFinite(h.changePctRegular)
-    ) {
-      return { ...h, changePct: h.changePct - h.changePctRegular };
-    }
-    return { ...h, changePct: null };
-  });
-}
-
-function combineImpactPct(impactPctRegular, impactPctExtended, fallbackTotal) {
-  const hasRegular = impactPctRegular != null && Number.isFinite(impactPctRegular);
-  const hasExtended = impactPctExtended != null && Number.isFinite(impactPctExtended);
-  if (hasRegular && hasExtended) {
-    return impactPctRegular + impactPctExtended;
-  }
-  if (hasRegular && !hasExtended) return impactPctRegular;
-  if (!hasRegular && hasExtended && fallbackTotal != null) return fallbackTotal;
-  return fallbackTotal;
-}
-
 /** @param {object[]} holdings @param {Date} now */
-export function deriveImpactSessionFromHoldings(holdings, now) {
-  let usExtended = false;
-  let usRegular = false;
+export function deriveImpactSessionFromHoldings(holdings, _now) {
   for (const h of holdings) {
     const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    if (!isUs) continue;
-    const phase = h.quoteSession;
-    if (phase === 'regular') usRegular = true;
-    if (phase === 'premarket' || phase === 'afterhours' || phase === 'overnight') usExtended = true;
-  }
-  if (usRegular) return 'regular';
-  if (usExtended) {
-    const usPhase = getUsSessionPhase(now);
-    if (usPhase === 'premarket' || usPhase === 'afterhours' || usPhase === 'overnight') return usPhase;
+    if (isUs && h.quoteSession === 'regular') return 'regular';
   }
   return 'closed';
-}
-
-function attachExtendedImpactFields(impactPct, impactPctRegular, impactPctExtended, impactSession) {
-  if (impactSession !== 'premarket' && impactSession !== 'afterhours' && impactSession !== 'overnight') {
-    return { impactPctRegular, impactPctExtended: null, impactSession };
-  }
-  let extended = impactPctExtended;
-  if (extended == null && impactPct != null && impactPctRegular != null && Number.isFinite(impactPct) && Number.isFinite(impactPctRegular)) {
-    extended = impactPct - impactPctRegular;
-  }
-  return { impactPctRegular, impactPctExtended: extended, impactSession };
 }
 
 /** @param {object} pack @param {number|null} fxPct @param {Record<string, object>} byHoldingKey @param {Date} now */
@@ -266,27 +207,18 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
   if (!holdings.length) return emptyHoldingsImpact(pack);
 
   holdings = applySessionQuotes(holdings, byHoldingKey, now);
-  holdings = fillUsRegularFromIndex(holdings);
   const cov = summarizeHoldingsCoverage(holdings);
   const impactSession = deriveImpactSessionFromHoldings(holdings, now);
-  const impactPctRegular = estimateFromHoldingsWithFx(holdingsWithRegularChange(holdings), fxPct);
-  const impactPctExtendedEstimate =
-    impactSession === 'premarket' ||
-    impactSession === 'afterhours' ||
-    impactSession === 'overnight'
-      ? estimateFromHoldingsWithFx(holdingsWithExtendedChange(holdings), fxPct)
-      : null;
-  const fallbackTotal = estimateFromHoldingsWithFx(holdings, fxPct);
-  const impactPct = combineImpactPct(impactPctRegular, impactPctExtendedEstimate, fallbackTotal);
-  const extended = attachExtendedImpactFields(
-    impactPct,
-    impactPctRegular,
-    impactPctExtendedEstimate,
-    impactSession,
-  );
+  const impactPct = estimateFromHoldingsWithFx(holdings, fxPct);
+  const impactPctRegular =
+    impactSession === 'regular' && impactPct != null ? impactPct : null;
+  const hasRegularHolding = holdings.some((h) => h.quoteSession === 'regular');
   return {
     impactPct,
-    ...extended,
+    impactPctRegular,
+    impactPctExtended: null,
+    impactSession,
+    hasRegularHolding,
     reportDate: pack.reportDate,
     recentReportDate: pack.recentReportDate,
     annualReportDate: pack.annualReportDate,
@@ -306,13 +238,28 @@ export async function computeFundImpact(code, fxPct = null, fundName = '', now =
   let holdings = pack.holdings || [];
   if (!holdings.length) return emptyHoldingsImpact(pack);
 
-  const { byHoldingKey } = await fetchHoldingQuotes(holdings, now);
+  const byHoldingKey = await resolveHoldingQuotesForFund(holdings, now);
   await supplementAsiaQuotes(holdings, byHoldingKey, now);
   return computeFundImpactFromPack(pack, fxPct, byHoldingKey, now);
 }
 
+export {
+  fundHasRegularHolding,
+  fundNeedsHoldingQuoteRefresh,
+  fundShouldRefreshLiveRt1,
+} from './fund-regular-eligibility.js';
+
+const EMPTY_HOLDINGS_PACK = {
+  reportDate: null,
+  recentReportDate: null,
+  annualReportDate: null,
+  reportMeta: null,
+  reportFundCount: 0,
+  holdings: [],
+};
+
 /**
- * 组合级批量估值：一次拉全仓持仓行情，避免逐基金重复请求新浪。
+ * 组合级批量估值：串行拉全仓穿透持仓，避免并行打爆东财导致卡死。
  * @param {Array<{ id?: number, code: string, name?: string }>} funds
  * @param {Map<number|string, string>} [impactSourceById] 已知估值来源时跳过 fundgz 探测
  * @param {{ skipAsiaSupplement?: boolean }} [opts]
@@ -326,26 +273,61 @@ export async function resolvePortfolioImpacts(
   opts = {},
 ) {
   const { skipAsiaSupplement = false } = opts;
-  const packs = await Promise.all(funds.map((f) => fetchFundHoldings(f.code, f.name ?? '')));
+  /** @type {object[]} */
+  const packs = [];
+  for (const f of funds) {
+    try {
+      packs.push(await fetchFundHoldings(f.code, f.name ?? ''));
+    } catch {
+      packs.push({ ...EMPTY_HOLDINGS_PACK });
+    }
+  }
+
+  const quoteRefreshFlags = funds.map((f, i) => {
+    const cachedSource = f.id != null ? impactSourceById.get(f.id) ?? null : null;
+    return fundNeedsHoldingQuoteRefresh(f, packs[i], cachedSource, now);
+  });
 
   /** @type {object[]} */
-  const allHoldings = [];
-  for (const pack of packs) {
-    if (pack.holdings?.length) allHoldings.push(...pack.holdings);
+  const liveHoldings = [];
+  const seenKeys = new Set();
+  for (let i = 0; i < funds.length; i++) {
+    if (!quoteRefreshFlags[i]) continue;
+    for (const h of packs[i].holdings ?? []) {
+      const key = holdingCacheKey(h);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      liveHoldings.push(h);
+    }
   }
 
-  const { byHoldingKey } = allHoldings.length
-    ? await fetchHoldingQuotes(allHoldings, now)
-    : { byHoldingKey: {} };
-  if (allHoldings.length && !skipAsiaSupplement) {
-    await supplementAsiaQuotes(allHoldings, byHoldingKey, now);
+  /** @type {Record<string, object>} */
+  let byHoldingKey = getSharedHoldingQuotes() ?? {};
+
+  if (liveHoldings.length) {
+    const fetched = await fetchHoldingQuotes(liveHoldings, now);
+    byHoldingKey = { ...byHoldingKey, ...fetched.byHoldingKey };
+    rememberSharedHoldingQuotes(byHoldingKey);
+    if (!skipAsiaSupplement) {
+      await supplementAsiaQuotes(liveHoldings, byHoldingKey, now);
+      rememberSharedHoldingQuotes(byHoldingKey);
+    }
   }
 
-  return Promise.all(
+  const impacts = await Promise.all(
     funds.map((f, i) => {
       const cachedSource = f.id != null ? impactSourceById.get(f.id) ?? null : null;
+      if (!quoteRefreshFlags[i]) {
+        const cached = getCachedFundImpactDetail(f.code, f.name ?? '');
+        if (cached) {
+          return Promise.resolve({
+            ...cached,
+            shouldRefreshLiveRt1: fundShouldRefreshLiveRt1(f, packs[i], cachedSource, now),
+          });
+        }
+      }
       return resolveFundImpactWithQuotes(
-        f.code,
+        f,
         fxPct,
         f.name ?? '',
         strip,
@@ -356,6 +338,10 @@ export async function resolvePortfolioImpacts(
       );
     }),
   );
+  for (let i = 0; i < funds.length; i++) {
+    rememberFundImpactDetail(funds[i].code, funds[i].name ?? '', impacts[i]);
+  }
+  return impacts;
 }
 
 /** fundgz/index 覆写时同步 total 与 regular，避免 estimate/display 分裂 */
@@ -372,9 +358,20 @@ function syncFundgzImpact(r, gszzl, extra = {}) {
   };
 }
 
-/** @param {object} pack @param {Record<string, object>} byHoldingKey @param {string|null} [cachedSource] */
+/** @param {object} fund @param {object} result @param {object} pack @param {string|null} cachedSource @param {Date} now */
+function attachFundEligibility(fund, result, pack, cachedSource, now) {
+  const impactSource = result?.impactSource ?? cachedSource ?? null;
+  return {
+    ...result,
+    hasRegularHolding:
+      result?.hasRegularHolding ?? fundHasRegularHolding(pack?.holdings ?? [], now),
+    shouldRefreshLiveRt1: fundShouldRefreshLiveRt1(fund, pack, impactSource, now),
+  };
+}
+
+/** @param {object} fund @param {Record<string, object>} byHoldingKey @param {string|null} [cachedSource] */
 async function resolveFundImpactWithQuotes(
-  code,
+  fund,
   fxPct,
   fundName,
   strip,
@@ -383,58 +380,103 @@ async function resolveFundImpactWithQuotes(
   now,
   cachedSource = null,
 ) {
+  const code = fund.code;
   const profile = getFundValuationProfile(code, fundName);
   const strategy = pickValuationStrategy(code, fundName);
 
   if (cachedSource?.startsWith('proxy:') || strategy === 'proxy') {
-    return resolveProxyFundImpact(code, fundName, strip);
+    return attachFundEligibility(
+      fund,
+      await resolveProxyFundImpact(code, fundName, strip),
+      pack,
+      cachedSource,
+      now,
+    );
   }
 
   const r = computeFundImpactFromPack(pack, fxPct, byHoldingKey, now);
 
-  if (cachedSource === 'holdings') return { ...r, impactSource: 'holdings' };
+  if (cachedSource === 'holdings') {
+    return attachFundEligibility(fund, { ...r, impactSource: 'holdings' }, pack, cachedSource, now);
+  }
   if (cachedSource === 'fundgz') {
     const gz = await fetchFundGz(code);
     if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {
-      return syncFundgzImpact(r, gz.gszzl, { impactSource: 'fundgz', gzTime: gz.gztime ?? null });
+      return attachFundEligibility(
+        fund,
+        syncFundgzImpact(r, gz.gszzl, { impactSource: 'fundgz', gzTime: gz.gztime ?? null }),
+        pack,
+        cachedSource,
+        now,
+      );
     }
-    return { ...r, impactSource: 'fundgz' };
+    return attachFundEligibility(fund, { ...r, impactSource: 'fundgz' }, pack, cachedSource, now);
   }
   if (cachedSource === 'index') {
     const indexHit = resolveProxyIndexImpact(fundName, strip);
-    if (indexHit) return syncFundgzImpact(r, indexHit.impactPct, indexHit);
+    if (indexHit) {
+      return attachFundEligibility(
+        fund,
+        syncFundgzImpact(r, indexHit.impactPct, indexHit),
+        pack,
+        cachedSource,
+        now,
+      );
+    }
     const indexPct = pickIndexChangePct(fundName, strip);
     if (indexPct != null && Number.isFinite(indexPct)) {
       const impactPct = estimateWithFx(indexPct, fxPct);
       if (impactPct != null) {
-        return syncFundgzImpact(r, impactPct, { impactSource: 'index' });
+        return attachFundEligibility(
+          fund,
+          syncFundgzImpact(r, impactPct, { impactSource: 'index' }),
+          pack,
+          cachedSource,
+          now,
+        );
       }
     }
-    return { ...r, impactSource: 'index' };
+    return attachFundEligibility(fund, { ...r, impactSource: 'index' }, pack, cachedSource, now);
   }
 
   const preferHoldings = shouldPreferHoldingsImpact(r, fundName, profile);
 
-  if (preferHoldings) return { ...r, impactSource: 'holdings' };
-  if (strategy === 'holdings' && isHoldingsUsable(r)) return { ...r, impactSource: 'holdings' };
+  if (preferHoldings) {
+    return attachFundEligibility(fund, { ...r, impactSource: 'holdings' }, pack, cachedSource, now);
+  }
+  if (strategy === 'holdings' && isHoldingsUsable(r)) {
+    return attachFundEligibility(fund, { ...r, impactSource: 'holdings' }, pack, cachedSource, now);
+  }
 
   const gz = await fetchFundGz(code);
   if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {
-    return syncFundgzImpact(r, gz.gszzl, {
-      impactSource: 'fundgz',
-      gzTime: gz.gztime ?? null,
-    });
+    return attachFundEligibility(
+      fund,
+      syncFundgzImpact(r, gz.gszzl, {
+        impactSource: 'fundgz',
+        gzTime: gz.gztime ?? null,
+      }),
+      pack,
+      cachedSource,
+      now,
+    );
   }
 
   const indexPct = pickIndexChangePct(fundName, strip);
   if (indexPct != null && Number.isFinite(indexPct)) {
     const impactPct = estimateWithFx(indexPct, fxPct);
     if (impactPct != null) {
-      return syncFundgzImpact(r, impactPct, { impactSource: 'index' });
+      return attachFundEligibility(
+        fund,
+        syncFundgzImpact(r, impactPct, { impactSource: 'index' }),
+        pack,
+        cachedSource,
+        now,
+      );
     }
   }
 
-  return { ...r, impactSource: null };
+  return attachFundEligibility(fund, { ...r, impactSource: null }, pack, cachedSource, now);
 }
 
 const NAV_INFO_TTL_MS = 5 * 60_000;
@@ -502,25 +544,8 @@ export function resolveProxyIndexImpact(fundName, strip) {
     item?.changePctRegular != null && Number.isFinite(item.changePctRegular)
       ? item.changePctRegular
       : item.changePct;
-  let impactPctExtended = null;
-  if (impactSession === 'premarket' || impactSession === 'afterhours' || impactSession === 'overnight') {
-    if (item?.changePctPremarket != null && Number.isFinite(item.changePctPremarket) && item.changePctPremarket !== 0) {
-      impactPctExtended = item.changePctPremarket;
-    } else {
-      impactPctExtended = getQqqPremarketPct();
-    }
-    if (impactPctExtended == null && impactPctRegular != null) {
-      impactPctExtended = item.changePct - impactPctRegular;
-    }
-  }
-  const impactPct = combineImpactPct(impactPctRegular, impactPctExtended, item.changePct);
-  const extended = attachExtendedImpactFields(
-    impactPct,
-    impactPctRegular,
-    impactPctExtended,
-    impactSession,
-  );
-  return { impactPct, impactSource: 'index', ...extended };
+  const impactPct = item.changePct;
+  return { impactPct, impactSource: 'index', impactPctRegular, impactPctExtended: null, impactSession };
 }
 
 async function resolveProxyFundImpact(code, fundName, strip) {
@@ -581,41 +606,69 @@ async function fetchBestFundGz(code, fundName = '') {
 }
 
 export async function resolveFundImpact(code, fxPct = null, fundName = '', strip = []) {
+  const cached = getCachedFundImpactDetail(code, fundName);
+  if (cached) return cached;
+
   const profile = getFundValuationProfile(code, fundName);
   const strategy = pickValuationStrategy(code, fundName);
 
+  let result;
   if (strategy === 'proxy') {
-    return resolveProxyFundImpact(code, fundName, strip);
-  }
+    result = await resolveProxyFundImpact(code, fundName, strip);
+  } else {
+    const r = await computeFundImpact(code, fxPct, fundName);
+    const preferHoldings = shouldPreferHoldingsImpact(r, fundName, profile);
 
-  const r = await computeFundImpact(code, fxPct, fundName);
-  const preferHoldings = shouldPreferHoldingsImpact(r, fundName, profile);
-
-  if (preferHoldings) {
-    return { ...r, impactSource: 'holdings' };
-  }
-
-  if (strategy === 'holdings' && isHoldingsUsable(r)) {
-    return { ...r, impactSource: 'holdings' };
-  }
-
-  const gz = await fetchFundGz(code);
-  if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {
-    return syncFundgzImpact(r, gz.gszzl, {
-      impactSource: 'fundgz',
-      gzTime: gz.gztime ?? null,
-    });
-  }
-
-  const indexPct = pickIndexChangePct(fundName, strip);
-  if (indexPct != null && Number.isFinite(indexPct)) {
-    const impactPct = estimateWithFx(indexPct, fxPct);
-    if (impactPct != null) {
-      return syncFundgzImpact(r, impactPct, { impactSource: 'index' });
+    if (preferHoldings) {
+      result = { ...r, impactSource: 'holdings' };
+    } else if (strategy === 'holdings' && isHoldingsUsable(r)) {
+      result = { ...r, impactSource: 'holdings' };
+    } else {
+      const gz = await fetchFundGz(code);
+      if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {
+        result = syncFundgzImpact(r, gz.gszzl, {
+          impactSource: 'fundgz',
+          gzTime: gz.gztime ?? null,
+        });
+      } else {
+        const indexPct = pickIndexChangePct(fundName, strip);
+        if (indexPct != null && Number.isFinite(indexPct)) {
+          const impactPct = estimateWithFx(indexPct, fxPct);
+          if (impactPct != null) {
+            result = syncFundgzImpact(r, impactPct, { impactSource: 'index' });
+          } else {
+            result = { ...r, impactSource: null };
+          }
+        } else {
+          result = { ...r, impactSource: null };
+        }
+      }
     }
   }
 
-  return { ...r, impactSource: null };
+  rememberFundImpactDetail(code, fundName, result);
+  return result;
+}
+
+/** 详情页读缓存时重算穿透展示字段（quoteMode / 涨跌幅），避免时段变化后仍显示旧 CSOP 或「盘中」标签 */
+export async function refreshFundHoldingsDisplay(result, now = new Date()) {
+  if (!result?.holdings?.length) return result;
+  const holdings = result.holdings;
+  if (!fundHasRegularHolding(holdings, now)) {
+    const shared = getSharedHoldingQuotes();
+    const byHoldingKey = shared ?? {};
+    return {
+      ...result,
+      holdings: sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now)),
+    };
+  }
+  const byHoldingKey = { ...(await resolveHoldingQuotesForFund(holdings, now)) };
+  await supplementAsiaQuotes(holdings, byHoldingKey, now);
+  rememberSharedHoldingQuotes(byHoldingKey);
+  return {
+    ...result,
+    holdings: sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now)),
+  };
 }
 
 export {

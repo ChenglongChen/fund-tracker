@@ -1,6 +1,6 @@
 # AGENTS.md — fund-tracker
 
-多账户基金持仓看板（Node API + Vite SPA）。核心难点在 **实时收益 RT1 / 预估资产 EST / 盘前盘后 snap** 的时段口径一致性。
+多账户基金持仓看板（Node API + Vite SPA）。核心难点在 **实时收益 RT1 / 预估资产 EST / EOD snap** 的时段口径一致性。
 
 ## 先读文档
 
@@ -30,7 +30,7 @@ npm run verify:alipay-realtime   # 需 API 运行
 
 ```
 账户资产     = Σ amount
-RT1 (row1)   = Σ estimateProfit          # 不含盘前/盘后 row2
+RT1 (row1)   = Σ estimateProfit
 EST (header) = baseline + RT1 ≈ 账户资产 + RT1（scope 内）
 ```
 
@@ -40,14 +40,14 @@ EST (header) = baseline + RT1 ≈ 账户资产 + RT1（scope 内）
 
 ## 北京时间轴（QDII 主视角）
 
-| 时段 (BJ) | phase | RT1 / row1 | row2 extended |
-|-----------|-------|------------|---------------|
-| 08:00–16:00 | `overnight_freeze` | **snap** | 夜盘 live |
-| 16:00–21:30 | `premarket_freeze` | **snap** | 盘前 live |
-| 21:30–04:00 | `us_regular_live` | live（regular+extended 并入 RT1） | — |
-| 04:00–08:00 | `afterhours_freeze` | **snap** | 盘后 live |
-| A 股 21:30–09:30 | — | **`—`**（含 snap 阶段） | — |
-| 周末 A 股/黄金 | — | **`—`** | — |
+| 时段 (BJ) | phase | RT1 / row1 |
+|-----------|-------|------------|
+| 08:00–16:00 | `asia_live` | **per-fund**：有 regular 持仓 live，否则 snap |
+| 16:00–21:30 | `eod_freeze` | **EOD snap** |
+| 21:30–04:00 | `us_regular_live` | live（仅正盘） |
+| 04:00–08:00 | `day_open` | per-fund 门控 + snap |
+| A 股 21:30–09:30 | — | **`—`**（含 snap 阶段） |
+| 周末 A 股/黄金 | — | **`—`** |
 
 A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30 起**进入 suppress 窗口。
 
@@ -55,10 +55,9 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 
 唯一入口：`live-pipeline.runLiveDisplayPipeline()`（`live.js` 调用）
 
-1. **`fund-display.buildDisplayFundRow`** — 唯一计算 `estimateProfit` / `estimateAssets` / row2
-2. **`reconcileDisplayState`** — seed / discard snap、写 baseline
-3. **`tryBackfillSnapFromTicks`** — 仅补 provisional；premarket 须 ≥16:00
-4. **`applyDisplaySnapAndTotals`** — snap 读/写 + **`computePortfolioTotals`（仅 Σ ep）** + header snap
+1. **`fund-display.buildDisplayFundRow`** — 唯一计算 `estimateProfit` / `estimateAssets`
+2. **`reconcileDisplayState`** — seed EOD snap、写 baseline
+3. **`applyDisplaySnapAndTotals`** — snap 读/写 + **`computePortfolioTotals`（仅 Σ ep）** + header snap
 
 ## Ground truth（禁止多处计算）
 

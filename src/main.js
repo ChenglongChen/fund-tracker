@@ -77,7 +77,7 @@ import {
 } from './fund-live-display.js';
 
 const REFRESH_MS = 1_000;
-const DETAIL_HOLDINGS_REFRESH_MS = 3_000;
+const DETAIL_HOLDINGS_REFRESH_MS = REFRESH_MS;
 
 /** @type {import('./portfolio.js').PortfolioMeta} */
 let PORTFOLIO_META = {};

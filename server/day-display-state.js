@@ -9,7 +9,7 @@ export { getRt1AccrualDay } from './display-session.js';
 const PATH = path.join(DATA_DIR, 'day-display-state.json');
 const SCOPES = ['portfolio'];
 
-/** @typedef {'day_open'|'afterhours_freeze'|'overnight_freeze'|'premarket_freeze'|'us_regular_live'|'eod_freeze'|'asia_live'} DisplayPhase */
+/** @typedef {'day_open'|'us_regular_live'|'eod_freeze'|'asia_live'} DisplayPhase */
 
 /** @type {{
  *   version: number,
@@ -108,7 +108,7 @@ export function getCurrentPhase() {
 
 /**
  * @param {string} day
- * @param {'afterhoursSnap'|'premarketSnap'|'overnightSnap'|'eodSnap'} key
+ * @param {'eodSnap'} key
  * @param {string} [scope]
  */
 export function getScopeSnap(day, key, scope = 'portfolio') {
@@ -117,7 +117,7 @@ export function getScopeSnap(day, key, scope = 'portfolio') {
 
 /**
  * @param {string} day
- * @param {'afterhoursSnap'|'premarketSnap'|'overnightSnap'|'eodSnap'} key
+ * @param {'eodSnap'} key
  * @param {string} scope
  * @param {object} snap
  */
@@ -128,7 +128,7 @@ export function setScopeSnap(day, key, scope, snap) {
   scheduleSave();
 }
 
-/** @param {string} day @param {'afterhoursSnap'|'premarketSnap'|'overnightSnap'|'eodSnap'} key @param {string} [scope] */
+/** @param {string} day @param {'afterhoursSnap'|'premarketSnap'|'eodSnap'} key @param {string} [scope] */
 export function clearScopeSnap(day, key, scope = 'portfolio') {
   const scopeRec = cache.days[day]?.scopes?.[scope];
   if (!scopeRec?.[key]) return;
