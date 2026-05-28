@@ -33,7 +33,7 @@ export function fundShouldRefreshLiveRt1(fund, pack, impactSource = null, now = 
   const holdings = pack?.holdings ?? [];
   if (holdings.length) return fundHasRegularHolding(holdings, now);
 
-  if (impactSource === 'holdings') return false;
+  if (impactSource === 'holdings' || impactSource === 'ensemble') return false;
 
   const market = classifyFundMarket(fund);
   if (market === 'us') return getUsSessionPhase(now) === 'regular';

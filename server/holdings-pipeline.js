@@ -388,6 +388,53 @@ export function usdExposedWeight(h) {
   return 0;
 }
 
+/** @param {number|null|{ usd?: number|null, hkd?: number|null, fxPct?: number|null }} fxStrip @param {'usd'|'hkd'} [kind] */
+function pickFxStripPct(fxStrip, kind = 'usd') {
+  if (fxStrip == null) return 0;
+  if (typeof fxStrip === 'number') return kind === 'usd' ? fxStrip : fxStrip * 0.85;
+  const usd = fxStrip.usd ?? fxStrip.fxPct ?? 0;
+  if (kind === 'usd') return Number.isFinite(usd) ? usd : 0;
+  const hkd = fxStrip.hkd;
+  if (hkd != null && Number.isFinite(hkd)) return hkd;
+  return (Number.isFinite(usd) ? usd : 0) * 0.85;
+}
+
+/** @param {object[]} holdings @param {{ liveRt1Only?: boolean }} [opts] */
+export function summarizeFxExposure(holdings, opts = {}) {
+  const counts = opts.liveRt1Only ? countsTowardLiveRt1 : countsTowardValuation;
+  let usdWeight = 0;
+  let hkdWeight = 0;
+  for (const h of holdings) {
+    if (!counts(h)) continue;
+    if (h.holdingMarket === 'hk') hkdWeight += h.weight;
+    else usdWeight += usdExposedWeight(h);
+  }
+  return { usdWeight, hkdWeight };
+}
+
+/** @param {object[]} holdings @param {number|null|object} fxStrip @param {{ liveRt1Only?: boolean }} [opts] */
+export function computeHoldingsImpactBreakdown(holdings, fxStrip, opts = {}) {
+  const holdingsPct = estimateFromHoldings(holdings, opts);
+  if (holdingsPct == null) return null;
+  const { usdWeight, hkdWeight } = summarizeFxExposure(holdings, opts);
+  const fxUsdPct = pickFxStripPct(fxStrip, 'usd');
+  const fxHkdPct = pickFxStripPct(fxStrip, 'hkd');
+  const fxUsdContribution = (usdWeight / 100) * fxUsdPct;
+  const fxHkdContribution = (hkdWeight / 100) * fxHkdPct;
+  const fxContribution = fxUsdContribution + fxHkdContribution;
+  return {
+    holdingsPct,
+    fxUsdPct,
+    fxHkdPct,
+    fxUsdContribution,
+    fxHkdContribution,
+    fxContribution,
+    usdWeight,
+    hkdWeight,
+    totalPct: holdingsPct + fxContribution,
+  };
+}
+
 export function summarizeHoldingsCoverage(holdings, { liveRt1Only = false } = {}) {
   let weightCoverage = 0;
   let quoteCoverage = 0;
@@ -420,13 +467,10 @@ export function estimateFromHoldings(holdings, { liveRt1Only = false } = {}) {
   return sumWC / 100;
 }
 
-/** 穿透收益 + 仅对美元资产权重叠加汇率 */
-export function estimateFromHoldingsWithFx(holdings, fxPct, opts = {}) {
-  const holdingsPct = estimateFromHoldings(holdings, opts);
-  if (holdingsPct == null) return null;
-  const fx = fxPct != null && Number.isFinite(fxPct) ? fxPct : 0;
-  const { usdWeight } = summarizeHoldingsCoverage(holdings, opts);
-  return holdingsPct + fx * (usdWeight / 100);
+/** 穿透收益 + FX 分项（USD/HKD 暴露） */
+export function estimateFromHoldingsWithFx(holdings, fxStrip, opts = {}) {
+  const bd = computeHoldingsImpactBreakdown(holdings, fxStrip, opts);
+  return bd?.totalPct ?? null;
 }
 
 /** @deprecated 整包加 FX；新代码请用 estimateFromHoldingsWithFx */

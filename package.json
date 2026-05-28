@@ -22,6 +22,7 @@
     "test:live-pipeline": "node server/live-pipeline.test.js",
     "test:realtime-display-pipeline": "node server/realtime-display-pipeline.test.js",
     "test:realtime-profit": "node server/realtime-profit-consistency.test.js",
+    "test:qdii-valuation": "node server/qdii-valuation.test.js",
     "verify:alipay-realtime": "node scripts/verify-alipay-realtime.js",
     "verify:tab-reconcile": "node scripts/verify-tab-reconcile.js"
   },

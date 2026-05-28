@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getLiveCache, refreshLiveDisplay, startSchedulers, buildLiveRevision, requestLiveRefresh } from './live.js';
 import { runSettlement, settleIfNeeded } from './settle.js';
 import { ensurePortfolio, readPortfolio, writePortfolio } from './store.js';
-import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, mergeSharedHoldingQuotes } from './market.js';
+import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, mergeSharedHoldingQuotes, resolveFxStripFromMarket } from './market.js';
 import { classifyFundMarket } from './components/market-hours.js';
 import { resolveLiveDisplayImpact, seedFundRegularSnapshots } from './market-session.js';
 import { loadImpactSnapshots, getFundSnapshotRecords } from './impact-snapshots.js';
@@ -295,9 +295,10 @@ async function handler(req, res) {
         const nav = await fetchFundNavInfo(code);
         fundName = nav?.name ?? '';
       }
+      const fxStrip = resolveFxStripFromMarket(live.indices ?? []);
       const r = await refreshFundHoldingsDisplay(
         getCachedFundImpactDetail(code, fundName, 120_000) ??
-          (await resolveFundImpact(code, live.fxPct, fundName, live.indices ?? [])),
+          (await resolveFundImpact(code, fxStrip ?? live.fxPct, fundName, live.indices ?? [])),
       );
       const market = classifyFundMarket(fund ?? { name: fundName, code });
       const displayImpact = resolveLiveDisplayImpact(fund?.id ?? null, market, r);
@@ -313,18 +314,28 @@ async function handler(req, res) {
           : r.weightCoverage != null && Number.isFinite(r.weightCoverage)
             ? `，披露权重约 ${r.weightCoverage.toFixed(0)}%`
             : '';
+      const conf =
+        r.valuationConfidence != null ? ` · 置信${r.valuationConfidence}` : '';
+      const src = r.impactSource ? ` · 来源${r.impactSource}` : '';
       const note =
         qNum && annualY
-          ? `基于Q${qNum}季报结合${annualY.slice(2)}年年报持仓计算，共 ${r.count} 支${cov}`
+          ? `基于Q${qNum}季报结合${annualY.slice(2)}年年报持仓计算，共 ${r.count} 支${cov}${conf}${src}`
           : recent
-            ? `基于持仓报告 ${recent} 计算，共 ${r.count} 支${cov}`
-            : `共 ${r.count} 支重仓${cov}`;
+            ? `基于持仓报告 ${recent} 计算，共 ${r.count} 支${cov}${conf}${src}`
+            : `共 ${r.count} 支重仓${cov}${conf}${src}`;
       return json(res, 200, {
         impactPct,
         rawImpactPct: r.impactPct,
         holdings: r.holdings,
         note,
         reportDate: r.reportDate,
+        impactSource: r.impactSource ?? null,
+        valuationConfidence: r.valuationConfidence ?? null,
+        ensembleAlpha: r.ensembleAlpha ?? null,
+        holdingsImpactPct: r.holdingsImpactPct ?? null,
+        fundgzImpactPct: r.fundgzImpactPct ?? null,
+        impactBreakdown: r.impactBreakdown ?? null,
+        quoteCoverage: r.quoteCoverage ?? null,
       });
     } catch (e) {
       return json(res, 500, { error: e instanceof Error ? e.message : String(e) });

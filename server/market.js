@@ -19,7 +19,9 @@ import {
   summarizeHoldingsCoverage,
   usdExposedWeight,
   maskHoldingsForLiveRt1Display,
+  computeHoldingsImpactBreakdown,
 } from './holdings-pipeline.js';
+import { applyHoldingsEnsemble } from './qdii-valuation.js';
 import {
   getFundValuationProfile,
   getProxyCandidates,
@@ -127,8 +129,23 @@ export {
   estimateFromHoldings,
   estimateFromHoldingsWithFx,
   estimateWithFx,
+  computeHoldingsImpactBreakdown,
   fetchFundHoldings,
 };
+
+/** @param {object[]} strip */
+export function resolveFxStripFromMarket(strip) {
+  const fxRow = strip?.find?.((x) => x.label === '汇率' || x.market === 'fx');
+  if (!fxRow) return null;
+  const usd = fxRow.usd ?? fxRow.changePct ?? null;
+  const hkd = fxRow.hkd ?? null;
+  return {
+    usd,
+    hkd,
+    fxPct: usd,
+    changePct: usd,
+  };
+}
 
 /** 非指数联接且有可用持仓 → 走 holdings */
 export function shouldPreferHoldingsImpact(r, fundName = '', profile = null) {
@@ -178,7 +195,7 @@ export async function fetchSinaQuotes(fetchCodes) {
 }
 
 export async function fetchMarketStrip(now = new Date()) {
-  const keys = [...MARKET_STRIP_INDICES.map((i) => i.key), 'fx_susdcny', 'gb_qqq'];
+  const keys = [...MARKET_STRIP_INDICES.map((i) => i.key), 'fx_susdcny', 'fx_hkdcny', 'gb_qqq'];
   const url = `${SINA_ORIGIN}/list=${keys.join(',')}`;
   const text = await fetchText(url, SINA_HEADERS);
 
@@ -191,10 +208,15 @@ export async function fetchMarketStrip(now = new Date()) {
     return { label, market, ...quote };
   });
 
-  const fxRaw = extractQuotedVar(text, 'hq_str_fx_susdcny');
+  const fxUsdRaw = extractQuotedVar(text, 'hq_str_fx_susdcny');
+  const fxHkdRaw = extractQuotedVar(text, 'hq_str_fx_hkdcny');
+  const usdPct = parseFxChangePct(fxUsdRaw);
+  const hkdPct = parseFxChangePct(fxHkdRaw);
   const fx = {
     label: '汇率',
-    changePct: parseFxChangePct(fxRaw),
+    changePct: usdPct,
+    usd: usdPct,
+    hkd: hkdPct != null ? hkdPct : usdPct != null ? usdPct * 0.85 : null,
     market: 'fx',
   };
   return applySessionMarketStrip([...indices, fx], now);
@@ -225,8 +247,8 @@ export function deriveImpactSessionFromHoldings(holdings, _now) {
   return 'closed';
 }
 
-/** @param {object} pack @param {number|null} fxPct @param {Record<string, object>} byHoldingKey @param {Date} now */
-function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
+/** @param {object} pack @param {number|null|object} fxStrip @param {Record<string, object>} byHoldingKey @param {Date} now */
+function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
   let holdings = pack.holdings || [];
   if (!holdings.length) return emptyHoldingsImpact(pack);
 
@@ -234,8 +256,9 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
   const hasRegularHolding = holdings.some((h) => h.quoteSession === 'regular');
   const liveRt1Opts = hasRegularHolding ? { liveRt1Only: true } : {};
   const cov = summarizeHoldingsCoverage(holdings, liveRt1Opts);
+  const impactBreakdown = computeHoldingsImpactBreakdown(holdings, fxStrip, liveRt1Opts);
   const impactSession = deriveImpactSessionFromHoldings(holdings, now);
-  const impactPct = estimateFromHoldingsWithFx(holdings, fxPct, liveRt1Opts);
+  const impactPct = impactBreakdown?.totalPct ?? null;
   const impactPctRegular =
     impactSession === 'regular' && impactPct != null ? impactPct : null;
   const displayHoldings = maskHoldingsForLiveRt1Display(holdings, hasRegularHolding);
@@ -245,6 +268,7 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
     impactPctExtended: null,
     impactSession,
     hasRegularHolding,
+    impactBreakdown,
     reportDate: pack.reportDate,
     recentReportDate: pack.recentReportDate,
     annualReportDate: pack.annualReportDate,
@@ -255,6 +279,7 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
     weightCoverage: cov.weightCoverage,
     quoteCoverage: cov.quoteCoverage,
     usdWeight: cov.usdWeight,
+    hkdWeight: impactBreakdown?.hkdWeight ?? 0,
     quotedCount: cov.quotedCount,
   };
 }
@@ -428,7 +453,9 @@ async function resolveFundImpactWithQuotes(
   const r = computeFundImpactFromPack(pack, fxPct, byHoldingKey, now);
 
   if (cachedSource === 'holdings') {
-    return attachFundEligibility(fund, { ...r, impactSource: 'holdings' }, pack, cachedSource, now);
+    const gz = await fetchFundGz(code);
+    const merged = applyHoldingsEnsemble({ ...r, impactSource: 'holdings' }, gz, pack, now);
+    return attachFundEligibility(fund, merged, pack, cachedSource, now);
   }
   if (cachedSource === 'fundgz') {
     const gz = await fetchFundGz(code);
@@ -471,12 +498,10 @@ async function resolveFundImpactWithQuotes(
   }
 
   const preferHoldings = shouldPreferHoldingsImpact(r, fundName, profile);
-
-  if (preferHoldings) {
-    return attachFundEligibility(fund, { ...r, impactSource: 'holdings' }, pack, cachedSource, now);
-  }
-  if (strategy === 'holdings' && isHoldingsUsable(r)) {
-    return attachFundEligibility(fund, { ...r, impactSource: 'holdings' }, pack, cachedSource, now);
+  if (preferHoldings || (strategy === 'holdings' && isHoldingsUsable(r))) {
+    const gz = await fetchFundGz(code);
+    const merged = applyHoldingsEnsemble({ ...r, impactSource: 'holdings' }, gz, pack, now);
+    return attachFundEligibility(fund, merged, pack, cachedSource, now);
   }
 
   const gz = await fetchFundGz(code);
@@ -656,11 +681,15 @@ export async function resolveFundImpact(code, fxPct = null, fundName = '', strip
   } else {
     const r = await computeFundImpact(code, fxPct, fundName);
     const preferHoldings = shouldPreferHoldingsImpact(r, fundName, profile);
+    const pack = {
+      reportDate: r.reportDate,
+      recentReportDate: r.recentReportDate,
+      annualReportDate: r.annualReportDate,
+    };
 
-    if (preferHoldings) {
-      result = { ...r, impactSource: 'holdings' };
-    } else if (strategy === 'holdings' && isHoldingsUsable(r)) {
-      result = { ...r, impactSource: 'holdings' };
+    if (preferHoldings || (strategy === 'holdings' && isHoldingsUsable(r))) {
+      const gz = await fetchFundGz(code);
+      result = applyHoldingsEnsemble({ ...r, impactSource: 'holdings' }, gz, pack);
     } else {
       const gz = await fetchFundGz(code);
       if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {

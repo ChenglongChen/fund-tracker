@@ -7,6 +7,7 @@ import {
   clearScopeSnap,
   loadDayDisplayState,
   setBaselineForDay,
+  setCurrentPhase,
 } from './day-display-state.js';
 import { reconcileDisplayState } from './components/snap-seed.js';
 
@@ -20,7 +21,7 @@ function assert(name, cond) {
 
 await loadDayDisplayState();
 
-const afterhours = new Date('2026-05-27T21:40:00.000Z');
+const eodWindow = new Date('2026-05-28T08:30:00.000Z'); // BJ 16:30 eod_freeze
 const accrualDay = '2026-05-28';
 const beijingDate = '2026-05-28';
 
@@ -41,16 +42,17 @@ const liveFunds = buildDisplayFundRows(
   impacts,
   [null, null],
   beijingDate,
-  afterhours,
+  eodWindow,
 );
 
 setBaselineForDay(accrualDay, 'portfolio', 625000);
-clearScopeSnap(accrualDay, 'afterhoursSnap', 'portfolio');
+clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+setCurrentPhase('eod_freeze', eodWindow);
 
-const totalsPre = computePortfolioTotals(portfolio, liveFunds, afterhours);
-reconcileDisplayState(portfolio, liveFunds, totalsPre, impacts, afterhours);
+const totalsPre = computePortfolioTotals(portfolio, liveFunds, eodWindow);
+reconcileDisplayState(portfolio, liveFunds, totalsPre, impacts, eodWindow);
 
-const { funds: snapped, totals } = applyDisplaySnapAndTotals(portfolio, liveFunds, afterhours);
+const { funds: snapped, totals } = applyDisplaySnapAndTotals(portfolio, liveFunds, eodWindow);
 const sumEp = snapped.reduce((s, r) => s + (r.estimateProfit ?? 0), 0);
 
 assert('cn suppressed after snap', snapped[1].estimateProfit == null);

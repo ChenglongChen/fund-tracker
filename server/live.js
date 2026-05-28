@@ -1,4 +1,4 @@
-import { fetchFundNavInfo, fetchMarketStrip, resolvePortfolioImpacts } from './market.js';
+import { fetchFundNavInfo, fetchMarketStrip, resolvePortfolioImpacts, resolveFxStripFromMarket } from './market.js';
 import { readPortfolio } from './store.js';
 import { beijingDateString, beijingTimeHms } from './time.js';
 import { readAppState, recordLiveSnapshot } from './app-state.js';
@@ -135,14 +135,15 @@ async function refreshLive() {
       fetchMarketStrip(now),
       readAppState(),
     ]);
-    const fxPct = strip.find((x) => x.label === '汇率')?.changePct ?? null;
+    const fxStrip = resolveFxStripFromMarket(strip);
+    const fxPct = fxStrip?.fxPct ?? fxStrip?.usd ?? strip.find((x) => x.label === '汇率')?.changePct ?? null;
 
     const useSourceCache = !shouldRunFullImpactRefresh();
     const [impacts, navInfos] = await Promise.all([
       resolvePortfolioImpacts(
         portfolio.funds,
         strip,
-        fxPct,
+        fxStrip ?? fxPct,
         now,
         useSourceCache ? fundImpactSourceCache : new Map(),
         { skipAsiaSupplement: false },

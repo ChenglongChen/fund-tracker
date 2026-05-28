@@ -96,6 +96,17 @@
 
 实现链：`computeFundImpactFromPack` + `refreshFundHoldingsDisplay` → 同一掩码逻辑；测试 `server/live-rt1-holdings.test.js`。
 
+### 规则 8b — QDII 穿透估值增强（FX 拆分 + fundgz 融合）
+
+| 项 | 规则 |
+|----|------|
+| FX | `computeHoldingsImpactBreakdown`：持仓加权 + **USD 暴露 × USDCNY** + **HKD 暴露 × HKDCNY**（缺 HKD 时 ≈ 0.85×USD） |
+| 融合 | 持仓策略且 fundgz 新鲜（≤3h）时：`blendEnsembleImpact(holdings, fundgz, α)`；α 由 `quoteCoverage`、报告龄、fundgz 新鲜度决定 |
+| 输出 | `impactSource`: `holdings` / `ensemble` / `fundgz`；详情 API 附带 `valuationConfidence`、`holdingsImpactPct`、`fundgzImpactPct` |
+| 唯一 writer | `applyHoldingsEnsemble`（`qdii-valuation.js`），由 `market.js` 穿透路径调用 |
+
+回测：`node scripts/backtest-valuation.js --code=022184`；单测：`npm run test:qdii-valuation`。
+
 ### 规则 9 — 多 Tab 预估一致
 
 | Tab | EST / RT1 来源 | 禁止 |
@@ -140,6 +151,7 @@
 
 ```bash
 npm run test:fund-estimate && npm run test:realtime-profit
+npm run test:qdii-valuation
 node server/live-rt1-holdings.test.js && node server/scope-totals.test.js
 npm run test:display-session && npm run test:live-pipeline
 npm run build   # 动 src/components/session.js 或 detail-page

@@ -67,6 +67,14 @@ export function sortDetailHoldings(holdings) {
   });
 }
 
+export function detailHoldingsMeta() {
+  const d = app().state.detail ?? {};
+  return {
+    quoteCoverage: d.quoteCoverage,
+    valuationConfidence: d.valuationConfidence,
+  };
+}
+
 export function getSortedDetailHoldings() {
   return sortDetailHoldings(app().state.detail?.holdings ?? []);
 }
@@ -272,7 +280,7 @@ export function renderDetailPage() {
       ${renderDetailStats(metrics, profile)}
       <div class="detail-section-head">
         <h2 class="detail-section-title">持仓穿透</h2>
-        <span class="detail-section-meta">${detailHoldingsMetaHtml(holdings.length)}</span>
+        <span class="detail-section-meta">${detailHoldingsMetaHtml(holdings.length, detailHoldingsMeta())}</span>
       </div>
       <section class="holdings-card">
         ${renderHoldingsTableHead()}
@@ -354,7 +362,10 @@ export function patchDetailMetricsDom() {
 
   const metaEl = document.querySelector('.detail-section-meta');
   if (metaEl) {
-    metaEl.innerHTML = detailHoldingsMetaHtml(app().state.detail.holdings.length);
+    metaEl.innerHTML = detailHoldingsMetaHtml(
+      app().state.detail.holdings.length,
+      detailHoldingsMeta(),
+    );
   }
 
   return true;

@@ -10,15 +10,16 @@ import {
   fetchFundGz,
   fetchMarketStrip,
   fetchFundHoldings,
-  isHoldingsUsable,
   pickIndexChangePct,
   resolveFundImpact,
-  estimateFromHoldings,
   estimateWithFx,
   pickValuationStrategy,
   proxyCodeFor,
+  resolveFxStripFromMarket,
 } from '../server/market.js';
 import { getProxyCandidates } from '../server/valuation-profile.js';
+import { blendEnsembleImpact, ensembleAlpha, reportAgeDays } from '../server/qdii-valuation.js';
+import { computeHoldingsImpactBreakdown } from '../server/holdings-pipeline.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -26,6 +27,7 @@ const ROOT = join(__dirname, '..');
 const args = process.argv.slice(2);
 const DAYS = parseInt(args.find((a) => a.startsWith('--days='))?.split('=')[1] || '40', 10);
 const LIVE = args.includes('--live');
+const ONLY_CODE = args.find((a) => a.startsWith('--code='))?.split('=')[1]?.trim();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -204,27 +206,51 @@ async function buildHoldingsHistorical(code, historyDates) {
     const secid = eastmoneySecid(h);
     if (!secid) continue;
     const map = await fetchIndexHistory(secid, 80);
-    if (map.size) stockMaps.set(holdingMergeKey(h), { weight: h.weight, map });
+    if (map.size) {
+      stockMaps.set(holdingMergeKey(h), {
+        weight: h.weight,
+        map,
+        holdingMarket: h.holdingMarket ?? null,
+        marketId: h.marketId ?? null,
+        code: h.code,
+      });
+    }
     await sleep(60);
   }
 
   if (!stockMaps.size) return null;
 
-  const fxMap = await fetchIndexHistory('133.USDCNY', 80);
+  const fxUsdMap = await fetchIndexHistory('133.USDCNY', 80);
+  const fxHkdMap = await fetchIndexHistory('133.HKDCNY', 80);
   const out = [];
   for (const date of historyDates) {
-    let sumWC = 0;
-    let used = 0;
-    for (const { weight, map } of stockMaps.values()) {
-      const chg = lookupIndex(map, date);
+    const pseudo = [];
+    for (const row of stockMaps.values()) {
+      const chg = lookupIndex(row.map, date);
       if (chg == null || !Number.isFinite(chg)) continue;
-      sumWC += weight * chg;
-      used += weight;
+      pseudo.push({
+        code: row.code,
+        weight: row.weight,
+        changePct: chg,
+        holdingMarket: row.holdingMarket,
+        marketId: row.marketId,
+        quoteSession: 'regular',
+      });
     }
-    if (used <= 0) continue;
-    const holdingsPct = sumWC / 100;
-    const fx = lookupIndex(fxMap, date) ?? 0;
-    out.push({ date, predHoldings: holdingsPct, predHoldingsFx: holdingsPct + fx, coverage: used });
+    if (!pseudo.length) continue;
+    const fxStrip = {
+      usd: lookupIndex(fxUsdMap, date) ?? 0,
+      hkd: lookupIndex(fxHkdMap, date) ?? (lookupIndex(fxUsdMap, date) ?? 0) * 0.85,
+    };
+    const bd = computeHoldingsImpactBreakdown(pseudo, fxStrip);
+    if (!bd) continue;
+    const used = pseudo.reduce((s, h) => s + h.weight, 0);
+    out.push({
+      date,
+      predHoldings: bd.holdingsPct,
+      predHoldingsFx: bd.totalPct,
+      coverage: used,
+    });
   }
   return {
     reportDate: pack.reportDate,
@@ -246,7 +272,8 @@ function fmtMetrics(m) {
 
 async function main() {
   const portfolio = JSON.parse(readFileSync(join(ROOT, 'data/portfolio.json'), 'utf8'));
-  const funds = [...new Map(portfolio.funds.map((f) => [f.code, f])).values()];
+  let funds = [...new Map(portfolio.funds.map((f) => [f.code, f])).values()];
+  if (ONLY_CODE) funds = funds.filter((f) => f.code === ONLY_CODE);
 
   console.log(`\n=== 估值算法回测 (近 ${DAYS} 个公布日) ===\n`);
   console.log('真值: 东财 lsjz JZZZL (官方日涨跌幅)\n');
@@ -354,28 +381,19 @@ async function main() {
     const holdHist = await buildHoldingsHistorical(fund.code, dates);
     if (holdHist?.out?.length) {
       const byDate = new Map(holdHist.out.map((r) => [r.date, r]));
-      const h1 = [];
       const h2 = [];
       for (const row of history) {
         const h = byDate.get(row.date);
         if (!h) continue;
-        h1.push({ date: row.date, truth: row.pct, pred: h.predHoldings });
         h2.push({ date: row.date, truth: row.pct, pred: h.predHoldingsFx });
       }
-      const label1 = `持仓穿透(报告${holdHist.reportDate || '?'}${holdHist.usable ? '' : '·已过期'})`;
+      const label1 = `持仓穿透+FX(报告${holdHist.reportDate || '?'})`;
       const m1 = metrics(
-        h1.map((x) => x.truth),
-        h1.map((x) => x.pred),
-      );
-      results.push([label1, m1]);
-      addTotal('持仓穿透', h1);
-
-      const m2 = metrics(
         h2.map((x) => x.truth),
         h2.map((x) => x.pred),
       );
-      results.push([`${label1}+汇率`, m2]);
-      addTotal('持仓穿透+汇率', h2);
+      results.push([label1, m1]);
+      addTotal('持仓穿透+FX', h2);
     }
 
     results.sort((a, b) => (a[1]?.mae ?? 999) - (b[1]?.mae ?? 999));
@@ -415,19 +433,33 @@ async function main() {
     console.log('\n=== 当日实时快照 vs 最近官方日涨跌 ===');
     console.log('(fundgz 为下一公布日预估，与「昨日官方」对比仅作参考)\n');
     const strip = await fetchMarketStrip();
-    const fxPct = strip.find((x) => x.label === '汇率')?.changePct ?? null;
+    const fxStrip = resolveFxStripFromMarket(strip);
+    const fxPct = fxStrip?.fxPct ?? strip.find((x) => x.label === '汇率')?.changePct ?? null;
 
-    for (const fund of funds.slice(0, 8)) {
-      const resolved = await resolveFundImpact(fund.code, fxPct, fund.name, strip);
+    for (const fund of (ONLY_CODE ? funds : funds.slice(0, 8))) {
+      const resolved = await resolveFundImpact(fund.code, fxStrip ?? fxPct, fund.name, strip);
       const gz = await fetchFundGz(fund.code);
       const latest = (await fetchFundHistory(fund.code, 1))[0];
       const indexPct = pickIndexChangePct(fund.name, strip);
-      const indexWithFx = estimateWithFx(indexPct, fxPct);
+      const indexWithFx = estimateWithFx(indexPct, fxStrip ?? fxPct);
+      const age = reportAgeDays(resolved.recentReportDate ?? resolved.reportDate);
+      const alpha = ensembleAlpha({
+        quoteCoverage: resolved.quoteCoverage ?? 0,
+        reportAgeDays: age,
+        fundgzFresh: Boolean(gz?.gztime),
+      });
+      const manualBlend =
+        resolved.holdingsImpactPct != null && gz?.gszzl != null
+          ? blendEnsembleImpact(resolved.holdingsImpactPct, gz.gszzl, alpha)
+          : null;
 
       console.log(`${fund.code} ${fund.name}`);
       console.log(`  官方 ${latest?.date} ${latest?.pct}%`);
       console.log(
-        `  当前管线 [${resolved.impactSource}] ${resolved.impactPct?.toFixed(2) ?? '—'}% | fundgz ${gz?.gszzl?.toFixed(2) ?? '—'}% | 指数 ${indexWithFx?.toFixed(2) ?? '—'}%`,
+        `  管线 [${resolved.impactSource}] ${resolved.impactPct?.toFixed(2) ?? '—'}% | 穿透 ${resolved.holdingsImpactPct?.toFixed(2) ?? '—'}% | fundgz ${gz?.gszzl?.toFixed(2) ?? '—'}% | 融合α ${alpha.toFixed(2)} → ${manualBlend?.toFixed(2) ?? '—'}%`,
+      );
+      console.log(
+        `  指数 ${indexWithFx?.toFixed(2) ?? '—'}% | 置信 ${resolved.valuationConfidence ?? '—'} | 覆盖 ${resolved.quoteCoverage?.toFixed(0) ?? '—'}%`,
       );
       await sleep(150);
     }

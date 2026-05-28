@@ -1360,6 +1360,9 @@ async function loadDetailPenetration(code) {
     impactPct: detail.impactPct ?? row?.impactPct ?? null,
     holdings: detail.holdings ?? [],
     note: detail.note ?? '',
+    quoteCoverage: detail.quoteCoverage ?? null,
+    valuationConfidence: detail.valuationConfidence ?? null,
+    impactSource: detail.impactSource ?? null,
   };
 }
 
