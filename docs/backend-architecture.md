@@ -47,6 +47,8 @@ resolveDisplaySession (一次/tick)
 | header `realtimeProfit` | `aggregate.computePortfolioTotals`（仅 Σ ep） |
 | phase / snapKey | `display-session.resolveDisplaySession` |
 | raw 穿透 pct | `market.js` |
+| QDII 穿透 T+1 掩码 | `holdings-pipeline.maskHoldingsForLiveRt1Display` |
+| 详情 holdings 刷新 | `market.refreshFundHoldingsDisplay`（须与 pack 同掩码） |
 | suppress 收口 | `components/suppress.finalizeLiveFundDisplayRow` |
 
 ## 可复用组件（`server/components/`）
@@ -75,16 +77,31 @@ server/
 ├── fund-estimate.js      公式库（仅 fund-display 调用）
 ├── aggregate.js          组合求和 + displayContext
 ├── day-display-state.js  baseline / snap 持久化
-├── market.js             穿透 impact
+├── market.js             穿透 impact + 详情 refreshFundHoldingsDisplay
+├── holdings-pipeline.js  加权估值、liveRt1Only、maskHoldingsForLiveRt1Display
+├── fund-regular-eligibility.js  正盘门控 fundShouldRefreshLiveRt1
 ├── components/           可复用组件（上表）
 └── *.test.js             单元测试
 ```
 
+## QDII 穿透 T+1（易错）
+
+US 正盘且存在 `quoteSession==='regular'` 持仓时：
+
+1. **RT1 加权**：`estimateFromHoldings(..., { liveRt1Only: true })` — 仅 regular 持仓
+2. **展示掩码**：`maskHoldingsForLiveRt1Display` — 非 regular 的 `changePct→null`，`liveRt1Excluded→true`
+3. **两处调用**：`computeFundImpactFromPack`（live refresh）与 **`refreshFundHoldingsDisplay`**（GET `/api/fund/:code/detail`）
+
+漏掉 (3) 会导致详情页仍显示腾讯等收盘涨跌幅，而列表 RT1 已排除 — **典型回归**。
+
 ## 改动检查清单
 
 - [ ] ep 是否只在 `fund-display.js` 计算
+- [ ] EST 是否为 `amount+ep` / `Σ estimateAssets`（非 `amount−settled+ep`）
 - [ ] header RT1 是否仅 `Σ estimateProfit`
 - [ ] snap seed 是否只复制 `liveRow.estimateProfit`
 - [ ] suppress 是否经 `finalizeLiveFundDisplayRow` 收口
+- [ ] 详情 API 是否 `applySessionQuotes` 后调 `maskHoldingsForLiveRt1Display`
 - [ ] 编排是否只改 `live-pipeline.js`，不散落 phase 判断
 - [ ] `npm run test:display-session && npm run test:display-state && npm run test:live-pipeline`
+- [ ] `node server/live-rt1-holdings.test.js && node server/scope-totals.test.js`

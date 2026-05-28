@@ -6,6 +6,7 @@ import {
   getCurrentPhase,
   round2,
 } from '../day-display-state.js';
+import { resolvePortfolioRealtimeAssets } from '../aggregate.js';
 import { resolveDisplaySession } from '../display-session.js';
 import { beijingDateString } from '../time.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './suppress.js';
@@ -61,7 +62,12 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
     getBaselineForDay(beijingDateString(now), 'portfolio') ??
     totalsLive.settledAssets;
   const rt1 = round2(totalsLive.realtimeProfit ?? 0);
-  const est = round2((baseline ?? totalsLive.settledAssets ?? 0) + rt1);
+  const accLike = {
+    settledAssets: totalsLive.settledAssets ?? 0,
+    realtimeProfit: rt1,
+    estimateAssetsSum: totalsLive.estimateAssetsSum ?? totalsLive.settledAssets ?? 0,
+  };
+  const est = resolvePortfolioRealtimeAssets(accLike, baseline);
   const estimateFrozen = session.isRt1SnapPhase;
 
   return {

@@ -15,6 +15,15 @@ alwaysApply: false
 | phase / snapKey / RT1 模式 | **`display-session.resolveDisplaySession`** |
 | raw 穿透 | `market.js` |
 | suppress 收口 | **`components/suppress.finalizeLiveFundDisplayRow`** |
+| per-fund EST | `fund-estimate.fundEstimatedAssets` → **`amount + ep`**（禁止 `amount−settled+ep`） |
+| 组合 EST（live） | `aggregate.resolvePortfolioRealtimeAssets` → **`Σ estimateAssets`** |
+
+## QDII 穿透 T+1（21:30 US 正盘）
+
+- 计算：`estimateFromHoldings(..., { liveRt1Only: true })` — 仅 `quoteSession === 'regular'`
+- 展示：`maskHoldingsForLiveRt1Display` → 非 regular 的 `changePct: null`，`liveRt1Excluded: true`
+- **两处必调**：`computeFundImpactFromPack`（live 列表）与 **`refreshFundHoldingsDisplay`**（`/api/fund/:code/detail`）
+- 门控：`fund-regular-eligibility.fundShouldRefreshLiveRt1` / `fundHasRegularHolding`
 
 编排：`live-pipeline.runLiveDisplayPipeline()` — 每 tick **一次** session，传入 reconcile / snap。
 
@@ -47,3 +56,5 @@ resolveDisplaySession (一次)
 - `server/realtime-display-pipeline.test.js`
 - `server/fund-estimate.test.js`
 - `server/realtime-profit-consistency.test.js`
+- `server/live-rt1-holdings.test.js`（T+1 掩码 + liveRt1Only 加权）
+- `server/scope-totals.test.js`（多 Tab `Σ estimateAssets`）

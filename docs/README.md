@@ -14,13 +14,15 @@
 
 ## 快速参考
 
-### 核心公式（portfolio / header）
+### 核心公式（T / T+1）
 
 ```
-账户资产     = Σ amount
-实时收益 RT1 = Σ estimateProfit（row1，不含盘前/盘后 row2）
-预估资产 EST = baseline + RT1
+账户资产_T     = amount（T 日已入账）
+实时收益 RT1   = Σ estimateProfit（当前会话；US 正盘仅 regular 持仓）
+预估资产 EST   = 账户资产 + RT1 = Σ amount + Σ estimateProfit
 ```
+
+**禁止** `amount − settled + ep`。snap 阶段 header 仍可用 `baseline + RT1` 防入账跳变。
 
 ### 后端关键文件（Single writer）
 
@@ -28,8 +30,11 @@
 |------|------|
 | `server/display-session.js` | phase / snapKey **唯一接口** |
 | `server/fund-display.js` | `estimateProfit` **唯一计算** |
+| `server/fund-estimate.js` | per-fund EST：`amount + ep` |
+| `server/holdings-pipeline.js` | `liveRt1Only` + `maskHoldingsForLiveRt1Display` |
+| `server/market.js` | 穿透 + **`refreshFundHoldingsDisplay`**（详情 API） |
 | `server/live-pipeline.js` | 展示 **唯一编排** |
-| `server/aggregate.js` | Σ ep（禁止重算） |
+| `server/aggregate.js` | Σ ep / Σ estimateAssets |
 | `server/live.js` | `/api/live` cache |
 
 ### 前端关键文件
@@ -39,6 +44,7 @@
 | `src/live-view-model.js` | API → fundRows（禁止 pct 重算 row1） |
 | `src/summary.js` | scope Hero（SCOPE_ALL 读 totals） |
 | `src/components/metrics.js` | 模式 A/B 可复用组件 |
+| `src/components/session.js` | 时段标签；详情 `liveRt1Excluded` → **—** |
 
 ### 验收命令
 
@@ -47,6 +53,8 @@ npm run test:display-session
 npm run test:live-pipeline
 npm run test:fund-estimate
 npm run test:realtime-profit
+node server/live-rt1-holdings.test.js
+node server/scope-totals.test.js
 npm run build
 npm run verify:alipay-realtime
 npm run verify:tab-reconcile

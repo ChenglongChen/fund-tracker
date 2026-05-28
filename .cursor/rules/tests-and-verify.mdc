@@ -18,7 +18,7 @@ npm run test:realtime-display-pipeline  # suppress + snap + header=Σrow1
 node server/market-session.test.js
 ```
 
-改 `fund-estimate.js`、`market-session.js`、`components/snap-*.js`、`live.js`、`aggregate.js` 后至少跑 fund-estimate + realtime-profit；动 snap/suppress 加跑 display-state + realtime-display-pipeline。
+改 `fund-estimate.js`、`market-session.js`、`components/snap-*.js`、`live.js`、`aggregate.js`、`holdings-pipeline.js`、`market.js`（含 `refreshFundHoldingsDisplay`）后至少跑 fund-estimate + realtime-profit + live-rt1-holdings；动 snap/suppress 加跑 display-state + realtime-display-pipeline。
 
 ## 集成验收（API :8788）
 
@@ -33,3 +33,5 @@ npm run verify:tab-reconcile     # 三 tab RT1 互证；baseline+RT1=EST
 - A 股 suppress 窗口（21:30–09:30 + 周末）：`impactPct` / `estimateProfit` 为 null；**snap 后仍为 null**
 - Snap 阶段：`header RT1 === Σ estimateProfit`；第二次 apply 不改变 totals（除非 reseed）
 - provisional snap（空 funds）不得冻结列表
+- QDII US 正盘：`/api/fund/022184/detail` 中华泰/腾讯等 HK closed 持仓 `changePct==null` 且 `liveRt1Excluded==true`
+- EST：`fundEstimatedAssets` 为 `amount+ep`；禁止 `amount−settled+ep`

@@ -41,7 +41,9 @@ npm run verify:tab-reconcile     # 三 tab RT1 互证、baseline+RT1=EST
 
 - [ ] `resolveLiveDisplayImpact` 与 `fundEstimateImpactPct` 盘前/盘后口径一致
 - [ ] `buildLiveFundRow` 的 `estimateProfit` 来自 **display impact**，非 raw `r`
-- [ ] `buildSummary` 使用 `settledAssets + totalRealTime`
+- [ ] `fundEstimatedAssets` / `estimatedAssetsForRow` 为 **`amount+ep`**（非 `amount−settled+ep`）
+- [ ] `buildSummary` 读 API `live.totals` / `totalsByAccount`；fallback 为 `settledAssets+totalRealTime` 或 `Σ estimateAssets`
+- [ ] `refreshFundHoldingsDisplay` 在 `applySessionQuotes` 后调用 `maskHoldingsForLiveRt1Display`
 - [ ] snap 阶段 `applyPortfolioTotalsSnap` 覆盖 totals
 
 ### 动到入账
@@ -67,6 +69,8 @@ npm run audit:impact-xyz
 ```bash
 curl -s http://localhost:8788/api/live | jq '{date:.beijingDate, chip:.displayContext.marketChip, totals:.totals, phase:.displayState}'
 curl -s http://localhost:8788/api/live | jq '.funds[] | select(.code=="022364") | {code, estimateProfit, impactPct, market}'
+# QDII 详情 T+1 掩码（US 正盘时段）
+curl -s http://localhost:8788/api/fund/022184/detail | jq '.holdings[] | select(.name|test("腾讯")) | {changePct,liveRt1Excluded,quoteSession}'
 ```
 
 ## 7. 目录约定

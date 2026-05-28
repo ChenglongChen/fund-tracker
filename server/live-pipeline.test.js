@@ -56,7 +56,9 @@ const sumEp = snapped.reduce((s, r) => s + (r.estimateProfit ?? 0), 0);
 assert('cn suppressed after snap', snapped[1].estimateProfit == null);
 assert('us has row1', snapped[0].estimateProfit === 6000);
 assert('header equals sum row1', totals.realtimeProfit === Math.round(sumEp * 100) / 100);
-assert('est uses baseline+rt1', totals.realtimeAssets === Math.round((625000 + totals.realtimeProfit) * 100) / 100);
+assert('est uses portfolio resolver', totals.realtimeAssets === Math.round((625000 + totals.realtimeProfit) * 100) / 100);
+const sumEa = snapped.reduce((s, r) => s + (r.estimateAssets ?? r.amount ?? 0), 0);
+assert('estimateAssetsSum matches snapped funds', totals.estimateAssetsSum === Math.round(sumEa * 100) / 100);
 
 console.log(`live-pipeline tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {

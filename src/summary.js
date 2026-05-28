@@ -103,6 +103,5 @@ export function estimatedAssetsForRow(f) {
   const ep = rowRt1(f);
   const amount = f.amount ?? 0;
   if (!ep) return amount;
-  const settled = f.dailyPending ? 0 : (f.settledProfit ?? 0);
-  return amount - settled + ep;
+  return amount + ep;
 }

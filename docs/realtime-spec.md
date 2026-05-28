@@ -12,26 +12,34 @@
 
 ## 2. Canonical 公式
 
+### 2.1 时序口径（T / T+1，**禁止混用**）
+
 ```
-预估资产_t = 入账资产_{t−1} + 实时收益_t
+预估_{T+1} = 账户资产_T + 实时收益_{T+1}
+           = amount（T 日已入账）+ estimateProfit（当前会话 RT1）
 ```
 
 | 符号 | 含义 |
 |------|------|
-| 入账资产\_{t−1} | 日 t 开始前 `Σ amount`（baseline `B[D]`） |
-| 实时收益_t | row1 合计 RT1 |
-| 入账资产_t | 日 t 结束后入账完成的 `Σ amount` → 成为 t+1 的 baseline |
+| 账户资产_T | T 日 NAV 入账后的 `amount`（已含 T 日官方收益） |
+| 实时收益_{T+1} | **下一交易会话**的 live 增量（如 21:30 后仅 US `regular` 持仓） |
+| 入账资产\_{t−1} | 日 t 开始前 `Σ amount`（baseline `B[D]`）；snap 阶段 EST 仍用 `B[D]+RT1_t` |
 
-**同一 Beijing 日 t 内 baseline 不变**；不在 US 正盘切换为 `amount + ep`；baseline 仅在日切滚动。
+**禁止**使用 `amount − settledProfit + ep`：该式等价于把 `amount` 退回到入账前再加 RT1，在 RT1 已是 T+1 会话增量时会 **少加一整段 settled**。
 
-### Header 实现（scope）
+同一 Beijing 日 t 内 **baseline 不变**（snap 防跳变）；入账完成后 per-fund / 账户 scope 展示用 **`amount + ep`**，header 用 **`Σ amount + Σ estimateProfit`**（= `aggregate` 的 `Σ estimateAssets`）。
+
+### 2.2 实现
 
 ```
 预估资产 = 账户资产 + 实时收益合计
          = Σ amount + Σ estimateProfit
 ```
 
-单基金列表行仍可用 `amount - settled + ep` 作 per-fund 展示 fallback。
+单基金：`fundEstimatedAssets` → `amount + ep`（`fund-estimate.js`）。  
+组合：`resolvePortfolioRealtimeAssets` → **`Σ per-fund estimateAssets`**（与账户 Tab 一致）。
+
+**错误示例（已废弃）**：`amount - settled + ep`、`baseline + RT1` 替代 `Σ estimateAssets`（手动减仓/outflow 后会导致 Tab 不一致）。
 
 ## 3. 规则摘要
 
@@ -73,6 +81,31 @@
 - 无 regular 持仓 → 读 `eodSnap` 中 per-fund `rt1`，不更新实时行情
 - 无穿透时（fundgz / index / proxy）：按基金归类市场判断（A 股/黄金用 `isRealtimeMarketOpen`；美股 QDII 用 `usPhase === regular`）
 
+### 规则 8 — QDII 穿透 T+1 live（21:30 US 正盘，例 022184）
+
+当组合内 **任一**持仓 `quoteSession === 'regular'`（通常 US 正盘）：
+
+| 项 | 规则 |
+|----|------|
+| RT1 计算 | `liveRt1Only: true` — 仅 `countsTowardLiveRt1`（`quoteSession === 'regular'`）持仓加权 |
+| 已收盘持仓（HK/JP/亚太等） | **不计入** T+1 RT1；`changePct` 置 `null` |
+| 详情页展示 | 涨跌幅列 **`—`**；`liveRt1Excluded: true` → 状态列也 **`—`**（尚未进入该市场 T+1 正盘） |
+| 唯一 writer | `maskHoldingsForLiveRt1Display`（`holdings-pipeline.js`） |
+
+**易错**：`refreshFundHoldingsDisplay`（`/api/fund/:code/detail`）在 `applySessionQuotes` 后 **必须**再调 `maskHoldingsForLiveRt1Display`，否则详情页仍显示腾讯等收盘涨跌幅（列表/live 已掩码、详情未掩码）。
+
+实现链：`computeFundImpactFromPack` + `refreshFundHoldingsDisplay` → 同一掩码逻辑；测试 `server/live-rt1-holdings.test.js`。
+
+### 规则 9 — 多 Tab 预估一致
+
+| Tab | EST / RT1 来源 | 禁止 |
+|-----|----------------|------|
+| 支付宝 / 账户 scope | API `totalsByAccount[id]` | 前端 `amount×pct` 或 `amount−settled+ep` |
+| 全部持仓 / 账户概况 | API `live.totals` | 本地重算 Hero EST |
+| 列表行 fallback | API `estimateAssets` 或 `amount+ep` | `amount−settled+ep` |
+
+三 Tab 互证：`Σ estimateProfit`（scope 内）与 header RT1 一致；`realtimeAssets === Σ estimateAssets`。
+
 ## 4. A 股基金 + 美股正盘
 
 跟 A 股时段的基金（如 022364、001753、华安黄金 000216）：
@@ -102,3 +135,19 @@
 ## 8. Suppress 三处
 
 `buildFundSnapEntry` / `applyFundRt1Snap` / `finalizeLiveFundDisplayRow` — A 股 21:30–09:30 与周末不得写回数值 RT1。
+
+## 9. 回归检查（改 RT1/EST/穿透/详情必跑）
+
+```bash
+npm run test:fund-estimate && npm run test:realtime-profit
+node server/live-rt1-holdings.test.js && node server/scope-totals.test.js
+npm run test:display-session && npm run test:live-pipeline
+npm run build   # 动 src/components/session.js 或 detail-page
+```
+
+**人工 spot check**（US 正盘时段）：
+
+```bash
+curl -s http://localhost:8788/api/fund/022184/detail | jq '.holdings[] | select(.name|test("腾讯")) | {changePct,liveRt1Excluded,quoteSession}'
+# 期望：changePct null，liveRt1Excluded true
+```

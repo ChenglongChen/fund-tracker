@@ -752,6 +752,7 @@ async function syncRouteFromHash() {
       /* optional */
     }
     paint();
+    await refreshWatchlistView();
     return;
   }
 
@@ -1254,7 +1255,7 @@ async function refreshWatchlistView() {
   }
   state.busy = true;
   try {
-    const [changed, wl] = await Promise.all([
+    const [, wl] = await Promise.all([
       pullLive().catch(() => false),
       fetchWatchlistLive(),
     ]);
@@ -1263,11 +1264,16 @@ async function refreshWatchlistView() {
     state.updatedAt = wl.updatedAt || state.updatedAt;
     state.quoteUpdatedAt = wl.quoteUpdatedAt || state.quoteUpdatedAt;
     applyWatchlistLive(wl);
-    if (canPatchWatchlistDom() && patchWatchlistDom()) {
+    const rowCount = state.watchlistRows?.length ?? 0;
+    const domRowCount = document.querySelectorAll(
+      '.holding-row--watchlist[data-watchlist-code]',
+    ).length;
+    const canPatchMetrics =
+      rowCount > 0 && domRowCount === rowCount && canPatchWatchlistDom();
+    if (canPatchMetrics && patchWatchlistDom()) {
       patchBottomTabs();
       return;
     }
-    if (!changed) return;
     paint();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -1512,7 +1518,6 @@ async function bootstrap() {
     const live = await fetchLive();
     applyLive(live);
     await syncRouteFromHash();
-    if (state.view === 'watchlist') void refreshWatchlistView();
     if (isLiveView()) scheduleRefresh();
   } catch (e) {
     state.error = e instanceof Error ? e.message : String(e);
@@ -1523,7 +1528,8 @@ async function bootstrap() {
 
 window.addEventListener('hashchange', () => {
   syncRouteFromHash().then(() => {
-    if (isLiveView()) scheduleRefresh();
+    if (state.view === 'watchlist') void refreshWatchlistView();
+    else if (isLiveView()) scheduleRefresh();
     else if (refreshTimer) {
       clearInterval(refreshTimer);
       refreshTimer = null;

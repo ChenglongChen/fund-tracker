@@ -3,6 +3,7 @@ import {
   computeAccountTotals,
   computeAccountTotalsMap,
   computePortfolioTotals,
+  resolvePortfolioRealtimeAssets,
 } from './aggregate.js';
 
 const portfolio = {
@@ -72,5 +73,22 @@ assert.equal(map.other.settledProfit, 10);
 const portfolioTotals = computePortfolioTotals(portfolio, liveFunds);
 assert.equal(portfolioTotals.settledProfit, 30);
 assert.equal(portfolioTotals.realtimeProfit, -3);
+
+assert.equal(
+  resolvePortfolioRealtimeAssets(
+    { settledAssets: 3000, realtimeProfit: -5, estimateAssetsSum: 2985 },
+    5000,
+  ),
+  2985,
+  'outflow uses sum estimateAssets',
+);
+assert.equal(
+  resolvePortfolioRealtimeAssets(
+    { settledAssets: 5100, realtimeProfit: 100, estimateAssetsSum: 5200 },
+    5000,
+  ),
+  5200,
+  'settled scope uses sum estimateAssets',
+);
 
 console.log('scope-totals.test.js OK');

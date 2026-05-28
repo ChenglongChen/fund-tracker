@@ -230,6 +230,26 @@ export function countsTowardValuation(h) {
   return !isNonEquityReportFund(h);
 }
 
+/** row1 live 穿透：仅正盘持仓计入；休市/未开盘不参与 RT1 */
+export function countsTowardLiveRt1(h) {
+  return countsTowardValuation(h) && h.quoteSession === 'regular';
+}
+
+/** live RT1 展示：非正盘持仓涨跌幅置空（UI 显示 —） */
+export function maskHoldingsForLiveRt1Display(holdings, shouldLive) {
+  if (!shouldLive) return holdings;
+  return holdings.map((h) => {
+    if (h.quoteSession === 'regular') return h;
+    return {
+      ...h,
+      changePct: null,
+      changePctRegular: null,
+      changePctPremarket: null,
+      liveRt1Excluded: true,
+    };
+  });
+}
+
 export function sortHoldingsByWeight(holdings) {
   return [...holdings].sort(
     (a, b) => b.weight - a.weight || String(a.name || a.code).localeCompare(String(b.name || b.code)),
@@ -368,13 +388,14 @@ export function usdExposedWeight(h) {
   return 0;
 }
 
-export function summarizeHoldingsCoverage(holdings) {
+export function summarizeHoldingsCoverage(holdings, { liveRt1Only = false } = {}) {
   let weightCoverage = 0;
   let quoteCoverage = 0;
   let usdWeight = 0;
   let quotedCount = 0;
+  const counts = liveRt1Only ? countsTowardLiveRt1 : countsTowardValuation;
   for (const h of holdings) {
-    if (!countsTowardValuation(h)) continue;
+    if (!counts(h)) continue;
     weightCoverage += h.weight;
     usdWeight += usdExposedWeight(h);
     if (h.changePct != null && Number.isFinite(h.changePct)) {
@@ -385,11 +406,12 @@ export function summarizeHoldingsCoverage(holdings) {
   return { weightCoverage, quoteCoverage, usdWeight, quotedCount };
 }
 
-export function estimateFromHoldings(holdings) {
+export function estimateFromHoldings(holdings, { liveRt1Only = false } = {}) {
   let sumWC = 0;
   let used = 0;
+  const counts = liveRt1Only ? countsTowardLiveRt1 : countsTowardValuation;
   for (const h of holdings) {
-    if (!countsTowardValuation(h)) continue;
+    if (!counts(h)) continue;
     if (h.changePct == null || !Number.isFinite(h.changePct)) continue;
     sumWC += h.weight * h.changePct;
     used += h.weight;
@@ -399,11 +421,11 @@ export function estimateFromHoldings(holdings) {
 }
 
 /** 穿透收益 + 仅对美元资产权重叠加汇率 */
-export function estimateFromHoldingsWithFx(holdings, fxPct) {
-  const holdingsPct = estimateFromHoldings(holdings);
+export function estimateFromHoldingsWithFx(holdings, fxPct, opts = {}) {
+  const holdingsPct = estimateFromHoldings(holdings, opts);
   if (holdingsPct == null) return null;
   const fx = fxPct != null && Number.isFinite(fxPct) ? fxPct : 0;
-  const { usdWeight } = summarizeHoldingsCoverage(holdings);
+  const { usdWeight } = summarizeHoldingsCoverage(holdings, opts);
   return holdingsPct + fx * (usdWeight / 100);
 }
 

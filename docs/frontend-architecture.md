@@ -36,8 +36,9 @@ Vite SPA，面向 iPhone 全屏 PWA。原则：**展示只读 API canonical 字�
 | 数据 | 来源 | 禁止 |
 |------|------|------|
 | row1 `realTimeProfit` | API `estimateProfit` | `amount × impactPct` 重算 |
-| Hero RT1/EST（全账户） | API `live.totals` | 仅 `Σ amount + Σ ep` 替代 totals |
-| Hero RT1（账户 scope） | `Σ estimateProfit` | 穿透 pct 重算 |
+| Hero RT1/EST（全账户） | API `live.totals` | 本地 `Σ amount+ep` 或 `amount−settled+ep` 替代 totals |
+| Hero RT1/EST（账户 scope） | API `totalsByAccount[id]` | 穿透 pct 重算 |
+| 列表行 EST fallback | API `estimateAssets` 或 `amount+ep` | `amount−settled+ep` |
 | row2 extended | API `realTimeProfitExtended` | 前端不算 extended |
 | 盘前/盘后 session | API `displayState.extendedSession` 或 fund `impactSession` | 本地时钟推断 |
 | 时段 chip | API `displayContext.marketChip` | — |
@@ -109,10 +110,24 @@ src/
 └── style.css               设计 token · safe-area
 ```
 
+## 详情页穿透展示
+
+数据：`GET /api/fund/:code/detail` → `state.detail.holdings`（后端已掩码）。
+
+| 字段 | UI | 说明 |
+|------|-----|------|
+| `changePct == null` | 涨跌幅 **`—`** | `fmtPct` |
+| `liveRt1Excluded` | 状态 **`—`** | `holdingStatusLabel`（非「已收盘」） |
+| `quoteSession==='regular'` | 盘中 + live 涨跌幅 | 计入 T+1 RT1 |
+
+改 `session.js` / `detail-page.js` 后 `npm run build`；与后端 `live-rt1-holdings.test.js` 联调。
+
 ## 新增 UI 检查清单
 
 - [ ] row1 是否只读 `estimateProfit` / `realTimeProfit`（来自 merge）
-- [ ] Hero 全账户是否用 `live.totals`
+- [ ] Hero 全账户是否用 `live.totals`；账户 Tab 是否用 `totalsByAccount`
+- [ ] EST fallback 是否为 `amount+ep`（`summary.estimatedAssetsForRow`）
+- [ ] 详情 closed 持仓（`liveRt1Excluded`）涨跌幅/状态是否为 **`—`**
 - [ ] extended 是否用 `components/metrics` 而非内联 HTML
 - [ ] 金额是否走 `display-format.fmtMoney`（隐私一致）
 - [ ] 1s 刷新是否优先 `patch*Dom` 而非全量 `paint`

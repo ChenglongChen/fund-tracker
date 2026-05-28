@@ -31,12 +31,15 @@ npm run verify:alipay-realtime   # 需 API 运行
 ```
 账户资产     = Σ amount
 RT1 (row1)   = Σ estimateProfit
-EST (header) = baseline + RT1 ≈ 账户资产 + RT1（scope 内）
+EST (header) = Σ amount + Σ estimateProfit = Σ estimateAssets（scope 内）
 ```
+
+**时序（T / T+1）**：`预估_{T+1} = 账户资产_T + RT1_{T+1}`。**禁止** `amount − settled + ep`（RT1 为 T+1 增量时会少加 settled）。
 
 - **穿透层永远 live 算**；**展示层**按 phase 读 snap 或 live
 - **settle 入账**只更新 `portfolio.json`（AMT/DAY/持有）；**禁止** clear snap
-- 单基金 EST fallback：`amount - settled + ep`；**header 禁止**逐基金累加该式（无 RT1 的基金会多减 settled）
+- 单基金 EST：`amount + ep`（`fund-estimate.js`）；组合 EST：`aggregate.resolvePortfolioRealtimeAssets` → `Σ estimateAssets`
+- snap 阶段 portfolio header 仍可用 `baseline + RT1` 防入账跳变；live 阶段与账户 Tab 一律 `Σ estimateAssets`
 
 ## 北京时间轴（QDII 主视角）
 
@@ -65,7 +68,8 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 |------|------------|-----------|
 | per-fund `estimateProfit` | `fund-display.js` | snap 复制；suppress 清空 |
 | header `realtimeProfit` | `Σ estimateProfit` via `aggregate.js` | snap 阶段不再读 `snap.rt1` 覆盖 |
-| header `realtimeAssets` | `baseline + realtimeProfit` | — |
+| header `realtimeAssets` | `Σ estimateAssets` via `aggregate.js` | snap 阶段可读 `baseline+RT1` |
+| 穿透 / 持仓 RT1 门控 | `market.js`, `holdings-pipeline.js`, `fund-regular-eligibility.js` | 详情须 `maskHoldingsForLiveRt1Display` |
 | raw 穿透 pct | `market.js` | 输入 fund-display，不直出 UI |
 | **会话/phase/snapKey** | **`display-session.resolveDisplaySession()`** | 只读 session |
 
@@ -110,6 +114,9 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 | **会话状态** | **`server/display-session.js`** |
 | Baseline 持久化 | `server/day-display-state.js` |
 | 入账 | `server/settle.js` |
+| **穿透持仓 / T+1 掩码** | **`server/holdings-pipeline.js`**（`maskHoldingsForLiveRt1Display`） |
+| **正盘门控** | **`server/fund-regular-eligibility.js`** |
+| 详情 API 展示刷新 | `server/market.js`（`refreshFundHoldingsDisplay`） |
 | 前端 Pages | `src/main.js` |
 | 前端 ViewModel | `src/live-view-model.js`, `src/summary.js` |
 | 前端 Components | `src/components/metrics.js`, `src/components/session.js` |
@@ -123,6 +130,10 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 4. **A 股/黄金联接 21:30–09:30 + 周末**：row1 为 `—`（`shouldSuppressDomesticRealtimeDisplay`）；**snap 不能写回数值**
 5. **黄金联接**（如 000216）归类为 `cn`，顶栏 **不** 显示「黄金」市场
 6. **estimateProfit** 必须来自 **display impact**，不能直接用 raw 穿透 `r`
+7. **EST 禁止** `amount − settled + ep`；live 用 **`amount + ep`**，header 用 **`Σ estimateAssets`**
+8. **QDII 21:30 US 正盘**：穿透 RT1 仅 `quoteSession==='regular'`；HK/JP 等已收盘 → 详情涨跌幅 **`—`**（`liveRt1Excluded`）
+9. **多 Tab**：Hero/账户卡只读 API `live.totals` / `totalsByAccount`；禁止前端重算 EST
+10. **`refreshFundHoldingsDisplay`** 必须在 `applySessionQuotes` 后调用 **`maskHoldingsForLiveRt1Display`**（与 `computeFundImpactFromPack` 一致）
 
 ## 代码风格
 
@@ -137,6 +148,7 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 - [ ] `npm run test:fund-estimate && npm run test:realtime-profit`
 - [ ] 若动 snap/suppress：`npm run test:display-session && npm run test:display-state && npm run test:live-pipeline`
 - [ ] 若动前端 ViewModel/组件：`npm run build`
+- [ ] 若动 RT1/EST/snap：`node server/live-rt1-holdings.test.js && node server/scope-totals.test.js`
 - [ ] 若动 RT1/EST/snap：考虑 `verify:alipay-realtime` / `verify:tab-reconcile`
 - [ ] 文档与代码不一致时，优先更新 `docs/realtime-spec.md` 或 `docs/data-flow.md`
 

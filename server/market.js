@@ -18,6 +18,7 @@ import {
   estimateWithFx,
   summarizeHoldingsCoverage,
   usdExposedWeight,
+  maskHoldingsForLiveRt1Display,
 } from './holdings-pipeline.js';
 import {
   getFundValuationProfile,
@@ -230,12 +231,14 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
   if (!holdings.length) return emptyHoldingsImpact(pack);
 
   holdings = applySessionQuotes(holdings, byHoldingKey, now);
-  const cov = summarizeHoldingsCoverage(holdings);
+  const hasRegularHolding = holdings.some((h) => h.quoteSession === 'regular');
+  const liveRt1Opts = hasRegularHolding ? { liveRt1Only: true } : {};
+  const cov = summarizeHoldingsCoverage(holdings, liveRt1Opts);
   const impactSession = deriveImpactSessionFromHoldings(holdings, now);
-  const impactPct = estimateFromHoldingsWithFx(holdings, fxPct);
+  const impactPct = estimateFromHoldingsWithFx(holdings, fxPct, liveRt1Opts);
   const impactPctRegular =
     impactSession === 'regular' && impactPct != null ? impactPct : null;
-  const hasRegularHolding = holdings.some((h) => h.quoteSession === 'regular');
+  const displayHoldings = maskHoldingsForLiveRt1Display(holdings, hasRegularHolding);
   return {
     impactPct,
     impactPctRegular,
@@ -247,8 +250,8 @@ function computeFundImpactFromPack(pack, fxPct, byHoldingKey, now) {
     annualReportDate: pack.annualReportDate,
     reportMeta: pack.reportMeta,
     reportFundCount: pack.reportFundCount ?? 0,
-    count: holdings.length,
-    holdings: sortHoldingsByWeight(holdings),
+    count: displayHoldings.length,
+    holdings: sortHoldingsByWeight(displayHoldings),
     weightCoverage: cov.weightCoverage,
     quoteCoverage: cov.quoteCoverage,
     usdWeight: cov.usdWeight,
@@ -706,9 +709,11 @@ export async function refreshFundHoldingsDisplay(result, now = new Date()) {
     rememberSharedHoldingQuotes(byHoldingKey);
   }
 
+  const quoted = sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now));
+  const hasRegularHolding = quoted.some((h) => h.quoteSession === 'regular');
   return {
     ...result,
-    holdings: sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now)),
+    holdings: maskHoldingsForLiveRt1Display(quoted, hasRegularHolding),
   };
 }
 

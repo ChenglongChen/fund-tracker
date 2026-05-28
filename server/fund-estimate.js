@@ -58,20 +58,21 @@ export function fundEstimateProfit(amount, live, now = new Date()) {
 }
 
 /**
- * 预估资产 canonical：baseline_{D-1} + RT1（portfolio 级在 aggregate 处理）
+ * 预估资产 canonical：账户资产（T 日已入账 amount）+ 实时收益（当前会话 RT1）。
+ * portfolio 级在 aggregate 对 Σ estimateAssets 求和。
  * @param {number|null|undefined} amount
- * @param {number|null|undefined} settledProfit
+ * @param {number|null|undefined} _settledProfit
  * @param {{ market?: string, impactPct?: number|null, impactPctRegular?: number|null, impactPctExtended?: number|null } | null} live
- * @param {boolean} [dailyPending]
+ * @param {boolean} [_dailyPending]
  * @param {Date} [now]
- * @param {number|null} [baselinePortfolio]
+ * @param {number|null} [_baselinePortfolio]
  * @param {number|null} [estimateProfitOverride]
  */
 export function fundEstimatedAssets(
   amount,
-  settledProfit,
+  _settledProfit,
   live,
-  dailyPending = false,
+  _dailyPending = false,
   now = new Date(),
   _baselinePortfolio = null,
   estimateProfitOverride = null,
@@ -82,11 +83,7 @@ export function fundEstimatedAssets(
       : fundEstimateProfit(amount, live, now);
   if (amount == null || !Number.isFinite(amount)) return null;
   if (ep == null) return round2(amount);
-
-  if (dailyPending) return round2(amount + ep);
-
-  const settled = settledProfit != null && Number.isFinite(settledProfit) ? settledProfit : 0;
-  return round2(amount - settled + ep);
+  return round2(amount + ep);
 }
 
 /**

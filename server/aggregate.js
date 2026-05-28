@@ -52,6 +52,15 @@ function accumulateScopeTotals(portfolioFunds, liveById) {
 }
 
 /**
+ * 组合预估资产：Σ per-fund estimateAssets = Σ amount + Σ estimateProfit（T/T+1 口径）。
+ * @param {ReturnType<typeof accumulateScopeTotals>} acc
+ * @param {number|null|undefined} [_baseline]
+ */
+export function resolvePortfolioRealtimeAssets(acc, _baseline) {
+  return acc.estimateAssetsSum;
+}
+
+/**
  * 组合合计：仅对 per-fund 展示字段求和，禁止在此重算 estimateProfit。
  * canonical RT1 来源：fund-display.buildDisplayFundRow → live-pipeline。
  * @param {{ funds: object[] }} portfolio
@@ -62,14 +71,12 @@ export function computePortfolioTotals(portfolio, liveFunds, now = new Date()) {
   const acc = accumulateScopeTotals(portfolio.funds, liveById);
   const accrualDay = getRt1AccrualDay(now);
   const baseline = getBaselineForDay(accrualDay, 'portfolio');
-  const portfolioEst =
-    baseline != null && Number.isFinite(acc.realtimeProfit)
-      ? round2(baseline + acc.realtimeProfit)
-      : acc.estimateAssetsSum;
+  const portfolioEst = resolvePortfolioRealtimeAssets(acc, baseline);
 
   return {
     settledAssets: acc.settledAssets,
     realtimeAssets: portfolioEst,
+    estimateAssetsSum: acc.estimateAssetsSum,
     settledProfit: acc.settledProfit,
     realtimeProfit: acc.realtimeProfit,
     holdingProfit: acc.holdingProfit,
@@ -126,7 +133,7 @@ export function pickDisplayTotals(mode, totals) {
       profitPct: totals.realtimeProfitPct,
       profitLabel: '实时收益',
       assetsLabel: '预估资产',
-      assetsHint: '入账资产_{t−1} + 实时收益',
+      assetsHint: '账户资产 + 实时收益',
     };
   }
   return {

@@ -16,8 +16,15 @@
 
 ```javascript
 // SCOPE_ALL：canonicalTotals = live.totals，displayState = live.displayState
-// 账户 scope：Σ estimateProfit；禁止 pct×amount 作 row1
+// 账户 scope：totalsByAccount[id] 或 Σ estimateProfit
+// EST fallback：amount + ep（summary.estimatedAssetsForRow）— 禁止 amount−settled+ep
 ```
+
+## 详情页穿透（`detail-page.js` + `session.js`）
+
+- 涨跌幅：`fmtPct(h.changePct)` — API 已掩码时显示 **`—`**
+- `h.liveRt1Excluded === true` → 状态列 **`—`**（非「已收盘」），表示未进入该市场 T+1 正盘
+- 禁止在详情页用 raw `changePct` 重算基金 RT1
 
 ## mergeLiveIntoFunds
 
