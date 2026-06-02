@@ -1,0 +1,18 @@
+
+{
+  "name": "@fund-tracker/core",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./format": "./format.js",
+    "./portfolio": "./portfolio.js",
+    "./summary": "./summary.js",
+    "./live-view-model": "./live-view-model.js",
+    "./accounts": "./accounts.js"
+  },
+  "dependencies": {
+    "@fund-tracker/storage": "*"
+  }
+}

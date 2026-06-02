@@ -1,0 +1,60 @@
+
+openapi: 3.0.3
+info:
+  title: fund-tracker API
+  version: 0.2.0
+  description: Remote-First API for Web, Mac, iOS, and WeChat mini program clients.
+servers:
+  - url: http://localhost:8788
+security:
+  - bearerAuth: []
+paths:
+  /api/health:
+    get:
+      summary: Health check (no auth when token configured)
+      security: []
+      responses:
+        '200':
+          description: OK
+  /api/live:
+    get:
+      summary: Live display payload — canonical RT1/EST per fund and totals
+      responses:
+        '200':
+          description: Live cache
+  /api/portfolio:
+    get:
+      summary: Portfolio snapshot
+    put:
+      summary: Replace portfolio (sync/import)
+  /api/settings:
+    get:
+      summary: App settings
+    put:
+      summary: Update settings
+  /api/profit/calendar:
+    get:
+      summary: Profit calendar for scope and month
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            example: '2026-05'
+  /api/profit/summary:
+    get:
+      summary: Monthly profit summary
+  /api/watchlist:
+    get:
+      summary: Watchlist items
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

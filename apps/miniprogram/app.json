@@ -1,0 +1,31 @@
+
+{
+  "pages": [
+    "pages/holdings/index",
+    "pages/profit/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "Fund Tracker",
+    "navigationBarBackgroundColor": "#111827",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0b1220"
+  },
+  "tabBar": {
+    "color": "#94a3b8",
+    "selectedColor": "#38bdf8",
+    "backgroundColor": "#111827",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/holdings/index",
+        "text": "持仓"
+      },
+      {
+        "pagePath": "pages/profit/index",
+        "text": "收益"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

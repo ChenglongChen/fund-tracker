@@ -1,0 +1,19 @@
+
+{
+  "name": "@fund-tracker/ios",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync ios",
+    "open": "cap open ios",
+    "add-ios": "cap add ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/preferences": "^6.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

@@ -1,0 +1,16 @@
+
+{
+  "description": "fund-tracker WeChat mini program",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "minified": true
+  },
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "fund-tracker",
+  "miniprogramRoot": "./"
+}

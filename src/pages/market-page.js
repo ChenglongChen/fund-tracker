@@ -105,7 +105,7 @@ export function renderMarketPage() {
       <div class="market-page-sticky">
         ${renderMarketTabs()}
       </div>
-      <div class="holding-list-scroll page-scroll market-page-scroll" id="market-scroll">
+      <div class="holding-list-scroll tab-scroll market-page-scroll" id="market-scroll">
         ${renderMarketGrid()}
       </div>
       ${renderBottomChrome()}

@@ -1,0 +1,13 @@
+
+{
+  "appId": "com.fundtracker.app",
+  "appName": "Fund Tracker",
+  "webDir": "../../dist",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor"
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

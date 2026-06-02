@@ -1,0 +1,5 @@
+
+{
+  "desc": "fund-tracker mini program",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

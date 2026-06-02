@@ -21,6 +21,7 @@
   --bottom-nav-h: 50px;
   --chrome-dock-h: 0px;
   --bottom-chrome-total-h: calc(var(--chrome-dock-h) + var(--bottom-nav-h) + var(--safe-bottom));
+  --tab-scroll-pad-bottom: 12px;
   --text-xs: 10px;
   --text-sm: 11px;
   --text-base: 13px;
@@ -409,9 +410,21 @@ html[data-theme='dark'] .portfolio-sticky {
   --chrome-dock-h: var(--index-dock-h);
 }
 
+.has-bottom-nav {
+  --tab-scroll-pad-bottom: calc(var(--bottom-chrome-measured-h, var(--bottom-chrome-total-h)) + 12px);
+}
+
+html.is-desktop-app .has-bottom-nav {
+  --tab-scroll-pad-bottom: calc(var(--bottom-chrome-measured-h, var(--bottom-chrome-total-h)) + 20px);
+}
+
 .holding-list-scroll,
-.page-scroll {
-  padding-bottom: 12px;
+.page-scroll,
+.tab-scroll,
+.profile-page-scroll,
+.market-page-scroll {
+  padding-bottom: var(--tab-scroll-pad-bottom);
+  scroll-padding-bottom: var(--tab-scroll-pad-bottom);
 }
 
 .portfolio-page.index-sheet-open .holding-list-scroll {
@@ -2685,6 +2698,9 @@ html[data-theme='dark'] .bottom-tabs {
   background: var(--bg-card);
   color: var(--text);
   font-size: 15px;
+  pointer-events: auto;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .watchlist-add-btn {
@@ -3018,6 +3034,50 @@ html[data-theme='dark'] .bottom-tabs {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.profile-settings-hint--block {
+  margin-top: 10px;
+}
+
+.profile-field-input {
+  width: 100%;
+  max-width: 220px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.profile-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-secondary,
+.btn-ghost {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.btn-secondary {
+  border: 0;
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
 }
 
 .profile-link-row {

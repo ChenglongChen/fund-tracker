@@ -4,16 +4,12 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { getLiveCache, refreshLiveDisplay, startSchedulers, buildLiveRevision, requestLiveRefresh } from './live.js';
-import { runSettlement, settleIfNeeded } from './settle.js';
-import { ensurePortfolio, readPortfolio, writePortfolio } from './store.js';
-import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, mergeSharedHoldingQuotes, resolveFxStripFromMarket } from './market.js';
+import { getLiveCache, refreshLiveDisplay, buildLiveRevision } from './live.js';
+import { runSettlement } from './settle.js';
+import { readPortfolio, writePortfolio } from './store.js';
+import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, resolveFxStripFromMarket } from './market.js';
 import { classifyFundMarket } from './components/market-hours.js';
-import { resolveLiveDisplayImpact, seedFundRegularSnapshots } from './market-session.js';
-import { loadImpactSnapshots, getFundSnapshotRecords } from './impact-snapshots.js';
-import { loadDayDisplayState } from './day-display-state.js';
-import { seedSessionQuoteSnapshots } from './session-quotes.js';
-import { setStooqQuotesUpdatedHandler } from './asia-quotes.js';
+import { resolveLiveDisplayImpact } from './market-session.js';
 import { readAppState, setAssetViewMode, listDailyRecords } from './app-state.js';
 import { addFund, deleteFund, updateFund } from './fund-crud.js';
 import {
@@ -22,11 +18,13 @@ import {
   readWatchlist,
   removeWatchlistItem,
 } from './watchlist.js';
+import { handleCorsAndAuth } from './auth.js';
+import { bootstrapServer } from './bootstrap.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
-const PORT = Number(process.env.PORT) || 8788;
+const DEFAULT_PORT = Number(process.env.PORT) || 8788;
 const gzipAsync = promisify(zlib.gzip);
 
 const MIME = {
@@ -83,10 +81,12 @@ async function sendFile(res, filePath) {
   }
 }
 
-/** @param {http.IncomingMessage} req @param {http.ServerResponse} res */
-async function handler(req, res) {
-  const url = new URL(req.url || '/', `http://localhost:${PORT}`);
+/** @param {http.IncomingMessage} req @param {http.ServerResponse} res @param {number} port */
+async function handler(req, res, port) {
+  const url = new URL(req.url || '/', `http://localhost:${port}`);
   const { pathname, searchParams } = url;
+
+  if (handleCorsAndAuth(req, res, pathname)) return;
 
   if (req.method === 'GET' && pathname === '/api/health') {
     return json(res, 200, { ok: true, time: new Date().toISOString() });
@@ -363,22 +363,32 @@ async function handler(req, res) {
   res.end('Not found');
 }
 
-await ensurePortfolio();
-await loadImpactSnapshots();
-await loadDayDisplayState();
-seedSessionQuoteSnapshots();
-seedFundRegularSnapshots(getFundSnapshotRecords());
-setStooqQuotesUpdatedHandler((partial) => {
-  mergeSharedHoldingQuotes(partial);
-  requestLiveRefresh();
-});
-startSchedulers(settleIfNeeded);
-
-http.createServer((req, res) => {
-  handler(req, res).catch((e) => {
-    json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+/**
+ * @param {{ port?: number, host?: string }} [options]
+ * @returns {Promise<{ server: import('node:http').Server, port: number, host: string }>}
+ */
+export async function startFundTrackerServer(options = {}) {
+  const port = options.port ?? DEFAULT_PORT;
+  const host = options.host ?? process.env.HOST ?? '0.0.0.0';
+  await bootstrapServer();
+  const server = http.createServer((req, res) => {
+    handler(req, res, port).catch((e) => {
+      json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    });
   });
-}).listen(PORT, () => {
-  console.log(`fund-tracker server http://localhost:${PORT}`);
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, host, resolve);
+  });
+  console.log(`fund-tracker server http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
   console.log('  API: /api/portfolio /api/live /api/watchlist /api/settings /api/history/daily');
-});
+  return { server, port, host };
+}
+
+const isDirectRun =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (isDirectRun) {
+  await startFundTrackerServer();
+}

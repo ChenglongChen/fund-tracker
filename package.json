@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"node server/index.js\"",
     "dev:web": "vite",
@@ -24,13 +28,25 @@
     "test:realtime-profit": "node server/realtime-profit-consistency.test.js",
     "test:qdii-valuation": "node server/qdii-valuation.test.js",
     "verify:alipay-realtime": "node scripts/verify-alipay-realtime.js",
-    "verify:tab-reconcile": "node scripts/verify-tab-reconcile.js"
+    "verify:tab-reconcile": "node scripts/verify-tab-reconcile.js",
+    "test:api-contract": "node server/api-contract.test.js",
+    "mac:dev": "npm run build && electron apps/mac/electron/main.mjs",
+    "mac:build": "bash scripts/sync-mac-icon.sh && npm run build && cd apps/mac && ELECTRON_MIRROR=${ELECTRON_MIRROR:-https://npmmirror.com/mirrors/electron/} npx electron-builder --config electron-builder.yml",
+    "mac:install": "bash scripts/install-mac-app.sh",
+    "sync:mac-data": "bash scripts/sync-data-to-mac-app.sh",
+    "ios:sync": "npm run build && npm run sync --workspace @fund-tracker/ios",
+    "ios:open": "npm run open --workspace @fund-tracker/ios"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
     "vite": "^6.2.0"
   },
   "dependencies": {
+    "@fund-tracker/api-client": "*",
+    "@fund-tracker/core": "*",
+    "@fund-tracker/storage": "*",
     "pdf-parse": "^2.4.5"
   }
 }

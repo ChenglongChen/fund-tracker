@@ -1,123 +1,44 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+import { createClient } from '@fund-tracker/api-client';
+import { getWebStorage, STORAGE_KEYS } from '@fund-tracker/storage';
+import { resolveApiBaseUrl, loadApiTokenFromStorage } from './api-settings.js';
 
-async function apiJson(path, opts = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Accept: 'application/json', ...opts.headers },
-    ...opts,
-  });
-  if (res.status === 204) return null;
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-  return body;
+const client = createClient({
+  baseUrl: resolveApiBaseUrl(),
+  getToken: () =>
+    getWebStorage().getItem(STORAGE_KEYS.API_TOKEN) ??
+    loadApiTokenFromStorage() ??
+    import.meta.env.VITE_API_TOKEN ??
+    '',
+});
+
+/** Re-read storage and update client base URL. */
+export function refreshApiClient() {
+  client.setBaseUrl(resolveApiBaseUrl());
 }
 
-/**
- * @param {{ liveRevision?: string } | null} [cached]
- * @returns {Promise<object>}
- */
-export async function fetchLive(cached = null) {
-  const headers = { Accept: 'application/json' };
-  if (cached?.liveRevision) headers['If-None-Match'] = `"${cached.liveRevision}"`;
-  const res = await fetch(`${API_BASE}/api/live`, { headers });
-  if (res.status === 304) {
-    return { unchanged: true, liveRevision: cached?.liveRevision ?? '' };
-  }
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-  return body;
-}
+refreshApiClient();
 
-/** @returns {Promise<{ assetViewMode: string, display?: object, displayContext?: object }>} */
-export async function fetchSettings() {
-  return apiJson('/api/settings');
-}
+export const {
+  fetchLive,
+  fetchSettings,
+  saveAssetViewMode,
+  fetchDailyHistory,
+  fetchWatchlist,
+  fetchWatchlistLive,
+  addWatchlistApi,
+  removeWatchlistApi,
+  fetchPortfolio,
+  fetchFundDetail,
+  addFundApi,
+  updateFundApi,
+  deleteFundApi,
+  savePortfolio,
+  triggerSettle,
+  fetchHealth,
+} = client;
 
-/** @param {'settled'|'realtime'} assetViewMode */
-export async function saveAssetViewMode(assetViewMode) {
-  return apiJson('/api/settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ assetViewMode }),
-  });
-}
-
-/** @returns {Promise<{ records: object[] }>} */
-export async function fetchDailyHistory(limit = 30) {
-  return apiJson(`/api/history/daily?limit=${limit}`);
-}
-
-/** @returns {Promise<{ items: object[] }>} */
-export async function fetchWatchlist() {
-  return apiJson('/api/watchlist');
-}
-
-/** @returns {Promise<{ funds: object[], displayContext?: object, updatedAt: string }>} */
-export async function fetchWatchlistLive() {
-  return apiJson('/api/watchlist/live');
-}
-
-/** @param {{ code: string, name?: string }} data */
-export async function addWatchlistApi(data) {
-  return apiJson('/api/watchlist', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-}
-
-/** @param {string} code */
-export async function removeWatchlistApi(code) {
-  return apiJson(`/api/watchlist/${encodeURIComponent(code)}`, { method: 'DELETE' });
-}
-
-/** @returns {Promise<{ meta: object, funds: object[] }>} */
-export async function fetchPortfolio() {
-  return apiJson('/api/portfolio');
-}
-
-/**
- * @param {string} code
- * @returns {Promise<{ impactPct: number|null, holdings: object[], note: string }>}
- */
-export async function fetchFundDetail(code) {
-  return apiJson(`/api/fund/${encodeURIComponent(code)}/detail`);
-}
-
-/** @returns {Promise<{ meta: object, funds: object[] }>} */
-export async function addFundApi(data) {
-  return apiJson('/api/funds', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-}
-
-/** @param {number} id @param {object} patch */
-export async function updateFundApi(id, patch) {
-  return apiJson(`/api/funds/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
-  });
-}
-
-/** @param {number} id */
-export async function deleteFundApi(id) {
-  return apiJson(`/api/funds/${id}`, { method: 'DELETE' });
-}
-
-/** @param {{ meta?: object, funds: object[] }} data */
-export async function savePortfolio(data) {
-  return apiJson('/api/portfolio', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-}
-
-/** @returns {Promise<{ changed: boolean, events: object[] }>} */
-export async function triggerSettle(dryRun = false) {
-  return apiJson(`/api/settle/run${dryRun ? '?dryRun=1' : ''}`, { method: 'POST' });
+export function setApiBaseUrl(baseUrl) {
+  client.setBaseUrl(baseUrl);
 }
 
 export function isApiMode() {

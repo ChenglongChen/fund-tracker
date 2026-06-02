@@ -1,0 +1,22 @@
+
+# API-only deployment (v1 multi-platform). Mount host data/ as single source of truth.
+services:
+  api:
+    image: node:20-alpine
+    working_dir: /app
+    command: node server/index.js
+    ports:
+      - "${FUND_TRACKER_PORT:-8788}:8788"
+    environment:
+      PORT: 8788
+      HOST: 0.0.0.0
+      FUND_TRACKER_API_TOKEN: ${FUND_TRACKER_API_TOKEN:-}
+      FUND_TRACKER_CORS_ORIGINS: ${FUND_TRACKER_CORS_ORIGINS:-*}
+      ML_ENABLED: "false"
+    volumes:
+      - .:/app
+      - fund_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  fund_data:

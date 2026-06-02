@@ -10,6 +10,7 @@ import {
   fetchWatchlistLive,
   addWatchlistApi,
   removeWatchlistApi,
+  savePortfolio,
 } from './client-api.js';
 import {
   loadMetricColumnOrder,
@@ -52,6 +53,10 @@ import {
   initIndexDrawerGlobalListeners,
 } from './components/index-dock.js';
 import { patchBottomTabs } from './components/bottom-tabs.js';
+import { captureAllTabScrolls, restoreTabScroll } from './tab-scroll.js';
+import { refreshBottomChromeInset, initBottomChromeInset } from './bottom-chrome-inset.js';
+import { saveApiSettings, API_MODE_LOCAL } from './api-settings.js';
+import { refreshApiClient } from './client-api.js';
 import { renderWatchlistPage, patchWatchlistDom, canPatchWatchlistDom } from './pages/watchlist-page.js';
 import { renderMarketPage, patchMarketDom } from './pages/market-page.js';
 import { renderProfilePage } from './pages/profile-page.js';
@@ -139,6 +144,8 @@ const state = {
   watchlistItems: [],
   watchlistRows: [],
   watchlistError: null,
+  watchlistSearchDraft: '',
+  watchlistSearchFocused: false,
   watchlistSortKey: 'realtime',
   watchlistSortDir: 'desc',
   marketTab: 'us',
@@ -572,11 +579,38 @@ function moveMetricColumn(key, dir) {
 function isLiveView() {
   return (
     state.view === 'list' ||
-    state.view === 'watchlist' ||
     state.view === 'market' ||
     state.view === 'detail' ||
     state.view === 'detail-loading'
   );
+}
+
+function captureWatchlistSearchUi() {
+  if (state.view !== 'watchlist') return;
+  const input = document.getElementById('watchlist-code-input');
+  if (!input) return;
+  state.watchlistSearchDraft = input.value;
+  state.watchlistSearchFocused = document.activeElement === input;
+}
+
+function restoreWatchlistSearchUi() {
+  if (state.view !== 'watchlist') return;
+  const input = document.getElementById('watchlist-code-input');
+  if (!input) return;
+  input.value = state.watchlistSearchDraft ?? '';
+  if (state.watchlistSearchFocused) {
+    requestAnimationFrame(() => {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    });
+  }
+}
+
+function watchlistSearchBlockingPaint() {
+  if (state.view !== 'watchlist') return false;
+  if (state.watchlistSearchFocused) return true;
+  return Boolean(state.watchlistSearchDraft?.trim());
 }
 
 function watchlistSortValue(f, key) {
@@ -853,10 +887,11 @@ function paint() {
   const root = document.getElementById('app');
   if (!root) return;
 
-  const preserveListScroll = state.view === 'list';
-  const listScrollTop = preserveListScroll
-    ? document.getElementById('holding-list-scroll')?.scrollTop ?? 0
-    : 0;
+  captureAllTabScrolls();
+  captureWatchlistSearchUi();
+  const restoreScrollView = ['list', 'watchlist', 'market', 'profile'].includes(state.view)
+    ? state.view
+    : null;
 
   if (state.view !== 'list' && state.view !== 'watchlist' && state.view !== 'market') {
     state.indexDrawerOpen = false;
@@ -884,15 +919,9 @@ function paint() {
   else stopIndexDockCarousel();
   if (isLiveView()) scheduleRefresh();
 
-  if (preserveListScroll) {
-    const scrollEl = document.getElementById('holding-list-scroll');
-    if (scrollEl) {
-      scrollEl.scrollTop = listScrollTop;
-      requestAnimationFrame(() => {
-        scrollEl.scrollTop = listScrollTop;
-      });
-    }
-  }
+  if (restoreScrollView) restoreTabScroll(restoreScrollView);
+  refreshBottomChromeInset();
+  restoreWatchlistSearchUi();
 }
 
 
@@ -1115,6 +1144,16 @@ function bindEvents() {
     void submitWatchlistAdd();
   });
 
+  document.getElementById('watchlist-code-input')?.addEventListener('input', (ev) => {
+    state.watchlistSearchDraft = ev.target.value;
+  });
+  document.getElementById('watchlist-code-input')?.addEventListener('focus', () => {
+    state.watchlistSearchFocused = true;
+  });
+  document.getElementById('watchlist-code-input')?.addEventListener('blur', () => {
+    state.watchlistSearchFocused = false;
+  });
+
   document.querySelectorAll('[data-watchlist-sort]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.getAttribute('data-watchlist-sort');
@@ -1136,6 +1175,55 @@ function bindEvents() {
       const code = btn.getAttribute('data-remove-code');
       if (code) void removeWatchlistCode(code);
     });
+  });
+
+
+  document.getElementById('btn-profile-api-save')?.addEventListener('click', async () => {
+    const mode = document.getElementById('profile-api-mode')?.value || API_MODE_LOCAL;
+    const baseUrl = document.getElementById('profile-api-base')?.value?.trim() ?? '';
+    const token = document.getElementById('profile-api-token')?.value?.trim() ?? '';
+    saveApiSettings({ mode, baseUrl, token });
+    refreshApiClient();
+    const status = document.getElementById('profile-api-status');
+    if (status) {
+      status.hidden = false;
+      status.textContent = window.fundTrackerDesktop?.isDesktop
+        ? '已保存，正在重启…'
+        : '已保存 API 设置';
+    }
+    if (window.fundTrackerDesktop?.saveDesktopSettings) {
+      await window.fundTrackerDesktop.saveDesktopSettings({ apiMode: mode });
+      window.fundTrackerDesktop.restartApp?.();
+      return;
+    }
+    paint();
+  });
+
+  document.getElementById('btn-profile-export-portfolio')?.addEventListener('click', async () => {
+    try {
+      const data = await fetchPortfolio();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'portfolio.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  document.getElementById('btn-profile-pull-portfolio')?.addEventListener('click', async () => {
+    try {
+      refreshApiClient();
+      const remote = await fetchPortfolio();
+      await savePortfolio(remote);
+      window.alert('已从 Remote 拉取 portfolio');
+      location.reload();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e));
+    }
   });
 
   document.getElementById('btn-profile-manage')?.addEventListener('click', () => {
@@ -1254,6 +1342,7 @@ async function refreshWatchlistView() {
     return;
   }
   state.busy = true;
+  const blockPaint = watchlistSearchBlockingPaint();
   try {
     const [, wl] = await Promise.all([
       pullLive().catch(() => false),
@@ -1274,7 +1363,7 @@ async function refreshWatchlistView() {
       patchBottomTabs();
       return;
     }
-    paint();
+    if (!blockPaint) paint();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     state.liveBanner =
@@ -1282,7 +1371,7 @@ async function refreshWatchlistView() {
         ? '自选接口不可用，请重启 API（npm run dev 或 npm run dev:api）'
         : msg;
     state.liveBannerDismissed = false;
-    if (!patchLiveBanner()) paint();
+    if (!patchLiveBanner() && !blockPaint) paint();
   } finally {
     state.busy = false;
     if (refreshPending) {
@@ -1312,7 +1401,8 @@ async function refreshMarketView() {
 
 async function submitWatchlistAdd() {
   const input = document.getElementById('watchlist-code-input');
-  const code = input?.value?.trim() ?? '';
+  const code = (input?.value ?? state.watchlistSearchDraft ?? '').trim();
+  state.watchlistSearchDraft = code;
   state.watchlistError = null;
   if (!/^\d{6}$/.test(code)) {
     state.watchlistError = '请输入 6 位基金代码';
@@ -1322,6 +1412,8 @@ async function submitWatchlistAdd() {
   try {
     const res = await addWatchlistApi({ code });
     state.watchlistItems = res.items ?? [];
+    state.watchlistSearchDraft = '';
+    state.watchlistSearchFocused = false;
     if (input) input.value = '';
     await refreshWatchlistView();
   } catch (e) {
@@ -1546,4 +1638,8 @@ document.addEventListener('visibilitychange', () => {
 
 initTheme();
 initIndexDrawerGlobalListeners();
+initBottomChromeInset();
+if (window.fundTrackerDesktop?.isDesktop) {
+  document.documentElement.classList.add('is-desktop-app');
+}
 bootstrap();

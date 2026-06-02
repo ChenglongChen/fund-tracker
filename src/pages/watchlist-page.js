@@ -103,10 +103,11 @@ function renderWatchlistRow(f) {
 
 export function renderWatchlistSearchBar() {
   const err = app().state.watchlistError;
+  const draft = app().state.watchlistSearchDraft ?? '';
   return `
     <div class="watchlist-search-bar">
       <form class="watchlist-search-form" id="watchlist-search-form">
-        <input type="text" class="watchlist-search-input" id="watchlist-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="输入 6 位基金代码" autocomplete="off" />
+        <input type="text" class="watchlist-search-input" id="watchlist-code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="输入 6 位基金代码" autocomplete="off" value="${escapeHtml(app().state.watchlistSearchDraft ?? '')}" />
         <button type="submit" class="watchlist-add-btn" id="btn-watchlist-add">添加</button>
       </form>
       ${err ? `<p class="watchlist-search-error" role="alert">${escapeHtml(err)}</p>` : ''}
@@ -133,7 +134,7 @@ export function renderWatchlistPage() {
         ${renderLiveBanner()}
         ${rows.length > 0 ? renderWatchlistTableHead() : ''}
       </div>
-      <div class="holding-list-scroll page-scroll" id="watchlist-scroll">
+      <div class="holding-list-scroll tab-scroll" id="watchlist-scroll">
         <section class="holding-list holding-list--watchlist">${body}</section>
       </div>
       ${showIndexTicker() ? renderIndexSheetMask() : ''}

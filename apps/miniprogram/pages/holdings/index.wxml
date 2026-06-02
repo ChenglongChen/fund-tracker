@@ -1,0 +1,24 @@
+
+<view class="hero card" wx:if="{{totals}}">
+  <view class="hero-label">预估资产</view>
+  <view class="hero-value">{{totals.est}}</view>
+  <view class="muted">实时 {{totals.rt1}} ({{totals.rt1Pct}})</view>
+</view>
+
+<view wx:if="{{loading}}" class="muted card">加载中…</view>
+<view wx:if="{{error}}" class="error">{{error}}</view>
+
+<view class="card" wx:if="{{!loading && !error}}">
+  <block wx:for="{{funds}}" wx:key="id">
+    <view class="row">
+      <view>
+        <view class="name">{{item.name}}</view>
+        <view class="muted">{{item.code}} · ¥{{item.amount}}</view>
+      </view>
+      <view class="{{item.epClass}}">
+        <view>{{item.ep}}</view>
+        <view class="muted">{{item.pct}}</view>
+      </view>
+    </view>
+  </block>
+</view>

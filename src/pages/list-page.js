@@ -470,7 +470,7 @@ export function renderListPage() {
           ${renderPortfolioHeader()}
           ${renderListTableHead()}
         </div>
-        <div class="holding-list-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="${scopeTabId}">
+        <div class="holding-list-scroll tab-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="${scopeTabId}">
           <section class="holding-list">${listBody}</section>
         </div>
         ${indexMask}
@@ -497,7 +497,7 @@ export function renderListPage() {
         ${renderPortfolioHeader()}
         ${renderListTableHead()}
       </div>
-      <div class="holding-list-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="${scopeTabId}">
+      <div class="holding-list-scroll tab-scroll" id="holding-list-scroll" role="tabpanel" aria-labelledby="${scopeTabId}">
         <section class="holding-list">${listBody}</section>
       </div>
       ${indexMask}

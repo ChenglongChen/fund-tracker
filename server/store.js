@@ -5,7 +5,10 @@ import { migratePortfolio } from './accounts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-export const DATA_DIR = path.join(ROOT, 'data');
+const DATA_ROOT = process.env.FUND_TRACKER_DATA_DIR?.trim()
+  ? path.resolve(process.env.FUND_TRACKER_DATA_DIR)
+  : path.join(ROOT, 'data');
+export const DATA_DIR = DATA_ROOT;
 export const PORTFOLIO_PATH = path.join(DATA_DIR, 'portfolio.json');
 const SEED_PATH = path.join(ROOT, 'src', 'portfolio.json');
 

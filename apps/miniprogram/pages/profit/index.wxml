@@ -1,0 +1,30 @@
+
+<view class="card">
+  <view class="field">
+    <text class="field-label">Remote API 地址</text>
+    <input class="field-input" value="{{apiBase}}" bindinput="onApiBaseInput" placeholder="https://api.example.com" />
+  </view>
+  <view class="field">
+    <text class="field-label">API Token</text>
+    <input class="field-input" password value="{{apiToken}}" bindinput="onApiTokenInput" placeholder="Bearer token" />
+  </view>
+  <button class="btn" bindtap="saveApi">保存并刷新</button>
+</view>
+
+<view wx:if="{{loading}}" class="muted card">加载中…</view>
+<view wx:if="{{error}}" class="error">{{error}}</view>
+
+<view class="hero card" wx:if="{{summary}}">
+  <view class="hero-label">{{summary.month}} 合计</view>
+  <view class="hero-value">{{summary.total}}</view>
+</view>
+
+<view class="card" wx:if="{{days.length}}">
+  <view class="muted">近 7 日</view>
+  <block wx:for="{{days}}" wx:key="date">
+    <view class="row">
+      <view>{{item.date}}</view>
+      <view class="{{item.cls}}">{{item.profit}} · {{item.pct}}</view>
+    </view>
+  </block>
+</view>
