@@ -16,7 +16,11 @@ export function pickFundDisplayMetrics(row, fund) {
     : row?.settledPct ?? dayProfitPct(amount, settledProfit);
 
   return {
-    impactPct: row?.impactPct ?? null,
+    impactPct:
+      row?.realTimePct ??
+      row?.estimateImpactPct ??
+      row?.impactPct ??
+      null,
     impactPctRegular: row?.impactPctRegular ?? row?.impactPct ?? null,
     impactPctExtended: row?.impactPctExtended ?? null,
     impactPctRegularLive: row?.impactPctRegularLive ?? row?.impactPctRegular ?? null,

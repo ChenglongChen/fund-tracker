@@ -2,12 +2,26 @@
  * Snap 就绪判定：per-fund 明细齐全且非 provisional 才可用于冻结 row1。
  */
 import { getActiveSnapKey, getScopeSnap } from '../day-display-state.js';
+import { getUsSessionPhase } from '../holding-market.js';
+import { beijingMinutesOfDay } from '../time.js';
+
+/** @param {object|null|undefined} snap */
+function isStaleDayOpenSnap(snap) {
+  if (!snap?.at) return false;
+  if (snap.seedPhase === 'day_open') return true;
+  if (snap.seedPhase) return false;
+  const at = new Date(snap.at);
+  if (!Number.isFinite(at.getTime())) return false;
+  const mins = beijingMinutesOfDay(at);
+  return mins >= 4 * 60 && mins < 8 * 60 && getUsSessionPhase(at) === 'closed';
+}
 
 /**
  * @param {object|null|undefined} snap
  */
 export function isScopeSnapReady(snap) {
   if (!snap || snap.provisional) return false;
+  if (isStaleDayOpenSnap(snap)) return false;
   if (!snap.funds || typeof snap.funds !== 'object') return false;
   return Object.keys(snap.funds).length > 0;
 }

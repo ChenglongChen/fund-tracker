@@ -1,8 +1,7 @@
 /**
  * 季报 PDF §5.9 基金投资明细 — 官方披露，非推断。
- * 东财 jjcc 只有 §5.1 股票，基金持仓必须读季报。
+ * Mac App 不打包 pdf-parse（~80MB）；动态 import，缺失时跳过基金明细解析。
  */
-import { PDFParse } from 'pdf-parse';
 import { toSinaFetchCode } from './quotes.js';
 
 const SEC_59 =
@@ -149,6 +148,22 @@ export function parseFundInvestmentsFromReport(text) {
   return holdings;
 }
 
+/** @param {Buffer} buf */
+async function extractPdfText(buf) {
+  let PDFParse;
+  try {
+    ({ PDFParse } = await import('pdf-parse'));
+  } catch {
+    return null;
+  }
+  const parser = new PDFParse({ data: buf });
+  try {
+    return (await parser.getText()).text;
+  } finally {
+    await parser.destroy();
+  }
+}
+
 export async function fetchLatestQuarterlyReportText(code, year = 2026) {
   const url = `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=40&page_index=1&ann_type=Fund&client_source=web&stock_list=${String(code).trim()}`;
   const res = await fetch(url);
@@ -166,9 +181,8 @@ export async function fetchLatestQuarterlyReportText(code, year = 2026) {
   const pdfRes = await fetch(pdfUrl);
   if (!pdfRes.ok) throw new Error(`PDF HTTP ${pdfRes.status}: ${pdfUrl}`);
   const buf = Buffer.from(await pdfRes.arrayBuffer());
-  const parser = new PDFParse({ data: buf });
-  const text = (await parser.getText()).text;
-  await parser.destroy();
+  const text = await extractPdfText(buf);
+  if (!text) return null;
   return {
     artCode: hit.art_code,
     title: hit.title,

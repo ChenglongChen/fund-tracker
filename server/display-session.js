@@ -43,7 +43,7 @@ export function inferDisplayPhaseFromClock(usPhase, mins) {
  * @returns {ScopeSnapKey|null}
  */
 export function resolveSnapKey(_usPhase, effectivePhase) {
-  if (effectivePhase === 'eod_freeze') return 'eodSnap';
+  if (effectivePhase === 'eod_freeze' || effectivePhase === 'day_open') return 'eodSnap';
   return null;
 }
 
@@ -73,7 +73,7 @@ export function resolveDisplaySession(now = new Date(), opts = {}) {
   const snapKey = resolveSnapKey(usPhase, effectivePhase);
   const phaseToPersist = resolvePhaseToPersist(usPhase, snapKey, clockPhase);
 
-  const isRt1SnapPhase = effectivePhase === 'eod_freeze';
+  const isRt1SnapPhase = effectivePhase === 'eod_freeze' || effectivePhase === 'day_open';
   const rt1Source = isRt1SnapPhase && snapKey === 'eodSnap' ? 'snap' : 'live';
 
   return {

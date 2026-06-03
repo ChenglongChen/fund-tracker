@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Fund Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', sans-serif;
+      background: #f2f2f7;
+      color: #1c1c1e;
+    }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #000; color: #f2f2f7; }
+      .boot-card { background: #1c1c1e; border-color: #38383a; }
+      .boot-sub { color: #98989d; }
+      .boot-bar { background: #38383a; }
+      .boot-bar-fill { background: #0a84ff; }
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .boot-card {
+      width: min(360px, 100%);
+      padding: 32px 28px;
+      border-radius: 16px;
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    }
+    .boot-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .boot-sub {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #636366;
+      margin-bottom: 24px;
+    }
+    .boot-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: #e5e5ea;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .boot-bar-fill {
+      height: 100%;
+      width: 36%;
+      border-radius: 2px;
+      background: #007aff;
+      animation: boot-slide 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes boot-slide {
+      from { transform: translateX(-20%); width: 28%; }
+      to { transform: translateX(220%); width: 36%; }
+    }
+    .boot-hint {
+      font-size: 12px;
+      color: #8e8e93;
+    }
+  </style>
+</head>
+<body>
+  <div class="boot-card">
+    <p class="boot-title">Fund Tracker</p>
+    <p class="boot-sub">正在启动本地服务并连接行情…</p>
+    <div class="boot-bar" aria-hidden="true"><div class="boot-bar-fill"></div></div>
+    <p class="boot-hint">首次启动可能需要几秒拉取估值</p>
+  </div>
+</body>
+</html>

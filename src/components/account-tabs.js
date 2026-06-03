@@ -55,15 +55,22 @@ export function setupAccountTabsLayout() {
   accountTabsResizeObserver.observe(scroll);
 }
 
-export function activateAccountScope(scope) {
+export function activateAccountScope(scope, mainTab = 'holdings') {
   const { setActiveScope, navigateTo, paint, scheduleRefresh } = app();
   app().state.indexDrawerOpen = false;
-  app().state.mainTab = 'holdings';
+  app().state.mainTab = mainTab;
   setActiveScope(scope);
-  navigateTo({ type: 'list', scope, mainTab: 'holdings' });
-  app().state.view = 'list';
+  if (mainTab === 'profit') {
+    navigateTo({ type: 'profit', scope, mainTab: 'profit' });
+    app().state.view = 'profit';
+  } else {
+    navigateTo({ type: 'list', scope, mainTab: 'holdings' });
+    app().state.view = 'list';
+  }
   paint();
   scheduleRefresh();
+  if (mainTab === 'profit') void app().refreshProfitView?.();
+  else if (mainTab === 'holdings') void app().refreshListView?.();
 }
 
 export function onAccountTabsBarClick(ev) {
@@ -71,7 +78,8 @@ export function onAccountTabsBarClick(ev) {
   if (!tab || !tab.closest('.account-tabs-bar')) return;
   const scope = tab.getAttribute('data-account-scope');
   if (!scope) return;
-  activateAccountScope(scope);
+  const mainTab = app().state.mainTab === 'profit' ? 'profit' : 'holdings';
+  activateAccountScope(scope, mainTab);
 }
 
 export function renderAccountTabs() {

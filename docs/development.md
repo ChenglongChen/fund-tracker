@@ -61,7 +61,6 @@ npm run verify:tab-reconcile     # 三 tab RT1 互证、baseline+RT1=EST
 ```bash
 npm run calibrate:valuation   # → data/valuation-profiles.json
 npm run backtest:valuation
-npm run audit:impact-xyz
 ```
 
 ## 6. 关键调试 API
@@ -77,6 +76,7 @@ curl -s http://localhost:8788/api/fund/022184/detail | jq '.holdings[] | select(
 
 - 运行时数据写 `data/`，勿提交 Git（除 `valuation-profiles.json`）
 - 规格变更先更新 `docs/realtime-spec.md`，再改代码
+- Mac App 优化任务跟踪见 [mac-app-roadmap.md](./mac-app-roadmap.md)
 
 ## 8. 已知后续项
 

@@ -372,13 +372,14 @@ button:focus-visible,
 .portfolio-page {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   position: relative;
 }
 
 .portfolio-sticky {
+  grid-row: 1;
   flex-shrink: 0;
   z-index: 10;
   background: var(--bg-page);
@@ -394,6 +395,7 @@ html[data-theme='dark'] .portfolio-sticky {
 }
 
 .holding-list-scroll {
+  grid-row: 2;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -418,10 +420,15 @@ html.is-desktop-app .has-bottom-nav {
   --tab-scroll-pad-bottom: calc(var(--bottom-chrome-measured-h, var(--bottom-chrome-total-h)) + 20px);
 }
 
+html.is-phone-shell .has-bottom-nav {
+  --tab-scroll-pad-bottom: calc(var(--bottom-chrome-measured-h, var(--bottom-chrome-total-h)) + 20px);
+}
+
 .holding-list-scroll,
 .page-scroll,
 .tab-scroll,
 .profile-page-scroll,
+.profit-page-scroll,
 .market-page-scroll {
   padding-bottom: var(--tab-scroll-pad-bottom);
   scroll-padding-bottom: var(--tab-scroll-pad-bottom);
@@ -1414,12 +1421,15 @@ html[data-theme='dark'] .account-summary-card {
 }
 
 .bottom-chrome {
+  grid-row: 3;
   position: relative;
   flex-shrink: 0;
-  z-index: 50;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   pointer-events: none;
+  background: var(--bg-page);
+  box-shadow: var(--shadow-bar);
 }
 
 .bottom-chrome > * {
@@ -2585,6 +2595,85 @@ html[data-theme='dark'] .holdings-card {
   color: var(--text-dim);
 }
 
+.profile-lan-url {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-light);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  word-break: break-all;
+  color: var(--text);
+}
+
+html.is-desktop-app .desktop-boot-page {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+html.is-desktop-app .desktop-boot-card {
+  width: min(520px, 100%);
+}
+
+html.is-desktop-app .desktop-boot-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+html.is-desktop-app .desktop-boot-sub {
+  margin: 0 0 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+html.is-desktop-app .desktop-boot-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+html.is-desktop-app .desktop-boot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+html.is-desktop-app .desktop-boot-block {
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--bg-muted) 0%, var(--border) 50%, var(--bg-muted) 100%);
+  background-size: 200% 100%;
+  animation: desktop-boot-shimmer 1.4s ease-in-out infinite;
+}
+
+html.is-desktop-app .desktop-boot-line {
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, var(--bg-muted) 0%, var(--border) 50%, var(--bg-muted) 100%);
+  background-size: 200% 100%;
+  animation: desktop-boot-shimmer 1.4s ease-in-out infinite;
+}
+
+html.is-desktop-app .desktop-boot-line--wide {
+  height: 28px;
+  width: 72%;
+}
+
+html.is-desktop-app .desktop-boot-line--short {
+  width: 48%;
+}
+
+@keyframes desktop-boot-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
 .manage-check {
   position: relative;
   display: inline-flex;
@@ -2806,10 +2895,722 @@ html[data-theme='dark'] .bottom-tabs {
 .market-page {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   position: relative;
+}
+
+.profile-page {
+  /* 与 portfolio-page 共用 grid / sticky / scroll */
+}
+
+.profile-page-sticky {
+  box-shadow: none;
+}
+
+html[data-theme='dark'] .profile-page-sticky {
+  box-shadow: none;
+}
+
+.profile-page-head {
+  padding: 12px max(var(--list-pad-x), var(--safe-right)) 10px max(var(--list-pad-x), var(--safe-left));
+}
+
+.profile-page-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text);
+}
+
+.profile-page-content {
+  padding: 12px max(var(--list-pad-x), var(--safe-right)) 4px max(var(--list-pad-x), var(--safe-left));
+}
+
+.profile-page-scroll {
+  background: var(--bg-page);
+}
+
+.profile-card {
+  margin-bottom: 10px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+}
+
+.profile-card-head {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.profile-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.profile-card-body--pad {
+  padding: 12px 14px 14px;
+}
+
+.profile-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+.profile-card-body .profile-settings-row:first-child {
+  border-top: 0;
+}
+
+.profile-settings-row--field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.profile-settings-row--field .profile-settings-action {
+  width: 100%;
+}
+
+.profile-settings-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.profile-settings-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.profile-settings-hint--lead {
+  margin: 0 0 8px;
+}
+
+.profile-settings-hint--foot {
+  margin: 10px 0 0;
+  padding: 0 14px 12px;
+}
+
+.profile-field-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-page);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.profile-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+.profile-settings-actions--inline {
+  border-top: 0;
+  padding: 0;
+}
+
+.btn-secondary,
+.btn-ghost {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-secondary {
+  border: 0;
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.profile-card-body--links .profile-link-row:first-child {
+  border-top: 0;
+}
+
+.profile-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 0;
+  border-top: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.profile-link-chevron {
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.profile-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border-light);
+  padding: 0;
+}
+
+.profile-switch.is-on {
+  background: var(--primary);
+}
+
+.profile-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.profile-switch.is-on .profile-switch-knob {
+  transform: translateX(18px);
+}
+
+.profile-about {
+  margin: 4px 0 16px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+html[data-theme='dark'] .profile-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+html[data-theme='dark'] .profile-field-input,
+html[data-theme='dark'] .profile-lan-url {
+  background: var(--bg-page);
+  border-color: var(--border);
+}
+
+html[data-theme='dark'] .btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+}
+
+.profile-page .theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-page);
+}
+
+.profile-page .theme-toggle-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── 收益日历 ── */
+.profit-page {
+  /* 与 portfolio-page 共用 grid / sticky / scroll 结构 */
+}
+
+.profit-page-content {
+  padding: 12px max(var(--list-pad-x), var(--safe-right)) 4px max(var(--list-pad-x), var(--safe-left));
+}
+
+.profit-page-scroll {
+  background: var(--bg-page);
+}
+
+.profit-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  margin-bottom: 10px;
+}
+.profit-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+.profit-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.profit-card-scope {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.profit-card-toolbar {
+  margin-bottom: 10px;
+}
+.profit-card-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  background: var(--bg-page);
+  border-radius: 10px;
+  padding: 3px;
+}
+.profit-tab {
+  border: none;
+  background: transparent;
+  padding: 8px 4px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  min-width: 0;
+}
+.profit-tab.is-active {
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.profit-card-nav {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px auto;
+  align-items: center;
+  column-gap: 4px;
+  margin-bottom: 12px;
+}
+.profit-nav {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.profit-nav--prev {
+  justify-self: start;
+}
+.profit-nav--next {
+  justify-self: end;
+}
+.profit-card-nav-title {
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 0;
+}
+.profit-card-units {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  background: var(--bg-page);
+  border-radius: 8px;
+  padding: 2px;
+  min-width: 72px;
+}
+.profit-unit {
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.profit-unit.is-active {
+  background: var(--bg-card);
+  font-weight: 600;
+  color: var(--text);
+}
+.profit-card-body {
+  width: 100%;
+}
+.profit-weekhead-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.profit-weekhead {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.profit-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+.profit-day-cell {
+  border: none;
+  border-radius: 8px;
+  min-height: 54px;
+  padding: 4px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--surface-2, #f7f7f8);
+  font-variant-numeric: tabular-nums;
+}
+.profit-day-cell--pad {
+  background: transparent;
+  pointer-events: none;
+}
+.profit-day-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+.profit-day-tag {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  margin-left: 1px;
+}
+.profit-day-amt {
+  font-size: 10px;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profit-day-cell.is-up,
+.profit-range-card.is-up {
+  background: rgba(229, 57, 53, 0.08);
+  color: #e53935;
+}
+.profit-day-cell.is-down,
+.profit-range-card.is-down {
+  background: rgba(67, 160, 71, 0.1);
+  color: #43a047;
+}
+.profit-day-cell.is-zero,
+.profit-range-card.is-zero {
+  background: var(--surface-2, #f7f7f8);
+  color: var(--text-tertiary);
+}
+.profit-day-cell.is-muted,
+.profit-range-card.is-muted {
+  background: var(--surface-2, #f7f7f8);
+  color: var(--text-tertiary);
+  opacity: 0.72;
+}
+.profit-day-cell.is-muted .profit-day-num,
+.profit-day-cell.is-muted .profit-day-amt {
+  color: var(--text-tertiary);
+}
+.profit-day-cell.is-pending {
+  background: var(--surface-2, #f7f7f8);
+  color: var(--text-tertiary);
+}
+.profit-day-cell.is-pending .profit-day-amt {
+  font-size: 9px;
+}
+.profit-day-cell.is-selected,
+.profit-range-card.is-selected {
+  color: #fff !important;
+}
+.profit-day-cell.is-selected.is-up,
+.profit-range-card.is-selected.is-up {
+  background: #e53935 !important;
+}
+.profit-day-cell.is-selected.is-down,
+.profit-range-card.is-selected.is-down {
+  background: #43a047 !important;
+}
+.profit-day-cell.is-selected.is-flat,
+.profit-range-card.is-selected.is-flat {
+  background: var(--text-tertiary, #9e9e9e) !important;
+}
+.profit-day-cell.is-selected .profit-day-num,
+.profit-day-cell.is-selected .profit-day-amt,
+.profit-day-cell.is-selected .profit-day-tag {
+  color: #fff;
+}
+.profit-range-grid {
+  display: grid;
+  gap: 8px;
+}
+.profit-range-grid--week {
+  grid-template-columns: repeat(2, 1fr);
+}
+.profit-range-grid--month {
+  grid-template-columns: repeat(3, 1fr);
+}
+.profit-range-card {
+  position: relative;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 10px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--surface-2, #f7f7f8);
+}
+.profit-range-badge {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0.95;
+}
+.profit-range-card.is-selected .profit-range-badge,
+.profit-range-card.is-up.is-current-week .profit-range-badge {
+  color: #fff;
+}
+.profit-range-card.is-current:not(.is-selected) {
+  box-shadow: inset 0 0 0 1.5px rgba(229, 57, 53, 0.35);
+}
+.profit-range-card.is-down.is-current:not(.is-selected) {
+  box-shadow: inset 0 0 0 1.5px rgba(67, 160, 71, 0.4);
+}
+.profit-range-label {
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.85;
+}
+.profit-range-val {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.profit-year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.profit-lifetime {
+  text-align: center;
+  padding: 12px 0 16px;
+}
+.profit-lifetime-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+.profit-lifetime-val {
+  font-size: 22px;
+  font-weight: 700;
+}
+.profit-year-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+.profit-detail-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 14px 14px 4px;
+  margin-bottom: 10px;
+}
+.profit-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 10px;
+}
+.profit-detail-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.profit-detail-sort {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 4px 8px;
+}
+.profit-fund-list {
+  border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.06));
+}
+.profit-fund-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.05));
+}
+.profit-fund-name {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.profit-fund-sub {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.profit-fund-val {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.profit-detail-empty {
+  padding: 20px 2px 24px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.profit-summary-wrap {
+  padding-top: 8px;
+}
+.profit-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.profit-account-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  align-items: center;
+  column-gap: 20px;
+  text-align: left;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: var(--bg-card);
+  padding: 14px 16px;
+  width: 100%;
+}
+.profit-account-card-body {
+  min-width: 0;
+}
+.profit-account-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.profit-account-spark-wrap {
+  width: 168px;
+  height: 44px;
+  justify-self: end;
+}
+.profit-spark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--text-tertiary);
+}
+.profit-spark.is-up {
+  color: var(--gain, #e54545);
+}
+.profit-spark.is-down {
+  color: var(--loss, #1aad6b);
+}
+.profit-account-month-row {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.profit-account-month {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.profit-account-pct {
+  flex-shrink: 0;
+  min-width: 4.2em;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.profit-account-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.profit-loading,
+.profit-error,
+.profit-empty,
+.profit-skeleton {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.profit-error {
+  color: #43a047;
+}
+html[data-theme='dark'] .profit-card,
+html[data-theme='dark'] .profit-detail-section,
+html[data-theme='dark'] .profit-account-card {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+html[data-theme='dark'] .profit-day-cell.is-down,
+html[data-theme='dark'] .profit-range-card.is-down {
+  background: rgba(67, 160, 71, 0.16);
 }
 
 .market-page.has-index-dock {
@@ -2817,6 +3618,7 @@ html[data-theme='dark'] .bottom-tabs {
 }
 
 .market-page-sticky {
+  grid-row: 1;
   flex-shrink: 0;
   z-index: 10;
   background: var(--bg-page);
@@ -2875,17 +3677,16 @@ html[data-theme='dark'] .bottom-tabs {
 }
 
 .market-page-scroll {
+  grid-row: 2;
   flex: 1;
   min-height: 0;
 }
 
-.market-page-head,
-.profile-page-head {
+.market-page-head {
   padding: 10px var(--list-pad-x) 8px;
 }
 
-.market-page-title,
-.profile-page-title {
+.market-page-title {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
@@ -2989,152 +3790,6 @@ html[data-theme='dark'] .bottom-tabs {
   color: var(--text-muted);
 }
 
-.profile-card {
-  margin: 12px var(--list-pad-x);
-  padding: 4px 0;
-  border-radius: 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.profile-card--flat {
-  background: transparent;
-  border: 0;
-}
-
-.profile-card-title {
-  margin: 0;
-  padding: 12px 14px 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.profile-settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border);
-}
-
-.profile-settings-row:first-of-type {
-  border-top: 0;
-}
-
-.profile-settings-label {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.profile-settings-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.profile-settings-hint--block {
-  margin-top: 10px;
-}
-
-.profile-field-input {
-  width: 100%;
-  max-width: 220px;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text);
-  font-size: 14px;
-}
-
-.profile-settings-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 14px 14px;
-  border-top: 1px solid var(--border);
-}
-
-.btn-secondary,
-.btn-ghost {
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 8px;
-  font-size: 14px;
-}
-
-.btn-secondary {
-  border: 0;
-  background: var(--primary);
-  color: #fff;
-}
-
-.btn-ghost {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-}
-
-.profile-link-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 14px;
-  border: 0;
-  border-top: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  font-size: 15px;
-  text-align: left;
-}
-
-.profile-link-chevron {
-  color: var(--text-dim);
-}
-
-.profile-switch {
-  position: relative;
-  width: 46px;
-  height: 28px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--border);
-  padding: 0;
-}
-
-.profile-switch.is-on {
-  background: var(--primary);
-}
-
-.profile-switch-knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s ease;
-}
-
-.profile-switch.is-on .profile-switch-knob {
-  transform: translateX(18px);
-}
-
-.profile-about {
-  margin: 0;
-  padding: 8px 14px 20px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
 @media (max-width: 520px) {
   /* iPhone 15 逻辑宽 393pt；同档设备 ≤520px */
   :root {
@@ -3206,7 +3861,7 @@ html[data-theme='dark'] .bottom-tabs {
   .holding-row,
   .watchlist-search-bar,
   .market-page-sticky,
-  .profile-page-head {
+  .profile-page-sticky .profile-page-head {
     padding-left: max(var(--list-pad-x), var(--safe-left));
     padding-right: max(var(--list-pad-x), var(--safe-right));
   }
@@ -3234,8 +3889,7 @@ html[data-theme='dark'] .bottom-tabs {
     font-size: 10px;
   }
 
-  .market-page-head,
-  .profile-page-head {
+  .market-page-head {
     padding-left: max(var(--list-pad-x), var(--safe-left));
     padding-right: max(var(--list-pad-x), var(--safe-right));
   }
@@ -3428,5 +4082,403 @@ html[data-theme='dark'] .bottom-tabs {
 @media (display-mode: standalone) {
   .phone-page {
     padding-top: max(var(--safe-top), 12px);
+  }
+}
+
+/* iPhone Safari / 主屏幕 PWA：对齐 Mac 默认手机壳（393pt），保留 safe-area */
+html.is-phone-shell {
+  height: 100%;
+  min-height: 0;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+html.is-phone-shell body {
+  height: 100%;
+  min-height: 0;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+html.is-phone-shell #app {
+  height: 100%;
+  min-height: 0;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html.is-phone-shell,
+  html.is-phone-shell body,
+  html.is-phone-shell #app {
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+  }
+}
+
+html.is-phone-shell .app-shell {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  background: var(--bg-page);
+}
+
+html.is-phone-shell .phone-page {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  max-height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+html.is-phone-shell .portfolio-page,
+html.is-phone-shell .market-page,
+html.is-phone-shell .profile-page,
+html.is-phone-shell .profit-page {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
+html.is-phone-shell .holding-list-scroll,
+html.is-phone-shell .tab-scroll,
+html.is-phone-shell .market-page-scroll,
+html.is-phone-shell .profile-page-scroll,
+html.is-phone-shell .profit-page-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+html.is-phone-shell .bottom-chrome {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  grid-row: unset;
+  flex-shrink: 0;
+  background: var(--bg-page);
+  box-shadow: var(--shadow-bar);
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+}
+
+html.is-phone-shell .bottom-tabs {
+  background: var(--bg-page);
+}
+
+html.is-phone-shell[data-theme='dark'] .bottom-tabs {
+  background: rgba(30, 30, 30, 0.98);
+}
+
+@media (max-width: 520px) {
+  html.is-phone-shell .portfolio-sticky,
+  html.is-phone-shell .holding-list-scroll {
+    overflow-x: hidden;
+  }
+
+  html.is-phone-shell .yj-summary-grid,
+  html.is-phone-shell .list-table-head,
+  html.is-phone-shell .holding-list {
+    min-width: 0;
+  }
+
+  html.is-phone-shell .bottom-tab-label {
+    font-size: 10px;
+  }
+
+  html.is-phone-shell .bottom-tab-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  html.is-phone-shell .profit-day-amt {
+    font-size: 8px;
+  }
+}
+
+/* Mac / 桌面壳：用 100% 填满 WebView，避免 100vh 超出窗口导致底栏被裁切 */
+html.is-desktop-app {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  --safe-bottom: 0px;
+}
+
+html.is-desktop-app body {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+html.is-desktop-app #app {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html.is-desktop-app,
+  html.is-desktop-app body,
+  html.is-desktop-app #app {
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+}
+
+html.is-desktop-app .app-shell {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
+html.is-desktop-app .phone-page {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+html.is-desktop-app .portfolio-page,
+html.is-desktop-app .market-page,
+html.is-desktop-app .profile-page,
+html.is-desktop-app .profit-page {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
+html.is-desktop-app .holding-list-scroll,
+html.is-desktop-app .tab-scroll,
+html.is-desktop-app .market-page-scroll,
+html.is-desktop-app .profile-page-scroll,
+html.is-desktop-app .profit-page-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+html.is-desktop-app .bottom-chrome {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  grid-row: unset;
+  flex-shrink: 0;
+  background: var(--bg-page);
+  box-shadow: var(--shadow-bar);
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+}
+
+html.is-desktop-app .bottom-tabs {
+  background: var(--bg-page);
+}
+
+html.is-desktop-app[data-theme='dark'] .bottom-tabs {
+  background: rgba(30, 30, 30, 0.98);
+}
+
+/* Mac 手机壳（≤520px，同 iPhone 15）：沿用上方 @media (max-width: 520px) 紧凑规则，禁止宽表横向滚动 */
+@media (max-width: 520px) {
+  html.is-desktop-app .portfolio-sticky,
+  html.is-desktop-app .holding-list-scroll {
+    overflow-x: hidden;
+  }
+
+  html.is-desktop-app .yj-summary-grid,
+  html.is-desktop-app .list-table-head,
+  html.is-desktop-app .holding-list {
+    min-width: 0;
+  }
+
+  html.is-desktop-app .account-tab,
+  html.is-desktop-app .account-tab--more {
+    min-height: 44px;
+    padding: 10px 11px;
+  }
+
+  html.is-desktop-app .bottom-tab-label {
+    font-size: 10px;
+  }
+
+  html.is-desktop-app .bottom-tab-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  html.is-desktop-app .profit-day-amt {
+    font-size: 8px;
+  }
+}
+
+/* Mac 宽窗口（用户手动拉大时）：列宽随窗口伸缩 */
+@media (min-width: 521px) {
+  html.is-desktop-app {
+    --list-col-gap: clamp(6px, 1.2vw, 14px);
+    --list-pad-x: clamp(16px, 3vw, 32px);
+    --desktop-list-min-w: 720px;
+    --list-grid: minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-sticky {
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: thin;
+  }
+
+  html.is-desktop-app .holding-list-scroll {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  html.is-desktop-app .yj-summary-grid,
+  html.is-desktop-app .list-table-head,
+  html.is-desktop-app .holding-list {
+    min-width: var(--desktop-list-min-w);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-4 {
+    --list-grid: minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-3 {
+    --list-grid: minmax(0, 1.85fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-2 {
+    --list-grid: minmax(0, 1.95fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-1 {
+    --list-grid: minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--with-share.portfolio-page--grid-4 {
+    --list-grid: minmax(0, 1.55fr) minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--with-share.portfolio-page--grid-3 {
+    --list-grid: minmax(0, 1.6fr) minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--with-share.portfolio-page--grid-2 {
+    --list-grid: minmax(0, 1.65fr) minmax(0, 0.55fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--with-share.portfolio-page--grid-1 {
+    --list-grid: minmax(0, 1fr) minmax(0, 0.55fr);
+  }
+
+  html.is-desktop-app .watchlist-page {
+    --list-grid: minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 1fr) minmax(36px, 0.45fr);
+  }
+
+  html.is-desktop-app .holding-row,
+  html.is-desktop-app .list-table-head,
+  html.is-desktop-app .holding-row--watchlist {
+    width: 100%;
+  }
+
+  html.is-desktop-app .holding-row {
+    min-height: 44px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  html.is-desktop-app .account-tab,
+  html.is-desktop-app .account-tab--more {
+    min-height: 36px;
+    padding: 8px 11px;
+  }
+
+  html.is-desktop-app .yj-summary-col--amount .yj-summary-val {
+    font-size: clamp(22px, 4.2vw, 32px);
+  }
+}
+
+@media (min-width: 620px) {
+  html.is-desktop-app {
+    --list-grid: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-4 {
+    --list-grid: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--with-share.portfolio-page--grid-4 {
+    --list-grid: minmax(0, 1.75fr) minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .holding-val {
+    font-size: 14px;
+  }
+
+  html.is-desktop-app .holding-sub {
+    font-size: 11px;
+  }
+}
+
+@media (min-width: 820px) {
+  html.is-desktop-app {
+    --list-col-gap: 12px;
+    --list-pad-x: 28px;
+    --desktop-list-min-w: 0;
+    --list-grid: minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-sticky,
+  html.is-desktop-app .holding-list-scroll {
+    overflow-x: hidden;
+  }
+
+  html.is-desktop-app .yj-summary-grid,
+  html.is-desktop-app .list-table-head,
+  html.is-desktop-app .holding-list {
+    min-width: 0;
+  }
+
+  html.is-desktop-app .portfolio-page--grid-4 {
+    --list-grid: minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-3 {
+    --list-grid: minmax(0, 2.5fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .portfolio-page--with-share.portfolio-page--grid-4 {
+    --list-grid: minmax(0, 2fr) minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  html.is-desktop-app .holding-name {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1080px) {
+  html.is-desktop-app {
+    --list-grid: minmax(0, 2.8fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 1.05fr);
+  }
+
+  html.is-desktop-app .portfolio-page--grid-4 {
+    --list-grid: minmax(0, 2.8fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 1.05fr);
   }
 }

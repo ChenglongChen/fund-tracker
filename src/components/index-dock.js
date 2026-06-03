@@ -24,7 +24,7 @@ const INDEX_DOCK_CAROUSEL = [
 ];
 
 export function showIndexTicker() {
-  return showAppBottomChrome() && app().state.indices.length > 0;
+  return app().state.view === 'list' && app().state.indices.length > 0;
 }
 
 function dockCarouselIndices() {

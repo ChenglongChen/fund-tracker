@@ -27,4 +27,11 @@ assert.equal(masked[1].liveRt1Excluded, true);
 assert.equal(masked[2].changePct, null);
 assert.equal(masked[2].liveRt1Excluded, true);
 
+const dayOpenClosed = [
+  { code: 'NVDA', weight: 10, changePct: -1.0, quoteSession: 'closed', holdingMarket: 'us' },
+  { code: '00700', weight: 8, changePct: -2.0, quoteSession: 'closed', holdingMarket: 'hk' },
+];
+assert.equal(estimateFromHoldingsWithFx(dayOpenClosed, 0, { liveRt1Only: true }), null);
+assert.ok(Math.abs(estimateFromHoldingsWithFx(dayOpenClosed, 0)) > 0.2);
+
 console.log('live-rt1-holdings.test.js OK');

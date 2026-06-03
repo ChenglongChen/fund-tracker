@@ -10,7 +10,8 @@
     "./portfolio": "./portfolio.js",
     "./summary": "./summary.js",
     "./live-view-model": "./live-view-model.js",
-    "./accounts": "./accounts.js"
+    "./accounts": "./accounts.js",
+    "./time": "./time.js"
   },
   "dependencies": {
     "@fund-tracker/storage": "*"

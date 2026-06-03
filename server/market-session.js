@@ -2,7 +2,6 @@
  * 展示层 display impact：穿透 pct → 列表/详情用的 impact 字段（非 estimateProfit）。
  * suppress / 收口见 components/suppress.js；交易时段见 components/market-hours.js。
  */
-import { beijingDateString, beijingIsoAddDays, beijingParts, beijingWeekday } from './time.js';
 import { isJpMarketOpen, isKrMarketOpen, isHkMarketOpen } from './holding-market.js';
 import { getFundRegular, rememberFundRegular } from './impact-snapshots.js';
 import { resolveDisplaySession } from './display-session.js';
@@ -13,13 +12,15 @@ import {
   isFundImpactLiveWindow,
   isRealtimeMarketOpen,
 } from './components/market-hours.js';
+import {
+  DAILY_NAV_EXPECT_HOUR,
+  expectedNavDateForDailyDisplay,
+  isDailyProfitPending,
+} from './profit-pending.js';
+
+export { DAILY_NAV_EXPECT_HOUR, expectedNavDateForDailyDisplay, isDailyProfitPending };
 
 /** @typedef {'cn' | 'us' | 'gold_cn'} MarketType */
-
-/** @param {{ hour: string, minute: string }} parts */
-function minutesOfDay(parts) {
-  return Number(parts.hour) * 60 + Number(parts.minute);
-}
 
 /** @type {Map<number, number>} */
 const fundImpactCloseSnapshot = new Map();
@@ -79,7 +80,9 @@ export function resolveLiveDisplayImpact(fundId, market, impactResult, now = new
   const rawTotal =
     impactResult?.impactPct != null && Number.isFinite(impactResult.impactPct)
       ? impactResult.impactPct
-      : null;
+      : impactResult?.holdingsImpactPct != null && Number.isFinite(impactResult.holdingsImpactPct)
+        ? impactResult.holdingsImpactPct
+        : null;
   const rawRegular =
     impactResult?.impactPctRegular != null && Number.isFinite(impactResult.impactPctRegular)
       ? impactResult.impactPctRegular
@@ -133,61 +136,36 @@ export function clearFundImpactSnapshots(fundIds = null) {
   }
 }
 
-export const DAILY_NAV_EXPECT_HOUR = 18;
-
-export function isDailyProfitPending(fund, market, navInfo, beijingDate, now = new Date()) {
-  const wd = beijingWeekday(now);
-  if (wd === 0 || wd === 6) return false;
-
-  const lastNavDate = fund.lastNavDate ?? null;
-  const officialDate = navInfo?.pdate ?? null;
-  const mins = minutesOfDay(beijingParts(now));
-  const yesterday = beijingIsoAddDays(beijingDate, -1);
-
-  if (officialDate && lastNavDate && officialDate > lastNavDate) return true;
-  if (!lastNavDate) return true;
-
-  if (market === 'us') {
-    if (mins < DAILY_NAV_EXPECT_HOUR * 60) return false;
-    return lastNavDate < yesterday;
-  }
-
-  if (mins < DAILY_NAV_EXPECT_HOUR * 60) {
-    return lastNavDate < yesterday;
-  }
-  return lastNavDate < beijingDate;
-}
-
-export function getDailyProfitMeta(fund, beijingDate, now = new Date()) {
+export function getDailyProfitMeta(fund, beijingDate, now = new Date(), navInfo = null) {
   const market = classifyFundMarket(fund);
-  const navDate = fund.lastNavDate ?? fund.settledNavDate ?? null;
-  const mins = minutesOfDay(beijingParts(now));
-  const evening = mins >= 15 * 60;
+  const navDate = fund.lastNavDate ?? null;
+  const pending = isDailyProfitPending(fund, market, navInfo, beijingDate, now);
+  const expected = expectedNavDateForDailyDisplay(beijingDate, market, now);
 
-  if (market === 'us') {
+  if (pending) {
     return {
       market,
-      asOfDate: navDate,
-      asOfLabel: navDate ? fmtMd(navDate) : '待更新',
-      hint: '最新公布',
-      eveningReady: Boolean(navDate),
+      asOfDate: null,
+      asOfLabel: '待更新',
+      hint: '待更新',
+      eveningReady: false,
     };
   }
 
-  const asOfDate = navDate || (evening ? beijingDate : null);
+  const isCurrent = Boolean(navDate && expected && navDate >= expected);
   return {
     market,
-    asOfDate,
-    asOfLabel: asOfDate ? fmtMd(asOfDate) : evening ? fmtMd(beijingDate) : '待更新',
-    hint: market === 'gold_cn' ? '当日' : '当日',
-    eveningReady: evening && (navDate === beijingDate || !navDate),
+    asOfDate: navDate,
+    asOfLabel: navDate ? fmtMd(navDate) : '待更新',
+    hint: market === 'us' ? (isCurrent ? '当日' : '最新公布') : isCurrent ? '当日' : '最新公布',
+    eveningReady: Boolean(navDate && navDate === beijingDate),
   };
 }
 
-export function getFundProfitWindows(fund, beijingDate, now = new Date()) {
+export function getFundProfitWindows(fund, beijingDate, now = new Date(), navInfo = null) {
   const market = classifyFundMarket(fund);
   const realtimeActive = isRealtimeMarketOpen(market, now);
-  const daily = getDailyProfitMeta(fund, beijingDate, now);
+  const daily = getDailyProfitMeta(fund, beijingDate, now, navInfo);
   let marketLabel = 'A股';
   if (market === 'gold_cn') marketLabel = '黄金';
   else if (market === 'us') {

@@ -71,6 +71,8 @@ export function indexStripLabelForProxyFund(fundName) {
   const n = String(fundName || '').trim();
   if (!n) return null;
   if (/黄金/.test(n)) return null;
+  if (/标普.*信息科技|信息科技.*指数/.test(n)) return '标普500';
+  if (/纳斯达克.*科技.*ETF联接|ETF联接.*纳斯达克.*科技/i.test(n)) return '纳斯达克100';
   if (/标普500|博时标普|标普指数/.test(n) && !ACTIVE_NAME_MARKERS.test(n)) return '标普500';
   if (/纳斯达克100|纳指100|NASDAQ100/i.test(n) && !ACTIVE_NAME_MARKERS.test(n)) return '纳斯达克100';
   if (/纳指/.test(n) && !/全球|科技|精选|成长|互联|高端|先锋|新兴|互联网|智选|产业/.test(n)) {
@@ -89,6 +91,8 @@ export function isIndexProxyFund(fundName) {
   if (!n) return false;
   if (/黄金/.test(n)) return true;
   if (/159915|创业板ETF/.test(n)) return true;
+  if (/标普.*信息科技|信息科技.*指数/.test(n)) return true;
+  if (/纳斯达克.*科技.*ETF联接|ETF联接.*纳斯达克.*科技/i.test(n)) return true;
   if (/标普500|博时标普|标普500指数|标普指数/.test(n) && !ACTIVE_NAME_MARKERS.test(n)) return true;
   if (/纳斯达克100|纳指100|NASDAQ100/i.test(n) && !ACTIVE_NAME_MARKERS.test(n)) return true;
   if (/纳指/.test(n) && !/全球|科技|精选|成长|互联|高端|先锋|新兴|互联网|智选|产业/.test(n)) return true;

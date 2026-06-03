@@ -1,3 +1,5 @@
+import { beijingTimeHms } from './time.js';
+
 /** 纯格式化工具（无隐私、无业务状态） */
 
 export function escapeHtml(s) {
@@ -55,9 +57,9 @@ export function fmtIndexChange(v) {
   return abs;
 }
 
-export function fmtTime() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+/** @param {Date} [date] 北京时间 HH:mm:ss */
+export function fmtTime(date = new Date()) {
+  return beijingTimeHms(date);
 }
 
 export function fmtTableDate(dateStr) {

@@ -159,9 +159,9 @@ export function isEditableScope(scope) {
 export function loadActiveScope() {
   try {
     const v = getWebStorage().getItem(STORAGE_KEYS.ACTIVE_SCOPE);
-    return v || SCOPE_ALL;
+    return v || SCOPE_SUMMARY;
   } catch {
-    return SCOPE_ALL;
+    return SCOPE_SUMMARY;
   }
 }
 

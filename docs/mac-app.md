@@ -1,55 +1,77 @@
 
-# Mac App（Electron）
+# Mac App（Swift 轻壳）
+
+> `npm run mac:build` — WKWebView + Node sidecar。业务逻辑在 `server/` + `dist/`，壳层在 `apps/mac/`。
+
+## 架构
+
+```
+Fund Tracker.app
+├── MacOS/Fund Tracker          ← Swift + WKWebView（~300 KB）
+└── Resources/app/
+    ├── dist/                   ← Vite 构建
+    ├── server/                 ← Node API（未改业务逻辑）
+    ├── node/bin/node           ← 仅 node 二进制（~73 MB strip 后）
+    └── node_modules/@fund-tracker/
+```
 
 ## 开发
 
 ```bash
-npm install
-npm run mac:dev
+npm run mac:dev     # 编译 Swift 壳 + 用仓库根目录与本机 node
+npm run mac:open    # Xcode 打开工程
+npm run dev         # 仅 Web + API 浏览器调试
 ```
 
-会先 `vite build`，再启动 Electron。
+Xcode 调试：Environment `FUND_TRACKER_APP_ROOT` = 仓库根目录。
 
-| 模式 | API | 数据 |
-|------|-----|------|
-| **本地**（默认） | `127.0.0.1:8790` 内嵌 server | `~/Library/Application Support/@fund-tracker/mac/data/` |
-| **远程** | 用户在「我的 → API 连接」配置 | Remote API 的 `data/` volume |
+## 打包安装
 
-切换本地/远程：在「我的」保存 API 模式后 **自动重启** Mac App。
+```bash
+npm run mac:build
+npm run mac:install
+```
 
-## 同步 dev 真实持仓
+典型体积 **~80–95 MB**（无 Chromium）。
 
-Mac App 首次启动会用种子数据；若 dev 环境 `data/` 已是真实持仓，一键同步：
+默认窗口为 **iPhone 15 逻辑尺寸（393×852 pt）**，布局与 iPhone PWA 一致；手动拉大窗口后会切换为宽表布局。
+
+## 模式与数据
+
+| 项目 | 路径 |
+|------|------|
+| 设置 | `~/Library/Application Support/@fund-tracker/mac/desktop-settings.json` |
+| 数据 | `~/Library/Application Support/@fund-tracker/mac/data/` |
+| 本地 API | `http://127.0.0.1:8790` |
+
+| 模式 | 行为 |
+|------|------|
+| **本地**（默认） | Node sidecar → WKWebView 加载 `http://127.0.0.1:8790/` |
+| **远程** | 加载 bundle 内 `dist/index.html` |
+
+## iPhone 同 WiFi
+
+Mac App 保持运行 → **我的** 页复制局域网地址 → iPhone Safari 打开。
+
+### 与 Mac 窗口一致的体验
+
+Mac 默认窗口为 iPhone 15 尺寸（393×852）；在 iPhone 上建议：
+
+1. **添加到主屏幕**（推荐）：Safari 分享 → **添加到主屏幕** → 从桌面图标打开。全屏无地址栏，布局与 Mac 壳一致。
+2. **Safari 直接访问**：已自动启用手机壳布局；底部仍会有 Safari 工具栏，观感略不同于 Mac。
+
+局域网地址示例：`http://192.168.x.x:8790/`（端口以 **我的** 页显示为准）。
+
+## 同步持仓
 
 ```bash
 npm run sync:mac-data
 ```
 
-从项目 `data/` 复制 `portfolio.json`、`app-state.json`、`day-display-state.json` 等到 App 数据目录；旧文件备份到 `data/.backup-*`。同步后重启 App。
-
-
-```bash
-npm run mac:build
-```
-
-产出：`build/mac/`（`.app` / `.dmg`）
-
-## 与 Remote 同步
-
-1. **Remote → Mac 本地**：切 Remote 模式 →「从 Remote 拉取」→ 切回本地（需手动复制 `data/` 或后续脚本）
-2. **Mac 本地 → Remote**：本地模式「导出 portfolio.json」→ Remote 环境 `PUT /api/portfolio`；或 rsync `data/` 到服务器
-3. **推荐日常**：各端均连 Remote API，Mac 本地模式仅离线/隐私场景
-
 ## Gatekeeper
-
-未 Notarize 的 build 需在「隐私与安全性」中允许打开：
 
 ```bash
 xattr -cr "/Applications/Fund Tracker.app"
 ```
 
-## 技术要点
-
-- `contextIsolation: true`，`nodeIntegration: false`
-- `server/startFundTrackerServer()` 供 Electron 内嵌启动
-- 桌面设置持久化：`desktop-settings.json`（与 Web localStorage API 模式对齐）
+详见 [platform-strategy.md](./platform-strategy.md)。

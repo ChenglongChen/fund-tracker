@@ -30,5 +30,6 @@ fi
 
 echo "安装 $SRC → $DEST"
 cp -R "$SRC" "$DEST"
+xattr -cr "$DEST" 2>/dev/null || true
 echo "已安装到 $DEST"
 echo "可从启动台或 Spotlight 打开「Fund Tracker」"

@@ -2,6 +2,7 @@ import { dayProfitPct } from './portfolio.js';
 import {
   fetchFundDetail,
   fetchLive,
+  fetchLiveStatus,
   fetchPortfolio,
   addFundApi,
   updateFundApi,
@@ -11,6 +12,9 @@ import {
   addWatchlistApi,
   removeWatchlistApi,
   savePortfolio,
+  fetchProfitCalendarApi,
+  fetchProfitRangeDetailApi,
+  fetchProfitSummaryApi,
 } from './client-api.js';
 import {
   loadMetricColumnOrder,
@@ -55,10 +59,13 @@ import {
 import { patchBottomTabs } from './components/bottom-tabs.js';
 import { captureAllTabScrolls, restoreTabScroll } from './tab-scroll.js';
 import { refreshBottomChromeInset, initBottomChromeInset } from './bottom-chrome-inset.js';
+import { initDesktopLayout, refreshDesktopLayout } from './desktop-layout.js';
+import { initPhoneShell } from './phone-shell.js';
 import { saveApiSettings, API_MODE_LOCAL } from './api-settings.js';
 import { refreshApiClient } from './client-api.js';
 import { renderWatchlistPage, patchWatchlistDom, canPatchWatchlistDom } from './pages/watchlist-page.js';
-import { renderMarketPage, patchMarketDom } from './pages/market-page.js';
+import { renderProfitPage } from './pages/profit-page.js';
+import { shiftMonth } from './profit-calendar-view-model.js';
 import { renderProfilePage } from './pages/profile-page.js';
 import { setupAccountTabsLayout, onAccountTabsBarClick, activateAccountScope } from './components/account-tabs.js';
 import { renderListPage, patchListDom, canPatchListDom } from './pages/list-page.js';
@@ -85,6 +92,34 @@ import {
 
 const REFRESH_MS = 500;
 const REFRESH_MS_HIDDEN = 500;
+const PROFIT_UNIT_KEY = 'fund-tracker-profit-unit';
+
+function loadProfitUnit() {
+  try {
+    const v = localStorage.getItem(PROFIT_UNIT_KEY);
+    return v === 'pct' ? 'pct' : 'amount';
+  } catch {
+    return 'amount';
+  }
+}
+
+function saveProfitUnit(unit) {
+  try {
+    localStorage.setItem(PROFIT_UNIT_KEY, unit);
+  } catch {
+    /* ignore */
+  }
+}
+
+function defaultProfitMonth() {
+  const d = PORTFOLIO_META.beijingDate || state.serverStatus?.live?.beijingDate;
+  if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d.slice(0, 7);
+  return new Date().toISOString().slice(0, 7);
+}
+
+function beijingTodayIso() {
+  return PORTFOLIO_META.beijingDate || state.serverStatus?.live?.beijingDate || new Date().toISOString().slice(0, 10);
+}
 const DETAIL_HOLDINGS_REFRESH_MS = REFRESH_MS;
 
 /** @type {import('./portfolio.js').PortfolioMeta} */
@@ -148,7 +183,22 @@ const state = {
   watchlistSearchFocused: false,
   watchlistSortKey: 'realtime',
   watchlistSortDir: 'desc',
-  marketTab: 'us',
+  profitCalendar: {
+    month: new Date().toISOString().slice(0, 7),
+    unit: loadProfitUnit(),
+    period: 'day',
+    anchor: new Date().toISOString().slice(0, 10),
+    selectedDay: null,
+    selectedWeekStart: null,
+    selectedMonth: null,
+    selectedYear: null,
+    data: null,
+    summary: null,
+    rangeDetail: null,
+    fundSortAsc: false,
+    loading: false,
+    error: null,
+  },
 };
 
 bindHideAssets(() => state.hideAssets);
@@ -167,10 +217,15 @@ function fmtTableDate(dateStr) {
 
 function parseRoute() {
   const raw = location.hash.replace(/^#/, '').trim();
-  if (!raw) return { type: 'list', scope: loadActiveScope(), mainTab: 'holdings' };
+  if (!raw) return { type: 'list', scope: SCOPE_SUMMARY, mainTab: 'holdings' };
   if (raw === 'holdings') return { type: 'list', scope: loadActiveScope(), mainTab: 'holdings' };
+  if (raw === 'profit') return { type: 'profit', scope: loadActiveScope(), mainTab: 'profit' };
+  if (raw === 'profit/summary') return { type: 'profit', scope: SCOPE_SUMMARY, mainTab: 'profit' };
+  if (raw === 'profit/all') return { type: 'profit', scope: SCOPE_ALL, mainTab: 'profit' };
+  const profitAccountM = raw.match(/^profit\/account\/([a-z0-9_-]+)$/);
+  if (profitAccountM) return { type: 'profit', scope: profitAccountM[1], mainTab: 'profit' };
   if (raw === 'watchlist') return { type: 'watchlist', mainTab: 'watchlist' };
-  if (raw === 'market') return { type: 'market', mainTab: 'market' };
+  if (raw === 'market') return { type: 'list', scope: loadActiveScope(), mainTab: 'holdings' };
   if (raw === 'profile') return { type: 'profile', mainTab: 'profile' };
   if (raw === 'summary') return { type: 'list', scope: SCOPE_SUMMARY, mainTab: 'holdings' };
   if (raw === 'all') return { type: 'list', scope: SCOPE_ALL, mainTab: 'holdings' };
@@ -210,11 +265,14 @@ function setMainTab(tab) {
 /** @param {{ type: string, id?: number, tab?: string, scope?: string, mainTab?: string }} route */
 function navigateTo(route) {
   switch (route.type) {
+    case 'profit':
+      if (route.scope === SCOPE_SUMMARY) location.hash = '#profit/summary';
+      else if (route.scope === SCOPE_ALL) location.hash = '#profit/all';
+      else if (route.scope) location.hash = `#profit/account/${route.scope}`;
+      else location.hash = '#profit';
+      break;
     case 'watchlist':
       location.hash = '#watchlist';
-      break;
-    case 'market':
-      location.hash = '#market';
       break;
     case 'profile':
       location.hash = '#profile';
@@ -579,7 +637,6 @@ function moveMetricColumn(key, dir) {
 function isLiveView() {
   return (
     state.view === 'list' ||
-    state.view === 'market' ||
     state.view === 'detail' ||
     state.view === 'detail-loading'
   );
@@ -661,18 +718,163 @@ async function loadWatchlistItems() {
   state.watchlistItems = data.items ?? [];
 }
 
+async function loadProfitRangeDetail() {
+  const pc = state.profitCalendar;
+  if (state.activeScope === SCOPE_SUMMARY) return;
+  const scope = state.activeScope;
+  const period = pc.period ?? 'day';
+  /** @type {{ from: string, to: string } | null} */
+  let range = null;
+
+  if (period === 'day') {
+    const day = pc.selectedDay ?? pc.data?.selectedDay;
+    if (day) range = { from: day, to: day };
+  } else if (period === 'week') {
+    const start = pc.selectedWeekStart ?? pc.data?.selectedWeekStart;
+    const w = pc.data?.weeks?.find((x) => x.start === start);
+    if (start && w) range = { from: start, to: w.end };
+  } else if (period === 'month') {
+    const cm =
+      pc.selectedMonth ??
+      pc.data?.selectedMonth ??
+      pc.data?.months?.find((m) => m.isCurrentMonth)?.month ??
+      pc.month;
+    const [yy, mo] = cm.split('-').map(Number);
+    const last = new Date(Date.UTC(yy, mo, 0, 12)).getUTCDate();
+    range = { from: `${cm}-01`, to: `${cm}-${String(last).padStart(2, '0')}` };
+  } else if (period === 'year') {
+    const y =
+      pc.selectedYear ??
+      pc.data?.selectedYear ??
+      pc.data?.years?.find((x) => x.isCurrentYear)?.year ??
+      pc.month.slice(0, 4);
+    range = { from: `${y}-01-01`, to: `${y}-12-31` };
+  }
+
+  if (!range) {
+    pc.rangeDetail = null;
+    return;
+  }
+  try {
+    pc.rangeDetail = await fetchProfitRangeDetailApi(scope, range.from, range.to);
+  } catch {
+    pc.rangeDetail = null;
+  }
+}
+
+async function refreshProfitView() {
+  if (state.view !== 'profit') return;
+  const pc = state.profitCalendar;
+  pc.loading = true;
+  pc.error = null;
+  if (state.view === 'profit') paint();
+
+  try {
+    const scope = state.activeScope;
+    const month = pc.month;
+    const year = month.slice(0, 4);
+    if (scope === SCOPE_SUMMARY) {
+      pc.summary = await fetchProfitSummaryApi(month);
+      pc.data = null;
+      pc.rangeDetail = null;
+    } else {
+      pc.data = await fetchProfitCalendarApi(scope, month, {
+        unit: pc.unit,
+        period: pc.period,
+        anchor: pc.anchor,
+        day: pc.selectedDay,
+        weekStart: pc.selectedWeekStart,
+        monthKey: pc.selectedMonth,
+        yearKey: pc.selectedYear,
+        year,
+      });
+      if (
+        (pc.period ?? 'day') === 'day' &&
+        pc.data?.monthTotal?.profit == null &&
+        !pc.data?.days?.some((d) => d.status === 'settled')
+      ) {
+        const prev = shiftMonth(pc.month, -1);
+        const prevData = await fetchProfitCalendarApi(scope, prev, {
+          unit: pc.unit,
+          period: pc.period,
+          anchor: pc.anchor,
+          day: pc.selectedDay,
+          weekStart: pc.selectedWeekStart,
+          monthKey: pc.selectedMonth,
+          yearKey: pc.selectedYear,
+          year: prev.slice(0, 4),
+        });
+        if (prevData?.days?.some((d) => d.status === 'settled')) {
+          pc.month = prev;
+          pc.data = prevData;
+        }
+      }
+      pc.summary = null;
+      pc.selectedDay = pc.data.selectedDay ?? pc.selectedDay;
+      pc.selectedWeekStart = pc.data.selectedWeekStart ?? pc.selectedWeekStart;
+      pc.selectedMonth = pc.data.selectedMonth ?? pc.selectedMonth;
+      pc.selectedYear = pc.data.selectedYear ?? pc.selectedYear;
+      await loadProfitRangeDetail();
+    }
+  } catch (e) {
+    pc.error = e instanceof Error ? e.message : String(e);
+  } finally {
+    pc.loading = false;
+    if (state.view === 'profit') paint();
+  }
+}
+
+function onProfitNav(delta) {
+  const pc = state.profitCalendar;
+  if (pc.period === 'year') return;
+  if (pc.period === 'month') {
+    const y = parseInt(pc.month.slice(0, 4), 10) + delta;
+    pc.month = `${y}-${pc.month.slice(5, 7)}`;
+  } else {
+    pc.month = shiftMonth(pc.month, delta);
+  }
+  void refreshProfitView();
+}
+
+async function selectProfitDay(day) {
+  if (state.activeScope === SCOPE_SUMMARY) return;
+  state.profitCalendar.selectedDay = day;
+  await loadProfitRangeDetail();
+  paint();
+}
+
+async function selectProfitWeek(start) {
+  state.profitCalendar.selectedWeekStart = start;
+  await loadProfitRangeDetail();
+  paint();
+}
+
+async function selectProfitMonth(month) {
+  state.profitCalendar.selectedMonth = month;
+  await loadProfitRangeDetail();
+  paint();
+}
+
+async function selectProfitYear(year) {
+  state.profitCalendar.selectedYear = year;
+  await loadProfitRangeDetail();
+  paint();
+}
+
 function activateMainTab(tab) {
   state.indexDrawerOpen = false;
   setMainTab(tab);
   if (tab === 'holdings') {
     navigateTo({ type: 'list', scope: state.activeScope, mainTab: 'holdings' });
     state.view = 'list';
+  } else if (tab === 'profit') {
+    const profitScope = state.activeScope === SCOPE_SUMMARY ? SCOPE_ALL : state.activeScope;
+    setActiveScope(profitScope);
+    navigateTo({ type: 'profit', scope: profitScope, mainTab: 'profit' });
+    state.view = 'profit';
   } else if (tab === 'watchlist') {
     navigateTo({ type: 'watchlist' });
     state.view = 'watchlist';
-  } else if (tab === 'market') {
-    navigateTo({ type: 'market' });
-    state.view = 'market';
   } else if (tab === 'profile') {
     navigateTo({ type: 'profile' });
     state.view = 'profile';
@@ -680,8 +882,8 @@ function activateMainTab(tab) {
   paint();
   scheduleRefresh();
   if (tab === 'holdings') void refreshListView();
+  else if (tab === 'profit') void refreshProfitView();
   else if (tab === 'watchlist') void refreshWatchlistView();
-  else if (tab === 'market') void refreshMarketView();
 }
 
 async function deleteManageSelected() {
@@ -777,6 +979,19 @@ async function syncRouteFromHash() {
   state.watchlistError = null;
   if (route.mainTab) setMainTab(route.mainTab);
 
+  if (route.type === 'profit') {
+    state.activeScope = route.scope || loadActiveScope();
+    saveActiveScope(state.activeScope);
+    clearDetailState();
+    state.view = 'profit';
+    setMainTab('profit');
+    state.profitCalendar.month = state.profitCalendar.month || defaultProfitMonth();
+    state.profitCalendar.anchor = beijingTodayIso();
+    paint();
+    await refreshProfitView();
+    return;
+  }
+
   if (route.type === 'watchlist') {
     clearDetailState();
     state.view = 'watchlist';
@@ -790,13 +1005,6 @@ async function syncRouteFromHash() {
     return;
   }
 
-  if (route.type === 'market') {
-    clearDetailState();
-    state.view = 'market';
-    paint();
-    return;
-  }
-
   if (route.type === 'profile') {
     clearDetailState();
     state.view = 'profile';
@@ -805,12 +1013,15 @@ async function syncRouteFromHash() {
   }
 
   if (route.type === 'list') {
-    state.activeScope = route.scope || loadActiveScope();
+    state.activeScope = route.scope || SCOPE_SUMMARY;
     saveActiveScope(state.activeScope);
     clearDetailState();
     state.view = 'list';
     setMainTab('holdings');
     applyDisplayScope();
+    if (!location.hash.replace(/^#/, '').trim()) {
+      navigateTo({ type: 'list', scope: state.activeScope, mainTab: 'holdings' });
+    }
     paint();
     return;
   }
@@ -889,19 +1100,19 @@ function paint() {
 
   captureAllTabScrolls();
   captureWatchlistSearchUi();
-  const restoreScrollView = ['list', 'watchlist', 'market', 'profile'].includes(state.view)
+  const restoreScrollView = ['list', 'profit', 'watchlist', 'profile'].includes(state.view)
     ? state.view
     : null;
 
-  if (state.view !== 'list' && state.view !== 'watchlist' && state.view !== 'market') {
+  if (state.view !== 'list') {
     state.indexDrawerOpen = false;
   }
 
   if (state.view === 'loading') root.innerHTML = renderLoading();
   else if (state.view === 'error') root.innerHTML = renderError(state.error || '未知错误');
   else if (state.view === 'list') root.innerHTML = renderListPage();
+  else if (state.view === 'profit') root.innerHTML = renderProfitPage();
   else if (state.view === 'watchlist') root.innerHTML = renderWatchlistPage();
-  else if (state.view === 'market') root.innerHTML = renderMarketPage();
   else if (state.view === 'profile') root.innerHTML = renderProfilePage();
   else if (state.view === 'manage') root.innerHTML = renderManagePage();
   else if (state.view === 'manage-add') root.innerHTML = renderManageAddPage();
@@ -921,6 +1132,7 @@ function paint() {
 
   if (restoreScrollView) restoreTabScroll(restoreScrollView);
   refreshBottomChromeInset();
+  refreshDesktopLayout();
   restoreWatchlistSearchUi();
 }
 
@@ -1130,12 +1342,77 @@ function bindEvents() {
     });
   });
 
-  document.querySelectorAll('[data-market-tab]').forEach((btn) => {
+  document.getElementById('btn-profit-prev')?.addEventListener('click', () => onProfitNav(-1));
+  document.getElementById('btn-profit-next')?.addEventListener('click', () => onProfitNav(1));
+
+  document.querySelectorAll('[data-profit-nav]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const tab = btn.getAttribute('data-market-tab');
-      if (!tab || tab === state.marketTab) return;
-      state.marketTab = tab;
-      paint();
+      const dir = btn.getAttribute('data-profit-nav');
+      onProfitNav(dir === 'prev' ? -1 : 1);
+    });
+  });
+
+  document.querySelectorAll('[data-profit-period]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const period = btn.getAttribute('data-profit-period');
+      if (!period || period === state.profitCalendar.period) return;
+      state.profitCalendar.period = period;
+      void refreshProfitView();
+    });
+  });
+
+  document.querySelectorAll('[data-profit-unit]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const unit = btn.getAttribute('data-profit-unit');
+      if (!unit || unit === state.profitCalendar.unit) return;
+      state.profitCalendar.unit = unit;
+      saveProfitUnit(unit);
+      void refreshProfitView();
+    });
+  });
+
+  document.querySelectorAll('[data-profit-day]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const day = btn.getAttribute('data-profit-day');
+      if (!day) return;
+      void selectProfitDay(day);
+    });
+  });
+
+  document.querySelectorAll('[data-profit-week]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const start = btn.getAttribute('data-profit-week');
+      if (!start) return;
+      void selectProfitWeek(start);
+    });
+  });
+
+  document.querySelectorAll('[data-profit-month]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const month = btn.getAttribute('data-profit-month');
+      if (!month) return;
+      void selectProfitMonth(month);
+    });
+  });
+
+  document.querySelectorAll('[data-profit-year]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const year = btn.getAttribute('data-profit-year');
+      if (!year) return;
+      void selectProfitYear(year);
+    });
+  });
+
+  document.querySelector('[data-profit-sort-toggle]')?.addEventListener('click', () => {
+    state.profitCalendar.fundSortAsc = !state.profitCalendar.fundSortAsc;
+    paint();
+  });
+
+  document.querySelectorAll('[data-profit-account]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const accountId = btn.getAttribute('data-profit-account');
+      if (!accountId) return;
+      activateAccountScope(accountId, 'profit');
     });
   });
 
@@ -1226,6 +1503,18 @@ function bindEvents() {
     }
   });
 
+  document.getElementById('btn-profile-open-data-dir')?.addEventListener('click', () => {
+    window.fundTrackerDesktop?.openDataDir?.();
+  });
+
+  if (window.fundTrackerDesktop?.getLanApiUrl) {
+    window.fundTrackerDesktop.getLanApiUrl().then((url) => {
+      const el = document.getElementById('profile-lan-url');
+      if (!el) return;
+      el.textContent = url ?? '未检测到 WiFi 地址（请确认已连接网络）';
+    });
+  }
+
   document.getElementById('btn-profile-manage')?.addEventListener('click', () => {
     state.activeScope = state.activeScope && isEditableScope(state.activeScope) ? state.activeScope : 'alipay';
     saveActiveScope(state.activeScope);
@@ -1256,6 +1545,8 @@ async function loadPortfolioState() {
   state.serverStatus = status;
   state.portfolioUpdatedAt =
     PORTFOLIO_META.lastAutoSettleAt ?? PORTFOLIO_META.importedAt ?? null;
+  state.profitCalendar.month = defaultProfitMonth();
+  state.profitCalendar.anchor = beijingTodayIso();
 }
 
 function applyLive(live) {
@@ -1378,24 +1669,6 @@ async function refreshWatchlistView() {
       refreshPending = false;
       void refreshWatchlistView();
     }
-  }
-}
-
-async function refreshMarketView() {
-  if (state.busy) return;
-  state.busy = true;
-  try {
-    const changed = await pullLive();
-    if (patchMarketDom()) {
-      patchBottomTabs();
-      return;
-    }
-    if (!changed) return;
-    paint();
-  } catch {
-    /* ignore */
-  } finally {
-    state.busy = false;
   }
 }
 
@@ -1574,10 +1847,30 @@ function scheduleRefresh() {
       refreshListView();
     } else if (state.view === 'watchlist') {
       refreshWatchlistView();
-    } else if (state.view === 'market') {
-      refreshMarketView();
     }
   }, intervalMs);
+}
+
+async function fetchLiveWhenReady(maxWaitMs = 45_000) {
+  const deadline = Date.now() + maxWaitMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    try {
+      const status = await fetchLiveStatus();
+      if (status.error) {
+        last = await fetchLive();
+        if (last.error) return last;
+      }
+      if (status.ready) {
+        last = await fetchLive(state.lastLive);
+        if (!last.error) return last;
+      }
+    } catch {
+      /* API still starting */
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return last ?? fetchLive();
 }
 
 async function bootstrap() {
@@ -1600,6 +1893,7 @@ async function bootstrap() {
     patchDetailDom,
     canPatchListDom,
     patchListDom,
+    refreshProfitView,
   });
 
   setupPrivacyClick();
@@ -1610,10 +1904,13 @@ async function bootstrap() {
   try {
     await loadPortfolioState();
     await loadWatchlistItems().catch(() => {});
-    const live = await fetchLive();
+    const live = await fetchLiveWhenReady();
     applyLive(live);
     await syncRouteFromHash();
-    if (isLiveView()) scheduleRefresh();
+    if (isLiveView()) {
+      scheduleRefresh();
+      if (state.view === 'list') void refreshListView();
+    }
   } catch (e) {
     state.error = e instanceof Error ? e.message : String(e);
     state.view = 'error';
@@ -1624,6 +1921,7 @@ async function bootstrap() {
 window.addEventListener('hashchange', () => {
   syncRouteFromHash().then(() => {
     if (state.view === 'watchlist') void refreshWatchlistView();
+    else if (state.view === 'profit') void refreshProfitView();
     else if (isLiveView()) scheduleRefresh();
     else if (refreshTimer) {
       clearInterval(refreshTimer);
@@ -1639,6 +1937,8 @@ document.addEventListener('visibilitychange', () => {
 initTheme();
 initIndexDrawerGlobalListeners();
 initBottomChromeInset();
+initPhoneShell();
+initDesktopLayout();
 if (window.fundTrackerDesktop?.isDesktop) {
   document.documentElement.classList.add('is-desktop-app');
 }

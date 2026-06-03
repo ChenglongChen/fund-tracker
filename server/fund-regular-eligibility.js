@@ -51,6 +51,7 @@ export function fundShouldRefreshLiveRt1(fund, pack, impactSource = null, now = 
 export function fundNeedsHoldingQuoteRefresh(fund, pack, impactSource = null, now = new Date()) {
   if (fundShouldRefreshLiveRt1(fund, pack, impactSource, now)) return true;
   const market = classifyFundMarket(fund);
+  if (market === 'us' && pack?.holdings?.length) return true;
   if (market !== 'us' || !pack?.holdings?.length) return false;
   return false;
 }

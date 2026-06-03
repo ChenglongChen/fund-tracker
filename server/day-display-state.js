@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getRt1AccrualDay, isRt1SnapPhaseAt, resolveDisplaySession } from './display-session.js';
-import { beijingDateString } from './time.js';
+import { beijingDateString, beijingIsoString } from './time.js';
 import { DATA_DIR } from './store.js';
 
 export { getRt1AccrualDay } from './display-session.js';
@@ -89,7 +89,7 @@ export function setBaselineForDay(day, scope, baseline) {
   }
   cache.days[day].scopes[scope].baseline = round2(baseline);
   if (scope === 'portfolio') {
-    cache.days[day].baseline = { portfolio: round2(baseline), capturedAt: new Date().toISOString() };
+    cache.days[day].baseline = { portfolio: round2(baseline), capturedAt: beijingIsoString() };
   }
   scheduleSave();
 }

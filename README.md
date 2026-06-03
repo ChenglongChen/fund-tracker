@@ -150,8 +150,6 @@ npm run verify:tab-reconcile
 ```bash
 npm run calibrate:valuation
 npm run backtest:valuation
-npm run compare:holdings
-npm run audit:impact-xyz
 ```
 
 ## 免责声明

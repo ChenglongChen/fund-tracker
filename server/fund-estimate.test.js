@@ -6,6 +6,7 @@ import {
   fundEstimatedAssets,
 } from './fund-estimate.js';
 import { setBaselineForDay, setScopeSnap, setCurrentPhase } from './day-display-state.js';
+import { beijingIsoString } from './time.js';
 
 const ok = [];
 const fail = [];
@@ -77,7 +78,7 @@ clearPremarketPortfolioEstimateSnap();
 setBaselineForDay('2026-05-27', 'portfolio', 98000);
 setCurrentPhase('eod_freeze', eodWindow);
 setScopeSnap('2026-05-27', 'eodSnap', 'portfolio', {
-  at: eodWindow.toISOString(),
+  at: beijingIsoString(eodWindow),
   rt1: 1200,
   est: 99200,
   funds: { 1: { rt1: 1200, amountAtSnap: 98000 } },

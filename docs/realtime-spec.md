@@ -58,6 +58,13 @@
 - 入账更新：`amount`、当日收益、持有收益
 - **预估资产不变**：仍 `B[D] + RT1`，不随 `amount` 增大而跳变
 
+### 规则 3b — 当日收益 pending（北京 16:00）
+
+- **16:00 起**进入「应收官方收益」窗口；未入账前列表 / Hero **当日收益** 显示 **`—`**
+- A 股 / 黄金：期望 `lastNavDate ≥ 当日`；QDII：期望 `lastNavDate ≥ 上一中国交易日`
+- **16:00 前**仍展示上一已入账日的收益（非 pending）
+- 唯一门控：`profit-pending.js` → `isDailyProfitPending`（`fund-display.js` 消费）
+
 ### 规则 4 — 21:30 美股正盘
 
 - RT1 跟盘 live（仅 regular）

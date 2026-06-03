@@ -141,6 +141,7 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 - 最小 diff；匹配现有命名与 JSDoc
 - 改口径必补/改 `server/*.test.js` 或 verify 脚本
 - 不提交 `data/portfolio.json`、`data/app-state.json`、`data/day-display-state.json`
+- **临时脚本 / scratch** 放 `.tmp/`（见 `.tmp/README.md`），勿新增到 `scripts/` 除非要长期保留
 - 不编辑 Cursor plan 文件；规格以 `docs/` 为准
 
 ## 完成前检查
@@ -169,6 +170,7 @@ fund-tracker/
 │   ├── summary.js
 │   └── components/
 ├── data/              ← 运行时 JSON（见 data/README.md）
-├── scripts/           ← 校准、验收
+├── scripts/           ← 校准、验收（长期保留）
+├── .tmp/              ← 临时脚本 / scratch（不提交，见 .tmp/README.md）
 └── .cursor/rules/     ← Cursor 规则
 ```

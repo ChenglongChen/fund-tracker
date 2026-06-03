@@ -6,7 +6,7 @@
 | 端 | 方案 | UI |
 |----|------|-----|
 | Web PWA | Vite SPA | `src/` |
-| Mac | Electron + 内嵌 server | 复用 `src/` |
+| Mac | **Swift + WKWebView** + Node sidecar | 复用 `src/` / `dist/` |
 | iPhone | Capacitor 6 | 复用 `src/` |
 | 微信小程序 | 原生 WXML | `apps/miniprogram/` |
 
@@ -37,7 +37,7 @@
 |------|------|
 | `FUND_TRACKER_API_TOKEN` | 设置后 `/api/*` 需 `Authorization: Bearer`（`/api/health` 除外） |
 | `FUND_TRACKER_CORS_ORIGINS` | 逗号分隔 origin；`*` 或未设置则 dev 宽松 |
-| `FUND_TRACKER_DATA_DIR` | 数据目录（Mac Electron 自动设置） |
+| `FUND_TRACKER_DATA_DIR` | 数据目录（Mac App 自动设置） |
 
 复制 `.env.example` → `.env` 配置 token。
 
@@ -70,7 +70,7 @@ curl -s -H "Authorization: Bearer $FUND_TRACKER_API_TOKEN" http://localhost:8788
 packages/core          # ViewModel + format
 packages/api-client    # createClient({ baseUrl, getToken })
 packages/storage       # web | mp 键值
-apps/mac               # Electron
+apps/mac               # Swift 轻壳（mac:build）
 apps/ios               # Capacitor
 apps/miniprogram       # 微信原生 MVP
 ```

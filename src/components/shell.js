@@ -7,6 +7,27 @@ export function renderShell(inner) {
 }
 
 export function renderLoading() {
+  const isDesktop = typeof window !== 'undefined' && window.fundTrackerDesktop?.isDesktop;
+  if (isDesktop) {
+    return renderShell(`
+      <section class="desktop-boot-page">
+        <div class="desktop-boot-card">
+          <p class="desktop-boot-title">Fund Tracker</p>
+          <p class="desktop-boot-sub">正在拉取持仓与实时估值…</p>
+          <div class="desktop-boot-skeleton" aria-hidden="true">
+            <div class="desktop-boot-line desktop-boot-line--wide"></div>
+            <div class="desktop-boot-grid">
+              <div class="desktop-boot-block"></div>
+              <div class="desktop-boot-block"></div>
+              <div class="desktop-boot-block"></div>
+            </div>
+            <div class="desktop-boot-line"></div>
+            <div class="desktop-boot-line"></div>
+            <div class="desktop-boot-line desktop-boot-line--short"></div>
+          </div>
+        </div>
+      </section>`);
+  }
   return renderShell(`
     <section class="state-card">
       <p class="state-title">加载中...</p>
@@ -15,11 +36,15 @@ export function renderLoading() {
 }
 
 export function renderError(msg) {
+  const isDesktop = typeof window !== 'undefined' && window.fundTrackerDesktop?.isDesktop;
+  const hint = isDesktop
+    ? '请确认 Mac App 本地服务已启动，或在「我的 → API 连接」检查远程地址。'
+    : '请确认已运行 <code>npm run dev</code> 或 <code>npm start</code>（需先 build）';
   return renderShell(`
     <section class="state-card">
       <p class="state-title">加载失败</p>
       <p class="state-text" id="error-message">${escapeHtml(msg)}</p>
-      <p class="state-text state-text--hint">请确认已运行 <code>npm run dev</code> 或 <code>npm start</code>（需先 build）</p>
+      <p class="state-text state-text--hint">${hint}</p>
       <button type="button" class="retry-button" id="btn-retry" aria-describedby="error-message">重试</button>
     </section>`);
 }

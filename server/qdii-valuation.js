@@ -70,8 +70,35 @@ export function valuationConfidenceLabel({ quoteCoverage = 0, reportAgeDays = 99
  */
 export function applyHoldingsEnsemble(r, gz, pack, now = new Date()) {
   const breakdown = r.impactBreakdown ?? null;
-  const holdingsPct = breakdown?.totalPct ?? r.impactPct;
+  const penetrationPct =
+    r.holdingsImpactPct != null && Number.isFinite(r.holdingsImpactPct)
+      ? r.holdingsImpactPct
+      : null;
+  let holdingsPct = penetrationPct ?? breakdown?.totalPct ?? r.impactPct;
   if (holdingsPct == null || !Number.isFinite(holdingsPct)) {
+    if (penetrationPct != null) {
+      return {
+        ...r,
+        impactPct: null,
+        impactPctRegular: null,
+        impactSource: r.impactSource ?? 'holdings',
+        holdingsImpactPct: penetrationPct,
+        valuationConfidence: valuationConfidenceLabel({
+          quoteCoverage: r.penetrationQuoteCoverage ?? r.quoteCoverage ?? 0,
+          reportAgeDays: reportAgeDays(pack?.recentReportDate ?? pack?.reportDate, now),
+          impactSource: 'holdings',
+        }),
+      };
+    }
+    if (r.impactSession === 'closed') {
+      return {
+        ...r,
+        impactPct: null,
+        impactPctRegular: null,
+        impactSource: r.impactSource ?? 'holdings',
+        holdingsImpactPct: null,
+      };
+    }
     if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {
       return {
         ...r,
@@ -86,13 +113,16 @@ export function applyHoldingsEnsemble(r, gz, pack, now = new Date()) {
   }
 
   if (gz?.gszzl == null || !Number.isFinite(gz.gszzl)) {
+    const rt1Pct =
+      r.impactSession === 'regular' ? (breakdown?.totalPct ?? r.impactPct) : null;
     return {
       ...r,
+      impactPct: rt1Pct,
       impactSource: r.impactSource ?? 'holdings',
       holdingsImpactPct: holdingsPct,
       impactBreakdown: breakdown,
       valuationConfidence: valuationConfidenceLabel({
-        quoteCoverage: r.quoteCoverage ?? 0,
+        quoteCoverage: r.penetrationQuoteCoverage ?? r.quoteCoverage ?? 0,
         reportAgeDays: reportAgeDays(pack?.recentReportDate ?? pack?.reportDate, now),
         impactSource: 'holdings',
       }),

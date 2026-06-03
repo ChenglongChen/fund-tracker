@@ -31,6 +31,21 @@ const HOLDING_DISPLAY_ALIASES = {
   'MKS Inc': 'MKS仪器',
   揖斐电株式会社: '揖斐电',
   摩尔线程: '摩尔线程-U',
+  'Adyen NV': 'Adyen公众有限公司',
+  '腾讯控股ADR': '腾讯控股(ADR)',
+  '通用电气(US)': 'GE航空航天',
+  劲方医药: '劲方医药-B',
+  '创新ETF-ARK': 'ARK Innovation ETF',
+  'ARK Genomic Revolution ETF': 'ARK Genomic Revolution ETF',
+  'ARK Autonomous Technology & Robotics ETF': 'ARK Autonomous Technology & Robotics ETF',
+  'ARK Next Generation Internet ETF': 'ARK Next Generation Internet ETF',
+  'Liberty Media Corp Liberty Form': 'Liberty Media Corp Liberty Formula One-C',
+  南方两倍做多三星电子: '南方两倍做多三星',
+  日东纺: 'Nitto Boseki Co Ltd',
+  富士电机: '芝浦机电集团',
+  '盛科通信-U': '盛科通信',
+  'Meta Platforms Inc-A': 'Meta Platforms Inc-A',
+  'Meta Platforms Inc-C': 'Meta Platforms Inc-A',
 };
 
 async function fetchText(url, headers = {}) {
@@ -93,18 +108,31 @@ export function holdingDisplayName(name) {
 }
 
 export function holdingMatchName(name) {
-  return holdingDisplayName(name)
+  const raw = holdingDisplayName(name);
+  if (/ark innovation/i.test(raw)) return 'arkinnovation';
+  if (/ark genomic/i.test(raw)) return 'arkgenomicrevolution';
+  if (/ark autonomous/i.test(raw)) return 'arkautonomous';
+  if (/ark next generation internet/i.test(raw)) return 'arknextgenerationinternet';
+  return raw
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/inc\.?/g, '')
     .replace(/corp\.?/g, '')
     .replace(/ltd\.?/g, '')
     .replace(/-a/g, '')
+    .replace(/-c/g, '')
+    .replace(/-w/g, '')
+    .replace(/etf/g, '')
+    .replace(/交易型开.*$/g, '')
+    .replace(/指数基金/g, '')
+    .replace(/arkinvestmentmanagementllc/g, '')
+    .replace(/statestreetglobaladvisorsinc/g, '')
     .replace(/控股株式会社/g, '')
     .replace(/股份有限合伙企业/g, '')
     .replace(/股份有限公司/g, '')
     .replace(/有限公司/g, '')
-    .replace(/集团/g, '');
+    .replace(/集团/g, '')
+    .replace(/公众/g, '');
 }
 
 function parseHoldingsHtml(html) {

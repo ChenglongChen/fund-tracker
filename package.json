@@ -16,37 +16,37 @@
     "preview": "vite preview",
     "backtest:valuation": "node scripts/backtest-valuation.js --days=40 --live",
     "calibrate:valuation": "node scripts/calibrate-valuation.js --days=25",
-    "compare:holdings": "node scripts/compare-holdings.js 270023 scripts/fixtures/ref-270023-345569.json",
-    "audit:345569": "node scripts/audit-vs-345569.js",
-    "audit:holdings-xyz": "node scripts/audit-holdings-vs-xyz.js",
-    "audit:impact-xyz": "node scripts/audit-impact-vs-xyz.js",
     "test:fund-estimate": "node server/fund-estimate.test.js",
     "test:display-session": "node server/display-session.test.js",
     "test:display-state": "node server/snap-state.test.js",
     "test:live-pipeline": "node server/live-pipeline.test.js",
     "test:realtime-display-pipeline": "node server/realtime-display-pipeline.test.js",
     "test:realtime-profit": "node server/realtime-profit-consistency.test.js",
+    "test:profit-calendar": "node server/profit-attribution.test.js && node server/profit-calendar.test.js && node server/profit-pending.test.js",
+    "backfill:profit-ledger": "node scripts/backfill-profit-ledger.js",
+    "verify:profit-calendar": "node scripts/verify-profit-calendar.js",
     "test:qdii-valuation": "node server/qdii-valuation.test.js",
     "verify:alipay-realtime": "node scripts/verify-alipay-realtime.js",
     "verify:tab-reconcile": "node scripts/verify-tab-reconcile.js",
     "test:api-contract": "node server/api-contract.test.js",
-    "mac:dev": "npm run build && electron apps/mac/electron/main.mjs",
-    "mac:build": "bash scripts/sync-mac-icon.sh && npm run build && cd apps/mac && ELECTRON_MIRROR=${ELECTRON_MIRROR:-https://npmmirror.com/mirrors/electron/} npx electron-builder --config electron-builder.yml",
-    "mac:install": "bash scripts/install-mac-app.sh",
+    "mac:dev": "bash scripts/run-mac-dev.sh",
+    "mac:build": "bash scripts/build-mac.sh",
+    "mac:open": "open apps/mac/FundTracker.xcodeproj",
+    "mac:install": "bash scripts/install-mac-app.sh && xattr -cr '/Applications/Fund Tracker.app' 2>/dev/null || true",
     "sync:mac-data": "bash scripts/sync-data-to-mac-app.sh",
     "ios:sync": "npm run build && npm run sync --workspace @fund-tracker/ios",
     "ios:open": "npm run open --workspace @fund-tracker/ios"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
-    "electron": "^35.0.0",
-    "electron-builder": "^25.1.8",
     "vite": "^6.2.0"
   },
   "dependencies": {
     "@fund-tracker/api-client": "*",
     "@fund-tracker/core": "*",
-    "@fund-tracker/storage": "*",
+    "@fund-tracker/storage": "*"
+  },
+  "optionalDependencies": {
     "pdf-parse": "^2.4.5"
   }
 }

@@ -40,3 +40,9 @@ npm run test:display-session && npm run test:live-pipeline && npm run test:fund-
 node server/live-rt1-holdings.test.js && node server/scope-totals.test.js
 npm run build   # 动 src/
 ```
+
+## 临时文件
+
+- 一次性调试脚本、抓包、本地试验 → **`.tmp/`**（已 gitignore；说明见 `.tmp/README.md`）
+- 长期保留的校准/验收脚本 → `scripts/`
+- 勿把临时文件散放在仓库根目录或 `data/`

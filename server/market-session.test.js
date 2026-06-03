@@ -227,9 +227,10 @@ assert('asia relay rt1 live', resolveDisplaySession(asiaRelay).rt1Source === 'li
 clearFundImpactSnapshots();
 
 const cnPending = new Date('2026-05-27T10:30:00.000Z');
+const cnAfter1600 = new Date('2026-05-27T08:30:00.000Z');
 const cnAfterMidnight = new Date('2026-05-27T16:01:00.000Z');
 assert(
-  'cn daily ok before 18:00 when nav is yesterday',
+  'cn daily ok before 16:00 when nav is yesterday',
   !isDailyProfitPending(
     { lastNavDate: '2026-05-26' },
     'cn',
@@ -256,6 +257,16 @@ assert(
     { pdate: '2026-05-27' },
     '2026-05-28',
     cnAfterMidnight,
+  ),
+);
+assert(
+  'cn daily pending after 16:00 if nav stale',
+  isDailyProfitPending(
+    { lastNavDate: '2026-05-26' },
+    'cn',
+    { pdate: '2026-05-26' },
+    '2026-05-27',
+    cnAfter1600,
   ),
 );
 assert(
@@ -309,13 +320,23 @@ assert(
   ),
 );
 assert(
-  'us qdii not pending before 18:00',
+  'us qdii not pending before 16:00',
   !isDailyProfitPending(
     { lastNavDate: '2026-05-25' },
     'us',
     { pdate: '2026-05-25' },
     '2026-05-27',
     cnHkGap,
+  ),
+);
+assert(
+  'us qdii pending after 16:00 when nav stale',
+  isDailyProfitPending(
+    { lastNavDate: '2026-05-25' },
+    'us',
+    { pdate: '2026-05-25' },
+    '2026-05-27',
+    cnAfter1600,
   ),
 );
 

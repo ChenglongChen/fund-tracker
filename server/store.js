@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migratePortfolio } from './accounts.js';
+import { beijingIsoString } from './time.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -47,7 +48,7 @@ export async function writePortfolio(data) {
     ...data,
     meta: {
       ...data.meta,
-      lastWrittenAt: new Date().toISOString(),
+      lastWrittenAt: beijingIsoString(),
     },
   });
   await fs.writeFile(PORTFOLIO_PATH, JSON.stringify(payload, null, 2), 'utf8');

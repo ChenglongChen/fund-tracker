@@ -11,6 +11,9 @@
 | [realtime-spec.md](./realtime-spec.md) | 功能规格：公式、时段规则、UI 口径 |
 | [manual.md](./manual.md) | 用户使用手册 |
 | [development.md](./development.md) | 开发、测试、验收脚本 |
+| [mac-app.md](./mac-app.md) | **Mac App** Swift 轻壳使用与打包 |
+| [mac-app-roadmap.md](./mac-app-roadmap.md) | **Mac App** 体积 / 启动 / 响应优化清单与壳替换路线 |
+| [platform-strategy.md](./platform-strategy.md) | **中长期** 跨端技术选型（Vue / Capacitor / Swift / 小程序） |
 
 ## 快速参考
 

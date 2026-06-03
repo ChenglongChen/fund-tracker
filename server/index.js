@@ -4,13 +4,23 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { getLiveCache, refreshLiveDisplay, buildLiveRevision } from './live.js';
+import { getLiveCache, refreshLiveDisplay, buildLiveRevision, getLiveStatus } from './live.js';
 import { runSettlement } from './settle.js';
 import { readPortfolio, writePortfolio } from './store.js';
 import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, resolveFxStripFromMarket } from './market.js';
 import { classifyFundMarket } from './components/market-hours.js';
 import { resolveLiveDisplayImpact } from './market-session.js';
 import { readAppState, setAssetViewMode, listDailyRecords } from './app-state.js';
+import {
+  buildProfitCalendar,
+  buildProfitSummary,
+  buildProfitWeeksInMonth,
+  buildProfitYear,
+  buildProfitYearsAll,
+  buildDayDetail,
+  buildRangeFundDetail,
+} from './profit-calendar.js';
+import { backfillProfitLedger } from './profit-backfill.js';
 import { addFund, deleteFund, updateFund } from './fund-crud.js';
 import {
   addWatchlistItem,
@@ -20,6 +30,7 @@ import {
 } from './watchlist.js';
 import { handleCorsAndAuth } from './auth.js';
 import { bootstrapServer } from './bootstrap.js';
+import { beijingDateTimeString, beijingIsoString, beijingDateString, beijingIsoAddDays } from './time.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -89,7 +100,7 @@ async function handler(req, res, port) {
   if (handleCorsAndAuth(req, res, pathname)) return;
 
   if (req.method === 'GET' && pathname === '/api/health') {
-    return json(res, 200, { ok: true, time: new Date().toISOString() });
+    return json(res, 200, { ok: true, time: beijingIsoString() });
   }
 
   if (req.method === 'GET' && pathname === '/api/portfolio') {
@@ -150,6 +161,10 @@ async function handler(req, res, port) {
         return json(res, 400, { error: e instanceof Error ? e.message : String(e) });
       }
     }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/live/status') {
+    return json(res, 200, getLiveStatus());
   }
 
   if (req.method === 'GET' && pathname === '/api/live') {
@@ -236,6 +251,157 @@ async function handler(req, res, port) {
     try {
       const limit = Number(searchParams.get('limit') || 30);
       return json(res, 200, { records: await listDailyRecords(limit) });
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/profit/calendar') {
+    try {
+      const portfolio = await readPortfolio();
+      const scope = searchParams.get('scope') || 'all';
+      const month = searchParams.get('month') || beijingDateString().slice(0, 7);
+      const unit = searchParams.get('unit') || 'amount';
+      const period = searchParams.get('period') || 'day';
+      const selectedDay = searchParams.get('day') || null;
+      const selectedWeekStart = searchParams.get('weekStart') || null;
+      const selectedMonth = searchParams.get('monthKey') || null;
+      const selectedYear = searchParams.get('yearKey') || null;
+
+      if (scope === 'summary') {
+        const summary = await buildProfitSummary({
+          month,
+          accounts: portfolio.accounts ?? [],
+        });
+        return json(res, 200, { ...summary, scope: 'summary', unit });
+      }
+
+      if (period === 'week') {
+        const week = await buildProfitWeeksInMonth({
+          scope,
+          month,
+          accounts: portfolio.accounts ?? [],
+          selectedWeekStart,
+        });
+        return json(res, 200, { ...week, unit });
+      }
+
+      if (period === 'month') {
+        const year = searchParams.get('year') || month.slice(0, 4);
+        const yearView = await buildProfitYear({
+          scope,
+          year,
+          accounts: portfolio.accounts ?? [],
+          selectedMonth,
+        });
+        return json(res, 200, { ...yearView, unit });
+      }
+
+      if (period === 'year') {
+        const yearsView = await buildProfitYearsAll({
+          scope,
+          accounts: portfolio.accounts ?? [],
+          selectedYear,
+        });
+        return json(res, 200, { ...yearsView, unit });
+      }
+
+      const cal = await buildProfitCalendar({
+        scope,
+        month,
+        unit,
+        portfolio,
+        accounts: portfolio.accounts ?? [],
+        selectedDay,
+      });
+      return json(res, 200, cal);
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/profit/summary') {
+    try {
+      const portfolio = await readPortfolio();
+      const month = searchParams.get('month') || beijingDateString().slice(0, 7);
+      const summary = await buildProfitSummary({
+        month,
+        accounts: portfolio.accounts ?? [],
+      });
+      return json(res, 200, summary);
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/profit/range-detail') {
+    try {
+      const portfolio = await readPortfolio();
+      const scope = searchParams.get('scope') || 'all';
+      const from = searchParams.get('from');
+      const to = searchParams.get('to');
+      if (!from || !to) return json(res, 400, { error: '需要 from 与 to' });
+      const detail = await buildRangeFundDetail({ scope, from, to, portfolio });
+      return json(res, 200, detail);
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'GET' && pathname.match(/^\/api\/profit\/day\/\d{4}-\d{2}-\d{2}$/)) {
+    try {
+      const day = pathname.replace('/api/profit/day/', '');
+      const scope = searchParams.get('scope') || 'all';
+      const detail = await buildDayDetail(day, scope);
+      return json(res, 200, detail);
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/profit/export') {
+    try {
+      const portfolio = await readPortfolio();
+      const scope = searchParams.get('scope') || 'all';
+      const month = searchParams.get('month') || beijingDateString().slice(0, 7);
+      const cal =
+        scope === 'summary'
+          ? null
+          : await buildProfitCalendar({
+              scope,
+              month,
+              portfolio,
+              accounts: portfolio.accounts ?? [],
+            });
+      const lines = ['date,profit,profitPct,status'];
+      if (cal) {
+        for (const d of cal.days) {
+          lines.push(`${d.date},${d.profit ?? ''},${d.profitPct ?? ''},${d.status}`);
+        }
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="profit-${scope}-${month}.csv"`,
+      });
+      return res.end(lines.join('\n'));
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/profit/backfill') {
+    try {
+      const raw = await readBody(req);
+      const body = raw ? JSON.parse(raw) : {};
+      const portfolio = await readPortfolio();
+      const from = body.from || '2026-05-01';
+      const to = body.to || beijingDateString();
+      const result = await backfillProfitLedger(portfolio, {
+        from,
+        to,
+        accountId: body.accountId ?? null,
+      });
+      return json(res, 200, result);
     } catch (e) {
       return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
     }
@@ -380,8 +546,8 @@ export async function startFundTrackerServer(options = {}) {
     server.once('error', reject);
     server.listen(port, host, resolve);
   });
-  console.log(`fund-tracker server http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
-  console.log('  API: /api/portfolio /api/live /api/watchlist /api/settings /api/history/daily');
+  console.log(`[${beijingDateTimeString()}] fund-tracker server http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
+  console.log(`[${beijingDateTimeString()}]   API: /api/portfolio /api/live /api/watchlist /api/settings /api/history/daily /api/profit/*`);
   return { server, port, host };
 }
 

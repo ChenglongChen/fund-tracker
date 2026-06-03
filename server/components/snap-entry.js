@@ -2,8 +2,14 @@
  * 单基金 snap 条目：seed 时从 liveRow 复制 estimateProfit（唯一 writer 的 ep）。
  */
 import { round2 } from '../day-display-state.js';
+import { getFundRegular } from '../impact-snapshots.js';
 import { shouldSuppressDomesticRealtimeDisplay } from './suppress.js';
 import { isScopeSnapReady } from './snap-ready.js';
+import {
+  isUsIndexStyleFund,
+  shouldUseLiveUsIndexStyle,
+  resolveUsIndexCloseImpactPct,
+} from './snap-index-style.js';
 
 /**
  * @param {object} fund
@@ -24,10 +30,29 @@ export function buildFundSnapEntry(fund, liveRow, impactRaw, market, now) {
       market,
     };
   }
-  const rt1Live =
+  const rowCtx = { ...liveRow, market };
+  const isIndexStyle = isUsIndexStyleFund(rowCtx);
+  const useLiveIndex = shouldUseLiveUsIndexStyle(rowCtx, now);
+  const preferRegularSnapshot =
+    (isIndexStyle && !useLiveIndex) ||
+    (!isIndexStyle &&
+      liveRow?.shouldRefreshLiveRt1 === false &&
+      liveRow?.hasRegularHolding !== true);
+  let rt1Live =
     liveRow?.estimateProfit != null && Number.isFinite(liveRow.estimateProfit)
       ? round2(liveRow.estimateProfit)
       : null;
+  if (preferRegularSnapshot || rt1Live == null) {
+    const snapPct = isIndexStyle
+      ? resolveUsIndexCloseImpactPct(rowCtx, (id) => getFundRegular(id))
+      : getFundRegular(fund.id) ??
+        liveRow?.impactPctRegular ??
+        impactRaw?.impactPctRegular ??
+        null;
+    if (snapPct != null && Number.isFinite(snapPct) && amount > 0) {
+      rt1Live = round2((amount * snapPct) / 100);
+    }
+  }
   const rt2 =
     liveRow?.realTimeProfitExtended != null && Number.isFinite(liveRow.realTimeProfitExtended)
       ? round2(liveRow.realTimeProfitExtended)

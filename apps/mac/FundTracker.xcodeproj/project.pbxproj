@@ -1,0 +1,256 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B001000001 /* FundTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001000001; };
+		B001000002 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001000002; };
+		B001000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001000003; };
+		B001000004 /* DesktopSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001000004; };
+		B001000005 /* FundTrackerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001000005; };
+		B001000006 /* ServerProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001000006; };
+		B001000007 /* boot.html in Resources */ = {isa = PBXBuildFile; fileRef = F001000007; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F001000001 /* FundTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FundTrackerApp.swift; sourceTree = "<group>"; };
+		F001000002 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		F001000003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F001000004 /* DesktopSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopSettings.swift; sourceTree = "<group>"; };
+		F001000005 /* FundTrackerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FundTrackerBridge.swift; sourceTree = "<group>"; };
+		F001000006 /* ServerProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerProcess.swift; sourceTree = "<group>"; };
+		F001000007 /* boot.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = boot.html; sourceTree = "<group>"; };
+		F001000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F001000009 /* FundTracker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FundTracker.entitlements; sourceTree = "<group>"; };
+		P001000001 /* Fund Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Fund Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C001000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G001000001 = {
+			isa = PBXGroup;
+			children = (
+				G001000002 /* FundTracker */,
+				G001000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G001000002 /* FundTracker */ = {
+			isa = PBXGroup;
+			children = (
+				F001000001 /* FundTrackerApp.swift */,
+				F001000002 /* AppModel.swift */,
+				F001000003 /* ContentView.swift */,
+				F001000004 /* DesktopSettings.swift */,
+				F001000005 /* FundTrackerBridge.swift */,
+				F001000006 /* ServerProcess.swift */,
+				F001000007 /* boot.html */,
+				F001000008 /* Info.plist */,
+				F001000009 /* FundTracker.entitlements */,
+			);
+			path = FundTracker;
+			sourceTree = "<group>";
+		};
+		G001000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				P001000001 /* Fund Tracker.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T001000001 /* FundTracker */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L001000003 /* Build configuration list for PBXNativeTarget "FundTracker" */;
+			buildPhases = (
+				S001000001 /* Sources */,
+				C001000001 /* Frameworks */,
+				R001000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FundTracker;
+			productName = FundTracker;
+			productReference = P001000001 /* Fund Tracker.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PR00100001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = L001000001 /* Build configuration list for PBXProject "FundTracker" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = G001000001;
+			productRefGroup = G001000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T001000001 /* FundTracker */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R001000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B001000007 /* boot.html in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S001000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B001000001 /* FundTrackerApp.swift in Sources */,
+				B001000002 /* AppModel.swift in Sources */,
+				B001000003 /* ContentView.swift in Sources */,
+				B001000004 /* DesktopSettings.swift in Sources */,
+				B001000005 /* FundTrackerBridge.swift in Sources */,
+				B001000006 /* ServerProcess.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		X001000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		X001000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		X001000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = FundTracker/FundTracker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FundTracker/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Fund Tracker";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fundtracker.mac;
+				PRODUCT_NAME = "Fund Tracker";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		X001000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = FundTracker/FundTracker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FundTracker/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Fund Tracker";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fundtracker.mac;
+				PRODUCT_NAME = "Fund Tracker";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		L001000001 /* Build configuration list for PBXProject "FundTracker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				X001000001 /* Debug */,
+				X001000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L001000003 /* Build configuration list for PBXNativeTarget "FundTracker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				X001000003 /* Debug */,
+				X001000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PR00100001 /* Project object */;
+}

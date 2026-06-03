@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DATA_DIR } from './store.js';
+import { beijingDateString, beijingIsoString } from './time.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const APP_STATE_PATH = path.join(DATA_DIR, 'app-state.json');
@@ -36,6 +37,7 @@ function defaultAppState() {
     dailyRecords: {},
     intradayTicks: [],
     watchlist: [],
+    profitLedger: { days: {}, meta: { schemaVersion: 1 } },
   };
 }
 
@@ -48,6 +50,10 @@ function normalizeAppState(data) {
     dailyRecords: data.dailyRecords && typeof data.dailyRecords === 'object' ? data.dailyRecords : {},
     intradayTicks: Array.isArray(data.intradayTicks) ? data.intradayTicks.slice(-MAX_INTRADAY_TICKS) : [],
     watchlist: Array.isArray(data.watchlist) ? data.watchlist : [],
+    profitLedger:
+      data.profitLedger && typeof data.profitLedger === 'object'
+        ? data.profitLedger
+        : { days: {}, meta: { schemaVersion: 1 } },
   };
 }
 
@@ -71,21 +77,57 @@ export async function setAssetViewMode(mode) {
 }
 
 /**
+ * 收益日历可读：过去交易日，或当日已 NAV 入账（settled）。
+ * @param {object} record
+ * @param {string} [today]
+ */
+export function isDailyRecordCalendarReady(record, today = beijingDateString()) {
+  const d = String(record?.beijingDate ?? '');
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  if (d < today) return true;
+  if (d === today && record.settled === true) return true;
+  return false;
+}
+
+/**
+ * 去掉当日/未来未 settle 的 provisional 快照（live tick 遗留）。
+ * @param {object} state
+ * @param {string} [today]
+ */
+export function pruneProvisionalDailyRecords(state, today = beijingDateString()) {
+  const dailyRecords = { ...state.dailyRecords };
+  let changed = false;
+  for (const [key, rec] of Object.entries(dailyRecords)) {
+    const d = String(rec?.beijingDate ?? key);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d >= today && rec?.settled !== true) {
+      delete dailyRecords[key];
+      changed = true;
+    }
+  }
+  return { dailyRecords, changed };
+}
+
+/**
  * @param {object} snapshot
  * @param {string} snapshot.beijingDate
  * @param {string} snapshot.updatedAt
+ * @param {{ persistDaily?: boolean }} [opts] persistDaily=false 时仅写 intradayTicks（live tick）
  */
-export async function recordLiveSnapshot(snapshot) {
+export async function recordLiveSnapshot(snapshot, opts = {}) {
+  const { persistDaily = true } = opts;
   const state = await readAppState();
   const day = snapshot.beijingDate;
   if (!day) return state;
 
-  const dailyRecords = { ...state.dailyRecords };
-  dailyRecords[day] = {
-    ...dailyRecords[day],
-    ...snapshot,
-    lastPersistedAt: new Date().toISOString(),
-  };
+  /** @type {Record<string, object>} */
+  const dailyRecords = persistDaily ? { ...state.dailyRecords } : state.dailyRecords;
+  if (persistDaily) {
+    dailyRecords[day] = {
+      ...dailyRecords[day],
+      ...snapshot,
+      lastPersistedAt: beijingIsoString(),
+    };
+  }
 
   const ticks = [...state.intradayTicks];
   const last = ticks[ticks.length - 1];
@@ -99,7 +141,7 @@ export async function recordLiveSnapshot(snapshot) {
       realtimeAssets: snapshot.realtimeAssets,
       settledProfit: snapshot.settledProfit,
       realtimeProfit: snapshot.realtimeProfit,
-      at: new Date().toISOString(),
+      at: beijingIsoString(),
     });
   } else {
     ticks[ticks.length - 1] = {
@@ -108,12 +150,12 @@ export async function recordLiveSnapshot(snapshot) {
       realtimeAssets: snapshot.realtimeAssets,
       settledProfit: snapshot.settledProfit,
       realtimeProfit: snapshot.realtimeProfit,
-      at: new Date().toISOString(),
+      at: beijingIsoString(),
     };
   }
 
   return writeAppState({
-    dailyRecords,
+    ...(persistDaily ? { dailyRecords } : {}),
     intradayTicks: ticks.slice(-MAX_INTRADAY_TICKS),
   });
 }
@@ -121,7 +163,13 @@ export async function recordLiveSnapshot(snapshot) {
 /** @returns {Promise<object[]>} */
 export async function listDailyRecords(limit = 30) {
   const state = await readAppState();
-  return Object.values(state.dailyRecords)
+  const today = beijingDateString();
+  const { dailyRecords, changed } = pruneProvisionalDailyRecords(state, today);
+  if (changed) {
+    await writeAppState({ dailyRecords });
+  }
+  return Object.values(dailyRecords)
+    .filter((r) => isDailyRecordCalendarReady(r, today))
     .sort((a, b) => String(b.beijingDate).localeCompare(String(a.beijingDate)))
     .slice(0, limit);
 }

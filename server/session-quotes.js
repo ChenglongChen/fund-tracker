@@ -6,6 +6,7 @@ import {
   classifyHoldingMarket,
   holdingCacheKey,
   getHoldingSessionPhase,
+  getUsSessionPhase,
   isHoldingQuoteLive,
 } from './holding-market.js';
 import {
@@ -186,6 +187,21 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
       };
     }
 
+    ensureRegularSnapFromDisk(cacheKey);
+    const diskRegular = regularCloseSnapshot.get(cacheKey);
+    if (diskRegular && isValidQuote(diskRegular)) {
+      return {
+        ...h,
+        changePct: diskRegular.changePct,
+        changePctRegular: diskRegular.changePct,
+        price: diskRegular.price ?? h.price,
+        quoteSource: 'disk-regular',
+        quoteMode: 'close',
+        quoteSession: closeSession,
+        holdingMarket: market,
+      };
+    }
+
     return { ...h, holdingMarket: market, quoteMode: 'missing', quoteSession: closeSession };
   });
 }
@@ -201,8 +217,15 @@ export function seedSessionQuoteSnapshots() {
   seedIndexRegularSnapshots(stripRegularSnapshot);
 }
 
-/** @param {string} [label] */
-export function getIndexSessionRegular(label = '纳斯达克100') {
+/** @param {string} [label] @param {Date} [now] */
+export function getIndexSessionRegular(label = '纳斯达克100', now = new Date()) {
+  const usPhase = getUsSessionPhase(now);
+  if (usPhase !== 'regular') {
+    const closeSnap = stripCloseSnapshot.get(label);
+    const closePct =
+      typeof closeSnap === 'number' ? closeSnap : closeSnap?.changePct ?? null;
+    if (closePct != null && Number.isFinite(closePct)) return closePct;
+  }
   const snap = stripRegularSnapshot.get(label);
   if (snap?.changePct != null && Number.isFinite(snap.changePct)) return snap.changePct;
   const disk = getIndexRegular(label);
@@ -238,6 +261,24 @@ export function applySessionMarketStrip(strip, now = new Date()) {
     const phase = item.market ? stripSessionPhase(item.market, now) : 'regular';
     const open = item.market ? isStripMarketOpen(item.market, now) : true;
 
+    if (
+      !open &&
+      item.market === 'us' &&
+      phase !== 'regular' &&
+      item.changePct != null &&
+      Number.isFinite(item.changePct)
+    ) {
+      const regularPct = item.changePctRegular ?? item.changePct;
+      const snap = {
+        changePct: regularPct,
+        price: item.price ?? null,
+        change: item.change ?? null,
+      };
+      stripCloseSnapshot.set(item.label, snap);
+      stripRegularSnapshot.set(item.label, snap);
+      rememberIndexRegular(item.label, { changePct: regularPct, price: snap.price });
+    }
+
     if (open && item.changePct != null && Number.isFinite(item.changePct)) {
       const snap = stripSnapshotFrom(item);
       const diskRegular = getIndexRegular(item.label);
@@ -248,7 +289,17 @@ export function applySessionMarketStrip(strip, now = new Date()) {
         stripCloseSnapshot.set(item.label, regularSnap);
         rememberIndexRegular(item.label, { changePct: regularPct, price: item.price ?? null });
       } else {
-        if (!stripRegularSnapshot.has(item.label) && diskRegular && Number.isFinite(diskRegular.changePct)) {
+        const regularPct = item.changePctRegular ?? item.changePct;
+        if (
+          item.market === 'us' &&
+          regularPct != null &&
+          Number.isFinite(regularPct)
+        ) {
+          const regularSnap = { ...snap, changePct: regularPct };
+          stripCloseSnapshot.set(item.label, regularSnap);
+          stripRegularSnapshot.set(item.label, regularSnap);
+          rememberIndexRegular(item.label, { changePct: regularPct, price: item.price ?? null });
+        } else if (!stripRegularSnapshot.has(item.label) && diskRegular && Number.isFinite(diskRegular.changePct)) {
           stripRegularSnapshot.set(item.label, {
             changePct: diskRegular.changePct,
             price: diskRegular.price ?? null,
@@ -256,11 +307,9 @@ export function applySessionMarketStrip(strip, now = new Date()) {
           });
         } else if (
           !stripRegularSnapshot.has(item.label) &&
-          item.market === 'us' &&
           item.changePct != null &&
           Number.isFinite(item.changePct)
         ) {
-          const regularPct = item.changePctRegular ?? item.changePct;
           stripRegularSnapshot.set(item.label, {
             changePct: regularPct,
             price: item.price ?? null,
@@ -268,7 +317,9 @@ export function applySessionMarketStrip(strip, now = new Date()) {
           });
           rememberIndexRegular(item.label, { changePct: regularPct, price: item.price ?? null });
         }
-        stripCloseSnapshot.set(item.label, snap);
+        if (!stripCloseSnapshot.has(item.label)) {
+          stripCloseSnapshot.set(item.label, snap);
+        }
       }
       const regularSnap = stripRegularSnapshot.get(item.label);
       const parsedRegular =

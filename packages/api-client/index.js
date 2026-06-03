@@ -1,6 +1,6 @@
 
 /**
- * HTTP client for fund-tracker API — shared by Web, Electron, Capacitor, mini program.
+ * HTTP client for fund-tracker API — shared by Web, Capacitor, mini program, Mac Swift shell.
  * @param {{ baseUrl?: string, getToken?: () => string|null|undefined, fetchImpl?: typeof fetch }} [options]
  */
 export function createClient(options = {}) {
@@ -23,6 +23,10 @@ export function createClient(options = {}) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
     return body;
+  }
+
+  async function fetchLiveStatus() {
+    return apiJson('/api/live/status');
   }
 
   /** @param {{ liveRevision?: string } | null} [cached] */
@@ -130,11 +134,46 @@ export function createClient(options = {}) {
     return apiJson('/api/health');
   }
 
+  /**
+   * @param {string} scope
+   * @param {string} month
+   * @param {{ unit?: string, period?: string, anchor?: string, day?: string, weekStart?: string, year?: string, monthKey?: string, yearKey?: string }} [opts]
+   */
+  async function fetchProfitCalendarApi(scope, month, opts = {}) {
+    const q = new URLSearchParams({ scope, month });
+    if (opts.unit) q.set('unit', opts.unit);
+    if (opts.period) q.set('period', opts.period);
+    if (opts.anchor) q.set('anchor', opts.anchor);
+    if (opts.day) q.set('day', opts.day);
+    if (opts.weekStart) q.set('weekStart', opts.weekStart);
+    if (opts.year) q.set('year', opts.year);
+    if (opts.monthKey) q.set('monthKey', opts.monthKey);
+    if (opts.yearKey) q.set('yearKey', opts.yearKey);
+    return apiJson(`/api/profit/calendar?${q}`);
+  }
+
+  /** @param {string} scope @param {string} from @param {string} to */
+  async function fetchProfitRangeDetailApi(scope, from, to) {
+    const q = new URLSearchParams({ scope, from, to });
+    return apiJson(`/api/profit/range-detail?${q}`);
+  }
+
+  /** @param {string} month */
+  async function fetchProfitSummaryApi(month) {
+    return apiJson(`/api/profit/summary?month=${encodeURIComponent(month)}`);
+  }
+
+  /** @param {string} day @param {string} scope */
+  async function fetchProfitDayDetailApi(day, scope) {
+    return apiJson(`/api/profit/day/${encodeURIComponent(day)}?scope=${encodeURIComponent(scope)}`);
+  }
+
   return {
     setBaseUrl,
     getBaseUrl: () => baseUrl,
     apiJson,
     fetchLive,
+    fetchLiveStatus,
     fetchSettings,
     saveAssetViewMode,
     fetchDailyHistory,
@@ -150,5 +189,9 @@ export function createClient(options = {}) {
     savePortfolio,
     triggerSettle,
     fetchHealth,
+    fetchProfitCalendarApi,
+    fetchProfitRangeDetailApi,
+    fetchProfitSummaryApi,
+    fetchProfitDayDetailApi,
   };
 }

@@ -1,6 +1,4 @@
-/**
- * Snap seed / reconcile / tick 回填。
- */
+import { beijingIsoString } from '../time.js';
 import { resolveDisplaySession, toDisplayStatePayload } from '../display-session.js';
 import {
   ensureDayBaseline,
@@ -24,7 +22,16 @@ import { getReadyScopeSnap, isScopeSnapReady } from './snap-ready.js';
  * @param {object[]} impactRawList
  * @param {Date} now
  */
-function seedEodSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impactRawList, now) {
+function seedEodSnap(
+  accrualDay,
+  snapKey,
+  portfolio,
+  liveFunds,
+  totalsLive,
+  impactRawList,
+  now,
+  seedPhase,
+) {
   /** @type {Record<string, object>} */
   const fundsSnap = {};
   for (let i = 0; i < portfolio.funds.length; i++) {
@@ -37,7 +44,8 @@ function seedEodSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impa
   const rt1 = round2(Object.values(fundsSnap).reduce((s, entry) => s + (entry.rt1 ?? 0), 0));
   const baseline = getBaselineForDay(accrualDay, 'portfolio') ?? totalsLive.settledAssets;
   setScopeSnap(accrualDay, snapKey, 'portfolio', {
-    at: new Date().toISOString(),
+    at: beijingIsoString(now),
+    seedPhase,
     rt1,
     est: round2(baseline + rt1),
     funds: fundsSnap,
@@ -63,21 +71,46 @@ export function reconcileDisplayState(
   const s = session ?? resolveDisplaySession(now, { persistedPhase: getCurrentPhase() });
   const { accrualDay, clockPhase: targetPhase, snapKey } = s;
 
-  if (snapKey === 'eodSnap') {
+  if (targetPhase === 'us_regular_live') {
+    seedEodSnap(
+      accrualDay,
+      'eodSnap',
+      portfolio,
+      liveFunds,
+      totalsLive,
+      impactRawList,
+      now,
+      targetPhase,
+    );
+  } else if (snapKey === 'eodSnap' && targetPhase === 'eod_freeze') {
     const existing = getScopeSnap(accrualDay, snapKey, 'portfolio');
     if (sessionSnapNeedsReseed(existing, portfolio, liveFunds, now)) {
       if (existing) clearScopeSnap(accrualDay, snapKey, 'portfolio');
-      seedEodSnap(accrualDay, snapKey, portfolio, liveFunds, totalsLive, impactRawList, now);
+      seedEodSnap(
+        accrualDay,
+        snapKey,
+        portfolio,
+        liveFunds,
+        totalsLive,
+        impactRawList,
+        now,
+        targetPhase,
+      );
     }
-  } else if (targetPhase === 'eod_freeze' && !getScopeSnap(accrualDay, 'eodSnap', 'portfolio')) {
-    const baseline = getBaselineForDay(accrualDay, 'portfolio') ?? totalsLive.settledAssets;
-    const rt1 = round2(totalsLive.realtimeProfit ?? 0);
-    setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
-      at: new Date().toISOString(),
-      rt1,
-      est: round2(baseline + rt1),
-      funds: {},
-    });
+  } else if (
+    !getScopeSnap(accrualDay, 'eodSnap', 'portfolio') &&
+    (targetPhase === 'eod_freeze' || targetPhase === 'day_open' || targetPhase === 'asia_live')
+  ) {
+    seedEodSnap(
+      accrualDay,
+      'eodSnap',
+      portfolio,
+      liveFunds,
+      totalsLive,
+      impactRawList,
+      now,
+      targetPhase,
+    );
   }
 
   setCurrentPhase(s.phaseToPersist, now);

@@ -8,11 +8,11 @@ services:
     ports:
       - "${FUND_TRACKER_PORT:-8788}:8788"
     environment:
+      TZ: Asia/Shanghai
       PORT: 8788
       HOST: 0.0.0.0
       FUND_TRACKER_API_TOKEN: ${FUND_TRACKER_API_TOKEN:-}
       FUND_TRACKER_CORS_ORIGINS: ${FUND_TRACKER_CORS_ORIGINS:-*}
-      ML_ENABLED: "false"
     volumes:
       - .:/app
       - fund_data:/app/data

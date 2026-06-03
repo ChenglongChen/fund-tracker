@@ -20,6 +20,7 @@ import {
 import { getProxyCandidates } from '../server/valuation-profile.js';
 import { blendEnsembleImpact, ensembleAlpha, reportAgeDays } from '../server/qdii-valuation.js';
 import { computeHoldingsImpactBreakdown } from '../server/holdings-pipeline.js';
+import { beijingDateString } from '../server/time.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -102,7 +103,7 @@ function lookupIndex(indexMap, date) {
   const d = new Date(`${date}T12:00:00`);
   for (let i = 1; i <= 5; i++) {
     d.setDate(d.getDate() - 1);
-    const key = d.toISOString().slice(0, 10);
+    const key = beijingDateString(d);
     if (indexMap.has(key)) return indexMap.get(key);
   }
   return null;

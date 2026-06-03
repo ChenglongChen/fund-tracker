@@ -9,10 +9,13 @@ import {
   clearScopeSnap,
   getScopeSnap,
   loadDayDisplayState,
+  round2,
   setBaselineForDay,
   setCurrentPhase,
   setScopeSnap,
 } from './day-display-state.js';
+import { rememberFundRegular, rememberIndexRegular } from './impact-snapshots.js';
+import { seedSessionQuoteSnapshots } from './session-quotes.js';
 
 const ok = [];
 const fail = [];
@@ -98,8 +101,10 @@ reconcileDisplayState(
 );
 const eodSnap = getScopeSnap(accrualDay, 'eodSnap', 'portfolio');
 assert('eod snap exists after reconcile', eodSnap != null);
+assert('eod reconcile seeds per-fund entries', Object.keys(eodSnap?.funds ?? {}).length === 2);
 
 const asiaMidday = new Date('2026-05-28T02:00:00.000Z');
+setCurrentPhase('asia_live', asiaMidday);
 clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
   rt1: 500,
@@ -130,6 +135,109 @@ const liveAsia = [
 const mixedSnapped = liveAsia.map((row) => applyFundRt1Snap(row.id, row, accrualDay, asiaMidday));
 assert('live fund keeps live rt1 during asia relay', mixedSnapped[0].estimateProfit === 2000 && !mixedSnapped[0].displaySnap);
 assert('snap fund reads eod snap', mixedSnapped[1].displaySnap && mixedSnapped[1].estimateProfit === -1000);
+
+const eodEuBypass = new Date('2026-05-28T09:00:00.000Z'); // 17:00 BJ eod_freeze + EU regular
+setCurrentPhase('eod_freeze', eodEuBypass);
+const euLiveRow = {
+  id: 1,
+  amount: 100000,
+  market: 'us',
+  estimateProfit: 999,
+  shouldRefreshLiveRt1: true,
+  hasRegularHolding: true,
+};
+const euSnapped = applyFundRt1Snap(1, euLiveRow, accrualDay, eodEuBypass);
+assert('eod freeze ignores regular bypass', euSnapped.displaySnap && euSnapped.estimateProfit === 1500);
+
+const asiaNoSnap = new Date('2026-05-28T02:00:00.000Z');
+setCurrentPhase('asia_live', asiaNoSnap);
+clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+const indexRelayRow = {
+  id: 3,
+  name: '广发纳斯达克100',
+  amount: 200000,
+  market: 'us',
+  estimateProfit: 960,
+  impactPct: 0.48,
+  impactPctRegular: null,
+  impactSession: 'closed',
+  shouldRefreshLiveRt1: false,
+  impactSource: 'index',
+};
+rememberIndexRegular('纳斯达克100', { changePct: 0.46 });
+seedSessionQuoteSnapshots();
+rememberFundRegular(3, 0.35);
+const relaySnapped = applyFundRt1Snap(3, indexRelayRow, accrualDay, asiaNoSnap);
+assert(
+  'asia afternoon index fund uses index strip close snapshot',
+  relaySnapped.displaySnap &&
+    relaySnapped.rt1SnapSource === 'regularSnapshot' &&
+    relaySnapped.estimateProfit === round2((200000 * 0.46) / 100) &&
+    relaySnapped.impactPct === 0.46,
+);
+
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  rt1: 700,
+  est: 300700,
+  seedPhase: 'asia_live',
+  funds: {
+    3: { rt1: 700, amountAtSnap: 200000, impactPctRegular: 0.35 },
+  },
+});
+const indexWithStaleSnap = applyFundRt1Snap(3, indexRelayRow, accrualDay, asiaNoSnap);
+assert(
+  'asia afternoon index prefers index strip close over bootstrap eod snap',
+  indexWithStaleSnap.rt1SnapSource === 'regularSnapshot' &&
+    indexWithStaleSnap.estimateProfit === round2((200000 * 0.46) / 100),
+);
+
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  rt1: 700,
+  est: 300700,
+  seedPhase: 'eod_freeze',
+  funds: {
+    3: { rt1: 700, amountAtSnap: 200000, impactPctRegular: 0.35 },
+  },
+});
+setCurrentPhase('eod_freeze', new Date('2026-05-28T08:30:00.000Z'));
+const indexEodFreeze = applyFundRt1Snap(
+  3,
+  indexRelayRow,
+  accrualDay,
+  new Date('2026-05-28T08:30:00.000Z'),
+);
+assert(
+  'eod freeze index fund reads portfolio eod snap',
+  indexEodFreeze.displaySnap && indexEodFreeze.estimateProfit === 700,
+);
+
+setCurrentPhase('asia_live', asiaNoSnap);
+const usRegularWindow = new Date('2026-05-28T13:45:00.000Z'); // BJ 21:45
+setCurrentPhase('us_regular_live', usRegularWindow);
+const indexLive = applyFundRt1Snap(3, indexRelayRow, accrualDay, usRegularWindow);
+assert(
+  'us regular window keeps style index live',
+  indexLive.estimateProfit === 960 && !indexLive.displaySnap,
+);
+
+const holdingsRelayRow = {
+  id: 4,
+  amount: 100000,
+  market: 'us',
+  estimateProfit: 500,
+  impactPct: 0.5,
+  shouldRefreshLiveRt1: false,
+  hasRegularHolding: false,
+  impactSource: 'holdings',
+};
+rememberFundRegular(4, 0.25);
+const holdingsSnapped = applyFundRt1Snap(4, holdingsRelayRow, accrualDay, asiaNoSnap);
+assert(
+  'asia relay holdings fund uses regular snapshot',
+  holdingsSnapped.displaySnap &&
+    holdingsSnapped.rt1SnapSource === 'regularSnapshot' &&
+    holdingsSnapped.estimateProfit === round2((100000 * 0.25) / 100),
+);
 
 console.log(`snap-state tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {

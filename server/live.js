@@ -95,6 +95,37 @@ export function getLiveCache() {
   return cache;
 }
 
+/** @returns {{ ready: boolean, warming: boolean, fundsCount: number, updatedAt: string|null, error: string|null }} */
+export function getLiveStatus() {
+  return {
+    ready: cache.funds.length > 0 && Boolean(cache.updatedAt),
+    warming: !cache.updatedAt && !cache.error,
+    fundsCount: cache.funds.length,
+    updatedAt: cache.updatedAt || null,
+    error: cache.error,
+  };
+}
+
+/** Mac / 冷启动：等首屏 live 有 per-fund 明细再开窗 */
+export function waitForLiveCacheReady(timeoutMs = 45_000) {
+  if (cache.funds.length > 0 && cache.updatedAt) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const tick = () => {
+      if (cache.funds.length > 0 && cache.updatedAt) {
+        resolve(true);
+        return;
+      }
+      if (Date.now() >= deadline) {
+        resolve(false);
+        return;
+      }
+      setTimeout(tick, 200);
+    };
+    tick();
+  });
+}
+
 /** 切换资产口径后重算展示字段（无需重新拉行情） */
 export async function refreshLiveDisplay() {
   if (!cache.funds.length) return cache;
@@ -173,12 +204,15 @@ async function refreshLive() {
     );
 
     if (!useSourceCache) {
-      await recordLiveSnapshot({
-        beijingDate,
-        updatedAt,
-        ...totals,
-        assetViewMode: appState.assetViewMode,
-      });
+      await recordLiveSnapshot(
+        {
+          beijingDate,
+          updatedAt,
+          ...totals,
+          assetViewMode: appState.assetViewMode,
+        },
+        { persistDaily: false },
+      );
     }
 
     cache = {

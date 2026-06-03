@@ -239,12 +239,8 @@ function emptyHoldingsImpact(pack) {
 }
 
 /** @param {object[]} holdings @param {Date} now */
-export function deriveImpactSessionFromHoldings(holdings, _now) {
-  for (const h of holdings) {
-    const isUs = h.holdingMarket === 'us' || h.holdingMarket === 'other';
-    if (isUs && h.quoteSession === 'regular') return 'regular';
-  }
-  return 'closed';
+export function deriveImpactSessionFromHoldings(holdings, now) {
+  return fundHasRegularHolding(holdings, now) ? 'regular' : 'closed';
 }
 
 /** @param {object} pack @param {number|null|object} fxStrip @param {Record<string, object>} byHoldingKey @param {Date} now */
@@ -253,12 +249,16 @@ function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
   if (!holdings.length) return emptyHoldingsImpact(pack);
 
   holdings = applySessionQuotes(holdings, byHoldingKey, now);
-  const hasRegularHolding = holdings.some((h) => h.quoteSession === 'regular');
-  const liveRt1Opts = hasRegularHolding ? { liveRt1Only: true } : {};
+  const hasRegularHolding = fundHasRegularHolding(holdings, now);
+  // row1 仅计当前正盘持仓；休市/A 股/亚盘/欧股昨日收盘涨跌幅不参与 RT1
+  const liveRt1Opts = { liveRt1Only: true };
   const cov = summarizeHoldingsCoverage(holdings, liveRt1Opts);
   const impactBreakdown = computeHoldingsImpactBreakdown(holdings, fxStrip, liveRt1Opts);
+  const penetrationBreakdown = computeHoldingsImpactBreakdown(holdings, fxStrip, {});
+  const penetrationCov = summarizeHoldingsCoverage(holdings, {});
   const impactSession = deriveImpactSessionFromHoldings(holdings, now);
   const impactPct = impactBreakdown?.totalPct ?? null;
+  const holdingsImpactPct = penetrationBreakdown?.totalPct ?? null;
   const impactPctRegular =
     impactSession === 'regular' && impactPct != null ? impactPct : null;
   const displayHoldings = maskHoldingsForLiveRt1Display(holdings, hasRegularHolding);
@@ -269,6 +269,8 @@ function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
     impactSession,
     hasRegularHolding,
     impactBreakdown,
+    holdingsImpactPct,
+    penetrationQuoteCoverage: penetrationCov.quoteCoverage,
     reportDate: pack.reportDate,
     recentReportDate: pack.recentReportDate,
     annualReportDate: pack.annualReportDate,
@@ -739,7 +741,7 @@ export async function refreshFundHoldingsDisplay(result, now = new Date()) {
   }
 
   const quoted = sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now));
-  const hasRegularHolding = quoted.some((h) => h.quoteSession === 'regular');
+  const hasRegularHolding = fundHasRegularHolding(quoted, now);
   return {
     ...result,
     holdings: maskHoldingsForLiveRt1Display(quoted, hasRegularHolding),

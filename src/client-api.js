@@ -20,6 +20,7 @@ refreshApiClient();
 
 export const {
   fetchLive,
+  fetchLiveStatus,
   fetchSettings,
   saveAssetViewMode,
   fetchDailyHistory,
@@ -35,6 +36,10 @@ export const {
   savePortfolio,
   triggerSettle,
   fetchHealth,
+  fetchProfitCalendarApi,
+  fetchProfitRangeDetailApi,
+  fetchProfitSummaryApi,
+  fetchProfitDayDetailApi,
 } = client;
 
 export function setApiBaseUrl(baseUrl) {

@@ -1,8 +1,10 @@
 import { fetchFundGz, fetchFundNavInfo } from './market.js';
 import { consensusNavDate, reconcileFundNav } from './nav.js';
-import { beijingDateString, beijingTimeHm } from './time.js';
+import { beijingDateString, beijingTimeHm, beijingIsoString } from './time.js';
 import { holdingProfitPct, readPortfolio, writePortfolio } from './store.js';
 import { recordLiveSnapshot, readAppState } from './app-state.js';
+import { recordFundSettle } from './profit-ledger.js';
+import { creditDayForSettle } from './profit-attribution.js';
 import { computePortfolioTotals } from './aggregate.js';
 import { getLiveCache } from './live.js';
 import { ensureDayBaseline } from './day-display-state.js';
@@ -85,6 +87,7 @@ export async function runSettlement(portfolio, opts = {}) {
 
     events.push({
       code: fund.code,
+      fundId: fund.id,
       status: 'settled',
       navDate,
       prevNavDate: lastDate,
@@ -123,21 +126,38 @@ export async function runSettlement(portfolio, opts = {}) {
 
   if (changed && !dryRun) {
     ensureDayBaseline(portfolio);
+    const creditDay = creditDayForSettle();
+    for (const ev of events) {
+      if (ev.status !== 'settled' || ev.fundId == null) continue;
+      const fund = portfolio.funds.find((f) => f.id === ev.fundId);
+      if (!fund) continue;
+      await recordFundSettle({
+        fundId: fund.id,
+        accountId: fund.accountId,
+        code: fund.code,
+        creditDay,
+        navDate: ev.navDate,
+        settledProfit: ev.profit,
+        settledAssetsAfter: fund.amount,
+        source: 'settle',
+      });
+    }
     const consensus = consensusNavDate(portfolio.funds);
     if (consensus) {
       portfolio.meta.snapshotDate = consensus;
       portfolio.meta.snapshotLabel = portfolio.meta.snapshotLabel || '东财净值自动入账';
     }
     portfolio.meta.beijingDate = beijingDateString();
-    portfolio.meta.lastAutoSettleAt = new Date().toISOString();
+    portfolio.meta.lastAutoSettleAt = beijingIsoString();
     portfolio.meta.autoSettleSource = 'fundgz.1234567.com.cn+eastmoney';
     await writePortfolio(portfolio);
 
     const live = getLiveCache();
     const totals = computePortfolioTotals(portfolio, live.funds ?? []);
     const appState = await readAppState();
+    const calendarDay = consensus ?? beijingDateString();
     await recordLiveSnapshot({
-      beijingDate: beijingDateString(),
+      beijingDate: calendarDay,
       updatedAt: beijingTimeHm(),
       ...totals,
       assetViewMode: appState.assetViewMode,

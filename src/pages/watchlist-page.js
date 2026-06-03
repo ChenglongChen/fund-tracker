@@ -4,7 +4,7 @@
 import { escapeHtml, fmtPct, pctClass } from '../format.js';
 import { app } from '../app/context.js';
 import { renderShell, renderLiveBanner, patchLiveBanner, renderEmptyState } from '../components/shell.js';
-import { renderBottomChrome, renderIndexSheetMask, showIndexTicker, patchIndexTicker } from '../components/index-dock.js';
+import { renderBottomChrome, patchIndexTicker } from '../components/index-dock.js';
 import { renderHeadDateBlock, renderHeadSortArrows } from '../pages/list-page.js';
 import { hasRealtimeProfit } from '../components/session.js';
 import { setTextClass } from '../dom.js';
@@ -115,8 +115,6 @@ export function renderWatchlistSearchBar() {
 }
 
 export function renderWatchlistPage() {
-  const dockClass = showIndexTicker() ? ' has-index-dock' : '';
-  const sheetClass = app().state.indexDrawerOpen && showIndexTicker() ? ' index-sheet-open' : '';
   const rows = app().state.watchlistRows ?? [];
   const body =
     rows.length > 0
@@ -128,7 +126,7 @@ export function renderWatchlistPage() {
 
   return renderShell(
     `
-    <section class="portfolio-page has-bottom-nav${dockClass}${sheetClass} ${watchlistGridClass()}">
+    <section class="portfolio-page has-bottom-nav ${watchlistGridClass()}">
       <div class="portfolio-sticky">
         ${renderWatchlistSearchBar()}
         ${renderLiveBanner()}
@@ -137,7 +135,6 @@ export function renderWatchlistPage() {
       <div class="holding-list-scroll tab-scroll" id="watchlist-scroll">
         <section class="holding-list holding-list--watchlist">${body}</section>
       </div>
-      ${showIndexTicker() ? renderIndexSheetMask() : ''}
       ${renderBottomChrome()}
     </section>`,
   );

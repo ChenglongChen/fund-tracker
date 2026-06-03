@@ -5,7 +5,7 @@ import { fetchFundGz, fetchFundNavInfo, fetchMarketStrip, resolvePortfolioImpact
 import { readAppState, writeAppState } from './app-state.js';
 import { buildDisplayFundRows } from './live-pipeline.js';
 import { buildDisplayContext } from './aggregate.js';
-import { beijingDateString, beijingTimeHms } from './time.js';
+import { beijingDateString, beijingTimeHms, beijingIsoString } from './time.js';
 import { getLiveCache } from './live.js';
 import { classifyFundMarket } from './components/market-hours.js';
 import { profitFromNavChgRt } from './nav.js';
@@ -25,7 +25,7 @@ export async function readWatchlist() {
     .map((x) => ({
       code: String(x.code),
       name: String(x.name || x.code),
-      addedAt: x.addedAt || new Date().toISOString(),
+      addedAt: x.addedAt || beijingIsoString(),
     }));
 }
 
@@ -52,7 +52,7 @@ export async function addWatchlistItem(code, name) {
   const items = await readWatchlist();
   if (items.some((x) => x.code === c)) throw new Error(`基金 ${c} 已在自选列表中`);
   const resolved = await resolveName(c, name);
-  const next = [{ code: c, name: resolved, addedAt: new Date().toISOString() }, ...items];
+  const next = [{ code: c, name: resolved, addedAt: beijingIsoString() }, ...items];
   return writeWatchlist(next);
 }
 

@@ -28,6 +28,7 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
     { ...f, lastNavDate: settled.settledNavDate ?? f.lastNavDate },
     beijingDate,
     now,
+    navInfo,
   );
   const displayImpact = resolveLiveDisplayImpact(f.id, windows.market, impactRaw, now);
   const {

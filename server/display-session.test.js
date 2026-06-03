@@ -38,6 +38,8 @@ assert('regular rt1 live', resolveDisplaySession(usRegular).rt1Source === 'live'
 
 assert('former afterhours closed', resolveDisplaySession(formerAfterhours).usPhase === 'closed');
 assert('former afterhours day_open', resolveDisplaySession(formerAfterhours).clockPhase === 'day_open');
+assert('former afterhours day_open snap', resolveDisplaySession(formerAfterhours).snapKey === 'eodSnap');
+assert('former afterhours day_open rt1 snap', resolveDisplaySession(formerAfterhours).rt1Source === 'snap');
 
 assert('asia live us closed', resolveDisplaySession(asiaLive).usPhase === 'closed');
 assert(
