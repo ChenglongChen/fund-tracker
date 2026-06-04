@@ -57,7 +57,7 @@ resolveDisplaySession (一次/tick)
 |------|------|
 | `suppress.js` | A 股 suppress 判定 + row1 强制清空 |
 | `market-hours.js` | 交易时段、顶栏 chip、fmtMd |
-| `extended-row.js` | row2 extended 金额（pct × amount） |
+| `snap-index-style.js` | US 指数型 fund snap / live 门控 |
 | `table-head.js` | 列表表头日期汇总 |
 | `snap-ready.js` | snap 是否含 per-fund 明细 |
 | `snap-entry.js` | 单基金 snap 条目（复制 ep） |

@@ -1,6 +1,11 @@
 import { fetchFundNavInfo, fetchMarketStrip, resolvePortfolioImpacts, resolveFxStripFromMarket } from './market.js';
 import { readPortfolio } from './store.js';
-import { beijingDateString, beijingTimeHms } from './time.js';
+import { beijingDateString, beijingTimeHms, serverNow } from './time.js';
+import {
+  isScreenshotMode,
+  buildScreenshotMarketStrip,
+  buildScreenshotPortfolioImpacts,
+} from './screenshot-bundle.js';
 import { readAppState, recordLiveSnapshot } from './app-state.js';
 import { buildDisplayContext, pickDisplayTotals } from './aggregate.js';
 import {
@@ -131,7 +136,7 @@ export async function refreshLiveDisplay() {
   if (!cache.funds.length) return cache;
   const portfolio = await readPortfolio();
   const appState = await readAppState();
-  const now = new Date();
+  const now = serverNow();
   const { funds, totals, totalsByAccount } = reapplyDisplayFromCachedFunds(portfolio, cache.funds, now);
   cache.funds = funds;
   cache.totals = totals;
@@ -157,30 +162,29 @@ async function refreshLive() {
   }
   liveBusy = true;
   try {
-    const now = new Date();
+    const now = serverNow();
     const updatedAt = beijingTimeHms(now);
     const beijingDate = beijingDateString(now);
 
-    const [portfolio, strip, appState] = await Promise.all([
-      readPortfolio(),
-      fetchMarketStrip(now),
-      readAppState(),
-    ]);
+    const [portfolio, appState] = await Promise.all([readPortfolio(), readAppState()]);
+    const strip = isScreenshotMode()
+      ? buildScreenshotMarketStrip(now)
+      : await fetchMarketStrip(now);
     const fxStrip = resolveFxStripFromMarket(strip);
     const fxPct = fxStrip?.fxPct ?? fxStrip?.usd ?? strip.find((x) => x.label === '汇率')?.changePct ?? null;
 
     const useSourceCache = !shouldRunFullImpactRefresh();
-    const [impacts, navInfos] = await Promise.all([
-      resolvePortfolioImpacts(
-        portfolio.funds,
-        strip,
-        fxStrip ?? fxPct,
-        now,
-        useSourceCache ? fundImpactSourceCache : new Map(),
-        { skipAsiaSupplement: false },
-      ),
-      Promise.all(portfolio.funds.map((f) => fetchFundNavInfo(f.code))),
-    ]);
+    const impacts = isScreenshotMode()
+      ? buildScreenshotPortfolioImpacts(portfolio.funds)
+      : await resolvePortfolioImpacts(
+          portfolio.funds,
+          strip,
+          fxStrip ?? fxPct,
+          now,
+          useSourceCache ? fundImpactSourceCache : new Map(),
+          { skipAsiaSupplement: false },
+        );
+    const navInfos = await Promise.all(portfolio.funds.map((f) => fetchFundNavInfo(f.code)));
     rememberImpactSources(portfolio.funds, impacts);
     if (!useSourceCache) lastFullRefreshAt = Date.now();
 

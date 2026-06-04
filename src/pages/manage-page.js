@@ -106,7 +106,7 @@ export function renderManageAddPage() {
         <div class="form-grid form-grid--page">
           <label class="form-field form-field--full">
             <span class="form-label">基金代码</span>
-            <input class="form-input" id="add-fund-code" inputmode="numeric" maxlength="6" placeholder="6位，如 022184" value="${escapeHtml(draft.code)}" />
+            <input class="form-input" id="add-fund-code" inputmode="numeric" maxlength="6" placeholder="6位，如 012922" value="${escapeHtml(draft.code)}" />
           </label>
           <label class="form-field form-field--full">
             <span class="form-label">名称（可选）</span>

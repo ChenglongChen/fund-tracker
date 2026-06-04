@@ -261,7 +261,7 @@ function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
   const holdingsImpactPct = penetrationBreakdown?.totalPct ?? null;
   const impactPctRegular =
     impactSession === 'regular' && impactPct != null ? impactPct : null;
-  const displayHoldings = maskHoldingsForLiveRt1Display(holdings, hasRegularHolding);
+  const displayHoldings = maskHoldingsForLiveRt1Display(holdings, hasRegularHolding, now);
   return {
     impactPct,
     impactPctRegular,
@@ -744,7 +744,7 @@ export async function refreshFundHoldingsDisplay(result, now = new Date()) {
   const hasRegularHolding = fundHasRegularHolding(quoted, now);
   return {
     ...result,
-    holdings: maskHoldingsForLiveRt1Display(quoted, hasRegularHolding),
+    holdings: maskHoldingsForLiveRt1Display(quoted, hasRegularHolding, now),
   };
 }
 

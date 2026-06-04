@@ -146,7 +146,7 @@ function metrics(truth, pred) {
   };
 }
 
-/** 联接/同类 proxy：见 server/valuation-config.js FEEDER_MAP */
+/** 联接/同类 proxy：见 server/valuation-profile.js FEEDER_MAP */
 
 /** @param {string} name */
 function indexKeyForFund(name) {
@@ -469,7 +469,7 @@ async function main() {
   console.log('\n说明:');
   console.log('  · 纳指/标普 QDII 用同类联接基金(006479/050025)历史往往最接近官方');
   console.log('  · fundgz 盘中估值对应「下一净值日」，不宜与「当日已公布 NAV」直接比');
-  console.log('  · 345569 站点为前端穿透计算，本脚本用持仓穿透+指数+联接 proxy 近似其思路\n');
+  console.log('  · 第三方站点多为前端穿透计算，本脚本用持仓穿透+指数+联接 proxy 近似\n');
 }
 
 main().catch((e) => {

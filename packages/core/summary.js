@@ -94,10 +94,6 @@ export function buildSummary(rows, canonicalTotals = null, _displayState = null)
   };
 }
 
-export function hasExtendedSummaryLayout(_summary) {
-  return false;
-}
-
 export function estimatedAssetsForRow(f) {
   if (f.estimateAssets != null && Number.isFinite(f.estimateAssets)) return f.estimateAssets;
   const ep = rowRt1(f);

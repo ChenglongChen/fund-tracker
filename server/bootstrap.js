@@ -7,6 +7,7 @@ import { setStooqQuotesUpdatedHandler } from './asia-quotes.js';
 import { mergeSharedHoldingQuotes } from './market.js';
 import { startSchedulers, requestLiveRefresh } from './live.js';
 import { settleIfNeeded } from './settle.js';
+import { isScreenshotMode } from './screenshot-bundle.js';
 import { readAppState } from './app-state.js';
 import { migratePortfolioFromDailyRecords, readProfitLedger } from './profit-ledger.js';
 import { backfillProfitLedger } from './profit-backfill.js';
@@ -20,7 +21,7 @@ export async function bootstrapServer() {
   const appStateBoot = await readAppState();
   await migratePortfolioFromDailyRecords(appStateBoot.dailyRecords);
   const ledgerBoot = await readProfitLedger();
-  if (Object.keys(ledgerBoot.days ?? {}).length === 0) {
+  if (!isScreenshotMode() && Object.keys(ledgerBoot.days ?? {}).length === 0) {
     console.log('[profit] profitLedger empty — backfilling recent history…');
     try {
       const portfolio = await readPortfolio();

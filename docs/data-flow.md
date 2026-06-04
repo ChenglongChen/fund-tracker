@@ -34,7 +34,7 @@ flowchart TB
 |------|-----------|--------|
 | `estimateProfit` (row1) | `fund-display.buildDisplayFundRow` → snap 复制 | API funds、aggregate 求和、前端透传 |
 | `realtimeProfit` (header RT1) | `aggregate.computePortfolioTotals` = Σ ep | API totals、前端 SCOPE_ALL Hero |
-| `realtimeAssets` (header EST) | `applyPortfolioTotalsSnap` = baseline + RT1 | API totals、前端 SCOPE_ALL Hero |
+| `realtimeAssets` (header EST) | `resolvePortfolioRealtimeAssets` → `Σ estimateAssets`；snap 阶段 `applyPortfolioTotalsSnap` | API totals、前端 SCOPE_ALL Hero |
 | raw `impactPct*` | `market.js` 穿透 | fund-display 输入 only |
 
 ### buildDisplayFundRow 字段来源
@@ -79,55 +79,52 @@ snap 阶段 portfolio 仍可用 `baseline + realtimeProfit` 防止入账跳变�
 // fallback：Σ estimateAssets 或 amount+ep — 禁止 amount−settled+ep
 ```
 
-## 3. 美股 extended 拆分
+## 3. 展示 phase（北京时间）
 
-```
-raw impactPct (total)
-    ├── impactPctRegular  → row1 / RT1 / header
-    └── impactPctExtended → row2（盘前/盘后，不计入 header）
-```
+与 `display-session.inferDisplayPhaseFromClock` 一致（详见 [realtime-spec.md §7](./realtime-spec.md)）：
 
-| 时段（北京） | row1 | row2 |
-|--------------|------|------|
-| 16:00–21:30 盘前 | snap | live |
-| 21:30–04:00 正盘 | live (regular+extended) | — |
-| 04:00–08:00 盘后 | snap（正盘定稿） | live |
+| 时段 (BJ) | phase | RT1 / row1 |
+|-----------|-------|------------|
+| 08:00–16:00 | `asia_live` | 有 regular 持仓则 live，否则 snap |
+| 16:00–21:30 | `eod_freeze` | **eodSnap** |
+| 21:30–04:00 | `us_regular_live` | live（仅正盘持仓计入 RT1） |
+| 04:00–08:00 | `day_open` | per-fund 门控 + snap |
+
+穿透层可能仍携带 `impactPctExtended` 字段；**当前展示会话不以盘前/盘后独立 freeze**，header RT1 以 `estimateProfit` / snap 为准。
 
 ## 4. 展示状态机
 
 ```mermaid
 stateDiagram-v2
   direction LR
-  AsiaLive: 亚太 live
-  PremarketFreeze: 盘前 snap
-  UsRegular: 正盘 live
-  AfterhoursFreeze: 盘后 snap
-  EodFreeze: EOD snap
+  AsiaLive: asia_live
+  EodFreeze: eod_freeze
+  UsRegular: us_regular_live
+  DayOpen: day_open
 
-  AsiaLive --> PremarketFreeze: 16:00
-  PremarketFreeze --> UsRegular: 21:30 clear premarketSnap
-  UsRegular --> AfterhoursFreeze: 04:00
-  AfterhoursFreeze --> AsiaLive: 08:00
-  AsiaLive --> EodFreeze: 全日休市
+  AsiaLive --> EodFreeze: 16:00
+  EodFreeze --> UsRegular: 21:30
+  UsRegular --> DayOpen: 04:00
+  DayOpen --> AsiaLive: 08:00
 ```
 
-实现入口：`live-pipeline.runLiveDisplayPipeline()` → 内部 `components/snap-seed.reconcileDisplayState()`。
+实现入口：`live-pipeline.runLiveDisplayPipeline()` → `reconcileDisplayState` → `applyDisplaySnapAndTotals`。
 
 ### 钩子
 
 | 事件 | 行为 |
 |------|------|
-| 首次进入 premarket/afterhours | 写入 `premarketSnap` / `afterhoursSnap` |
-| 21:30 US regular | `clearScopeSnap(premarketSnap)`，phase=`us_regular_live` |
-| 08:00+ 休市 | 写入 `eodSnap`（若缺失） |
-| settle NAV | 仅更新 portfolio；**不** clear snap |
+| 进入 `eod_freeze` | 写入 / 保留 `eodSnap`（per-fund rt1、`amountAtSnap`） |
+| 21:30 US regular | phase=`us_regular_live`，RT1 live |
+| settle NAV | 仅更新 `portfolio.json`；**不** clear snap |
+| 截图模式 | `FUND_TRACKER_SCREENSHOT=1` 跳过自动入账写回 portfolio |
 
 ## 5. 持久化
 
 | 文件 | 内容 |
 |------|------|
 | `data/portfolio.json` | 持仓 amount、份额、净值日 |
-| `data/day-display-state.json` | `baseline`、`premarketSnap`、`afterhoursSnap`、`eodSnap`、`currentPhase` |
+| `data/day-display-state.json` | `baseline`、`eodSnap`、`currentPhase`、`rt1AccrualDay` |
 | `data/impact-snapshots.json` | 穿透 `impactPctRegular`（按 fundId） |
 | `data/app-state.json` | `intradayTicks`（backfill 用）、`dailyRecords` |
 | `data/valuation-profiles.json` | 估值策略（本地生成，见 example） |
@@ -136,19 +133,19 @@ stateDiagram-v2
 
 ```json
 {
-  "currentBeijingDate": "2026-05-27",
-  "currentPhase": "us_regular_live",
-  "rt1AccrualDay": "2026-05-27",
+  "currentBeijingDate": "2026-05-29",
+  "currentPhase": "eod_freeze",
+  "rt1AccrualDay": "2026-05-29",
   "days": {
-    "2026-05-27": {
-      "baseline": { "portfolio": 300000 },
+    "2026-05-29": {
+      "baseline": { "portfolio": 310000 },
       "scopes": {
         "portfolio": {
-          "baseline": 300000,
-          "premarketSnap": {
-            "rt1": 1200,
-            "est": 301200,
-            "funds": { "2": { "rt1": -80, "amountAtSnap": 50000 } }
+          "baseline": 310000,
+          "eodSnap": {
+            "rt1": 2014,
+            "est": 312014,
+            "funds": { "1": { "rt1": 850, "amountAtSnap": 100000 } }
           }
         }
       }
@@ -156,6 +153,8 @@ stateDiagram-v2
   }
 }
 ```
+
+完整示例见 [`scripts/fixtures/screenshot/day-display-state.json`](../scripts/fixtures/screenshot/day-display-state.json)。
 
 ### rt1AccrualDay
 

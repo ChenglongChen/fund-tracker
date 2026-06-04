@@ -1,14 +1,17 @@
 # 实时收益功能规格
 
-> 基准场景：**北京时间 2026-05-27、支付宝账户（16 只、约 161 万）**
+> 基准场景：**仓库示例组合**（[`scripts/fixtures/screenshot/`](../scripts/fixtures/screenshot/)，5 只基金、合计 ¥310,000；截图冻结时刻 `2026-05-29T17:00+08:00` · `eod_freeze`）
 
-## 1. 基准数字
+## 1. 基准数字（示例数据）
 
 | 项目 | 数值 |
 |------|------|
-| 5/26 入账总资产 | ¥1,611,000 |
-| 5/27 实时收益（header RT1） | ~¥19,133（含 5/26 美股正盘 + 5/27 亚太正盘） |
-| 5/27 预估资产（16:00 EOD 冻结后） | ¥1,611,000 + ¥19,133 ≈ **¥1,630,133** |
+| 入账总资产（Σ amount） | ¥310,000 |
+| 实时收益 RT1（header） | ¥2,014 |
+| 预估资产 EST（EOD snap） | ¥312,014 |
+| 支付宝 scope（3 只） | 资产 ¥170,000 · RT1 ¥710 · EST ¥170,710 |
+
+自托管实盘数字因持仓而异；验收以 `npm run test:*` 与 [CONTRIBUTING.md](../CONTRIBUTING.md) 中的脚本为准。
 
 ## 2. Canonical 公式
 
@@ -88,7 +91,7 @@
 - 无 regular 持仓 → 读 `eodSnap` 中 per-fund `rt1`，不更新实时行情
 - 无穿透时（fundgz / index / proxy）：按基金归类市场判断（A 股/黄金用 `isRealtimeMarketOpen`；美股 QDII 用 `usPhase === regular`）
 
-### 规则 8 — QDII 穿透 T+1 live（21:30 US 正盘，例 022184）
+### 规则 8 — QDII 穿透 T+1 live（21:30 US 正盘，例 270023）
 
 当组合内 **任一**持仓 `quoteSession === 'regular'`（通常 US 正盘）：
 
@@ -96,7 +99,8 @@
 |----|------|
 | RT1 计算 | `liveRt1Only: true` — 仅 `countsTowardLiveRt1`（`quoteSession === 'regular'`）持仓加权 |
 | 已收盘持仓（HK/JP/亚太等） | **不计入** T+1 RT1；`changePct` 置 `null` |
-| 详情页展示 | 涨跌幅列 **`—`**；`liveRt1Excluded: true` → 状态列也 **`—`**（尚未进入该市场 T+1 正盘） |
+| A 股/台股 **当日已收盘**（`quoteMode=close`，非 21:30–09:30 suppress） | **仍展示**收盘涨跌幅与「已收盘」；仅不参与 row1 加权 |
+| 详情页展示（HK/JP 等休市） | 涨跌幅列 **`—`**；`liveRt1Excluded: true`（尚未进入该市场 T+1 正盘） |
 | 唯一 writer | `maskHoldingsForLiveRt1Display`（`holdings-pipeline.js`） |
 
 **易错**：`refreshFundHoldingsDisplay`（`/api/fund/:code/detail`）在 `applySessionQuotes` 后 **必须**再调 `maskHoldingsForLiveRt1Display`，否则详情页仍显示腾讯等收盘涨跌幅（列表/live 已掩码、详情未掩码）。
@@ -112,7 +116,7 @@
 | 输出 | `impactSource`: `holdings` / `ensemble` / `fundgz`；详情 API 附带 `valuationConfidence`、`holdingsImpactPct`、`fundgzImpactPct` |
 | 唯一 writer | `applyHoldingsEnsemble`（`qdii-valuation.js`），由 `market.js` 穿透路径调用 |
 
-回测：`node scripts/backtest-valuation.js --code=022184`；单测：`npm run test:qdii-valuation`。
+回测：`node scripts/backtest-valuation.js --code=270023`；单测：`npm run test:qdii-valuation`。
 
 ### 规则 9 — 多 Tab 预估一致
 
@@ -126,7 +130,7 @@
 
 ## 4. A 股基金 + 美股正盘
 
-跟 A 股时段的基金（如 022364、001753、华安黄金 000216）：
+跟 A 股时段的基金（如示例 `022364`、`000216`）：
 
 - **每交易日 21:30 至次交易日 9:30 前** → 实时收益显示 **`—`**（含 21:30–04:00 美股正盘、04:00–09:30 休市）
 - **同日 15:00–21:30** → 可展示最后一次收盘估值 snapshot
@@ -167,6 +171,6 @@ npm run build   # 动 src/components/session.js 或 detail-page
 **人工 spot check**（US 正盘时段）：
 
 ```bash
-curl -s http://localhost:8788/api/fund/022184/detail | jq '.holdings[] | select(.name|test("腾讯")) | {changePct,liveRt1Excluded,quoteSession}'
-# 期望：changePct null，liveRt1Excluded true
+# 示例：US 正盘时段 QDII 详情，已收盘 HK 持仓应被掩码（基金 code 以你持仓为准）
+curl -s http://localhost:8788/api/fund/270023/detail | jq '.holdings[] | {name,changePct,quoteSession}'
 ```

@@ -428,8 +428,7 @@ html.is-phone-shell .has-bottom-nav {
 .page-scroll,
 .tab-scroll,
 .profile-page-scroll,
-.profit-page-scroll,
-.market-page-scroll {
+.profit-page-scroll {
   padding-bottom: var(--tab-scroll-pad-bottom);
   scroll-padding-bottom: var(--tab-scroll-pad-bottom);
 }
@@ -2892,15 +2891,6 @@ html[data-theme='dark'] .bottom-tabs {
   color: var(--text-muted);
 }
 
-.market-page {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: hidden;
-  position: relative;
-}
-
 .profile-page {
   /* 与 portfolio-page 共用 grid / sticky / scroll */
 }
@@ -3613,183 +3603,6 @@ html[data-theme='dark'] .profit-range-card.is-down {
   background: rgba(67, 160, 71, 0.16);
 }
 
-.market-page.has-index-dock {
-  --chrome-dock-h: var(--index-dock-h);
-}
-
-.market-page-sticky {
-  grid-row: 1;
-  flex-shrink: 0;
-  z-index: 10;
-  background: var(--bg-page);
-  border-bottom: 1px solid var(--border-light);
-}
-
-.market-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding: 0 4px;
-}
-
-.market-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.market-tab {
-  flex-shrink: 0;
-  margin: 0;
-  padding: 12px 14px 10px;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 1.2;
-  white-space: nowrap;
-  position: relative;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.market-tab.is-active {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.market-tab.is-active::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 22px;
-  height: 3px;
-  border-radius: 2px;
-  background: #f5a623;
-}
-
-.market-page-scroll {
-  grid-row: 2;
-  flex: 1;
-  min-height: 0;
-}
-
-.market-page-head {
-  padding: 10px var(--list-pad-x) 8px;
-}
-
-.market-page-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.market-page-sub {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.market-section {
-  padding: 0 var(--list-pad-x) 16px;
-}
-
-.market-section-title {
-  margin: 12px 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.market-index-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px var(--list-pad-x) 16px;
-}
-
-.market-index-card {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding: 10px 8px 8px;
-  border-radius: 8px;
-  background: var(--bg-muted);
-  border: 0;
-}
-
-.market-index-card-name {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.market-index-card-tag {
-  margin-top: 2px;
-  font-size: 10px;
-  color: var(--primary);
-}
-
-.market-index-card-price {
-  margin: 6px 0 0;
-  font-size: 16px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.market-index-card-change-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 4px 0 0;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-
-.market-index-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.market-index-card-ext {
-  margin: 2px 0 0;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-.market-card-spark {
-  display: block;
-  width: 100%;
-  height: 28px;
-  margin-top: auto;
-  padding-top: 6px;
-}
-
-.market-empty {
-  padding: 48px 20px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
 @media (max-width: 520px) {
   /* iPhone 15 逻辑宽 393pt；同档设备 ≤520px */
   :root {
@@ -3860,36 +3673,7 @@ html[data-theme='dark'] .profit-range-card.is-down {
   .list-table-head,
   .holding-row,
   .watchlist-search-bar,
-  .market-page-sticky,
   .profile-page-sticky .profile-page-head {
-    padding-left: max(var(--list-pad-x), var(--safe-left));
-    padding-right: max(var(--list-pad-x), var(--safe-right));
-  }
-
-  .market-index-grid {
-    padding-left: max(var(--list-pad-x), var(--safe-left));
-    padding-right: max(var(--list-pad-x), var(--safe-right));
-  }
-
-  .market-tab {
-    min-height: 44px;
-    padding: 10px 12px 8px;
-    font-size: 14px;
-  }
-
-  .market-index-card-price {
-    font-size: 14px;
-  }
-
-  .market-index-card-name {
-    font-size: 12px;
-  }
-
-  .market-index-card-change-line {
-    font-size: 10px;
-  }
-
-  .market-page-head {
     padding-left: max(var(--list-pad-x), var(--safe-left));
     padding-right: max(var(--list-pad-x), var(--safe-right));
   }
@@ -4137,7 +3921,6 @@ html.is-phone-shell .phone-page {
 }
 
 html.is-phone-shell .portfolio-page,
-html.is-phone-shell .market-page,
 html.is-phone-shell .profile-page,
 html.is-phone-shell .profit-page {
   height: 100%;
@@ -4147,7 +3930,6 @@ html.is-phone-shell .profit-page {
 
 html.is-phone-shell .holding-list-scroll,
 html.is-phone-shell .tab-scroll,
-html.is-phone-shell .market-page-scroll,
 html.is-phone-shell .profile-page-scroll,
 html.is-phone-shell .profit-page-scroll {
   min-height: 0;
@@ -4256,7 +4038,6 @@ html.is-desktop-app .phone-page {
 }
 
 html.is-desktop-app .portfolio-page,
-html.is-desktop-app .market-page,
 html.is-desktop-app .profile-page,
 html.is-desktop-app .profit-page {
   height: 100%;
@@ -4266,7 +4047,6 @@ html.is-desktop-app .profit-page {
 
 html.is-desktop-app .holding-list-scroll,
 html.is-desktop-app .tab-scroll,
-html.is-desktop-app .market-page-scroll,
 html.is-desktop-app .profile-page-scroll,
 html.is-desktop-app .profit-page-scroll {
   min-height: 0;

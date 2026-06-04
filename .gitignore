@@ -1,8 +1,14 @@
 node_modules
 dist
+build/
 build
 .DS_Store
 .env
+.env.*
+!.env.example
+
+# Screenshot / local API 临时数据
+.tmp/screenshot-data/
 
 # Python / ML 遗留（项目已无 ML 模块）
 .venv/
@@ -16,6 +22,11 @@ data/portfolio.json
 data/app-state.json
 data/day-display-state.json
 data/impact-snapshots.json
+data/valuation-profiles.json
+
+# 私有验收基准（复制 *.example.json 后填写）
+*.local.json
+scripts/fixtures/*.local.json
 
 # 本地临时文件（校准日志、东财抓包、PDF、备份等）
 data/_*

@@ -18,6 +18,20 @@ export {
   beijingDateTimeString,
 };
 
+/** README 截图：固定「当前时刻」，避免各页随真实时钟漂移 */
+let _frozenNow = null;
+
+/** @returns {Date} */
+export function serverNow() {
+  if (_frozenNow) return _frozenNow;
+  const raw = process.env.FUND_TRACKER_NOW;
+  if (raw) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) _frozenNow = d;
+  }
+  return _frozenNow ?? new Date();
+}
+
 /** @param {Date} [date] @returns {number} 0=Sun … 6=Sat（北京时间） */
 export function beijingWeekday(date = new Date()) {
   const s = new Intl.DateTimeFormat('en-US', {

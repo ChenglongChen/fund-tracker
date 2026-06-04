@@ -1,9 +1,67 @@
 # fund-tracker
 
+**English** — Multi-account mutual-fund portfolio dashboard (Node API + Vite PWA). Aggregates holdings across brokers, shows **settled daily P/L** from official NAV, and **intraday estimated P/L (RT1)** via holdings penetration or index proxies. Session-aware rules for A-share, US QDII, and snap/freeze windows (Beijing time). Optional Mac app (Swift + embedded API), iOS (Capacitor), and WeChat mini program clients.
+
+```bash
+npm install && npm run dev    # Web :5178, API :8788
+npm run build && PORT=8788 npm start
+```
+
+| | |
+|--|--|
+| Docs (ZH) | [docs/README.md](./docs/README.md) · spec: [realtime-spec.md](./docs/realtime-spec.md) |
+| Contribute | [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) |
+| License | [MIT](./LICENSE) |
+| Demo data | [scripts/fixtures/screenshot/](./scripts/fixtures/screenshot/) — do not commit real `data/` |
+
+Full README below is in **Chinese** (product UI is Chinese-first).
+
+---
+
 多账户基金持仓看板。聚合各渠道持仓，展示当日收益与盘中实时预估，支持分市场行情、账户概况与大盘指数。
 
-**文档**：[docs/README.md](./docs/README.md) — 架构、数据流、实时收益规格、用户手册、开发指南  
+**License:** [MIT](./LICENSE) · **文档**：[docs/README.md](./docs/README.md) · **贡献**：[CONTRIBUTING.md](./CONTRIBUTING.md)  
 **Cursor**：[AGENTS.md](./AGENTS.md) — Agent 入口；规则见 [.cursor/rules/](./.cursor/rules/)
+
+## 预览
+
+Mac App（iPhone 15 手机壳 · **浅色** · 统一示例数据 [`scripts/fixtures/screenshot/`](./scripts/fixtures/screenshot/)，由 `npm run screenshot:readme` 生成）。下方按 **持仓 / 收益 / 自选 / 我的** 四区说明；图集见 [`docs/screenshots/`](./docs/screenshots/)。
+
+### 持仓
+
+多账户 Hero + 列表同构：**实时收益 row1**、当日收益、持有收益；顶栏 Tab 切换 **账户概况 / 全部持仓 / 单渠道**。
+
+| 账户概况 | 全部持仓 |
+|:---:|:---:|
+| ![账户概况：各渠道资产与实时/当日/持有收益](./docs/screenshots/holdings-summary.png) | ![全部持仓：基金列表与 row1 实时估值](./docs/screenshots/holdings-all.png) |
+
+单渠道视图与 **QDII 重仓穿透**详情（穿透层 live 算，展示层按 session snap / live）：
+
+| 支付宝 · 单渠道 | 基金详情 · 穿透 |
+|:---:|:---:|
+| ![支付宝渠道持仓列表](./docs/screenshots/holdings-account.png) | ![270023 全球精选重仓穿透与实时涨跌](./docs/screenshots/holdings-detail.png) |
+
+### 收益
+
+**收益日历**按入账日（creditDay）聚合；**账户汇总**卡片展示各渠道月度/最近入账。
+
+| 收益日历（全部持仓） | 账户收益汇总 |
+|:---:|:---:|
+| ![月历格展示逐日入账盈亏](./docs/screenshots/profit-calendar.png) | ![各账户收益汇总卡片](./docs/screenshots/profit-summary.png) |
+
+### 自选
+
+独立于持仓的观察列表，支持实时估值与穿透详情（无金额列）。
+
+| 自选列表 | 自选详情 |
+|:---:|:---:|
+| ![自选基金列表与涨跌幅](./docs/screenshots/watchlist.png) | ![自选基金穿透详情](./docs/screenshots/watchlist-detail.png) |
+
+### 我的
+
+主题、隐私模式、资产口径与 Remote API 连接（Mac 本地 / VPS 远程）。
+
+![我的：设置与 API 连接](./docs/screenshots/profile.png)
 
 ## 功能
 
@@ -112,6 +170,8 @@ ipconfig getifaddr en0
 
 ```
 fund-tracker/
+├── apps/          # Mac Swift 壳、Capacitor iOS、微信小程序
+├── packages/      # core / api-client / storage 共享包
 ├── docs/          # 架构、数据流、规格、手册
 ├── src/           # 前端界面
 ├── server/        # API、行情、入账、估值与展示状态机
@@ -127,6 +187,13 @@ fund-tracker/
 | GET | `/api/portfolio` | 读取持仓 |
 | PUT | `/api/portfolio` | 更新持仓 |
 | GET | `/api/live` | 实时估值、totals、displayState（约 1s 刷新） |
+| GET | `/api/live/status` | live 就绪探测 |
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/watchlist` | 自选列表 |
+| GET | `/api/watchlist/live` | 自选实时 |
+| GET | `/api/profit/calendar` | 收益日历 |
+| GET | `/api/profit/summary` | 收益汇总 |
+| GET | `/api/profit/day/:date` | 单日收益明细 |
 | GET | `/api/settings` | 读取设置 |
 | PUT | `/api/settings` | 更新设置（如资产口径） |
 | GET | `/api/fund/:code/detail` | 单基金重仓穿透 |
@@ -140,9 +207,12 @@ fund-tracker/
 
 ```bash
 npm run test:fund-estimate
+npm run test:display-session && npm run test:live-pipeline
 npm run test:realtime-profit
+npm run test:profit-calendar
 npm run verify:alipay-realtime    # 需 API 运行
 npm run verify:tab-reconcile
+npm run verify:profit-calendar
 ```
 
 ## 估值校准（可选）
@@ -151,6 +221,31 @@ npm run verify:tab-reconcile
 npm run calibrate:valuation
 npm run backtest:valuation
 ```
+
+## 贡献
+
+见 [CONTRIBUTING.md](./CONTRIBUTING.md)。安全问题见 [SECURITY.md](./SECURITY.md)。
+
+## 开源与隐私
+
+本项目可公开源码；**请勿提交个人持仓与密钥**。
+
+| 类型 | 处理方式 |
+|------|----------|
+| 持仓 / 收益 / snap | `data/portfolio.json`、`app-state.json` 等已在 `.gitignore` |
+| 估值校准 | 仓库仅含 `data/valuation-profiles.example.json`；本地 `valuation-profiles.json` 不提交 |
+| 验收基准 | `scripts/fixtures/*.local.json` 不提交；用 `*.example.json` 作结构参考 |
+| API Token | 复制 `.env.example` → `.env`，设置 `FUND_TRACKER_API_TOKEN`；勿写入代码 |
+| 远程部署 | 客户端通过 `Authorization: Bearer` 携带 token；`VITE_API_TOKEN` 仅用于构建/本地 |
+
+公开仓库前建议：
+
+```bash
+git status   # 确认无 data/*.json（除 example）、无 .env
+gitleaks detect --source . -v   # 可选：扫描历史密钥
+```
+
+行情数据来自东财、新浪等公开接口，仅供个人学习参考；请遵守各平台服务条款。
 
 ## 免责声明
 

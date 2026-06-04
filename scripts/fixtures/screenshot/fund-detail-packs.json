@@ -1,0 +1,93 @@
+{
+  "270023": {
+    "impactPct": 0.68,
+    "impactPctRegular": 0.68,
+    "impactSession": "closed",
+    "hasRegularHolding": false,
+    "count": 5,
+    "quoteCoverage": 71,
+    "weightCoverage": 28,
+    "impactSource": "ensemble",
+    "valuationConfidence": "中高",
+    "reportDate": "2026-03-31",
+    "recentReportDate": "2026-03-31",
+    "annualReportDate": "2025-12-31",
+    "holdings": [
+      {
+        "code": "NVDA",
+        "name": "英伟达",
+        "weight": 8.5,
+        "changePct": 1.2,
+        "changePctRegular": 1.2,
+        "quoteSession": "closed",
+        "quoteMode": "close",
+        "holdingMarket": "us"
+      },
+      {
+        "code": "MSFT",
+        "name": "微软",
+        "weight": 7.2,
+        "changePct": 0.6,
+        "changePctRegular": 0.6,
+        "quoteSession": "closed",
+        "quoteMode": "close",
+        "holdingMarket": "us"
+      },
+      {
+        "code": "00700",
+        "name": "腾讯控股",
+        "weight": 5.1,
+        "changePct": -0.5,
+        "changePctRegular": -0.5,
+        "quoteSession": "closed",
+        "quoteMode": "close",
+        "holdingMarket": "hk",
+        "marketId": 116
+      },
+      {
+        "code": "600519",
+        "name": "贵州茅台",
+        "weight": 4.8,
+        "changePct": 0.9,
+        "changePctRegular": 0.9,
+        "quoteSession": "closed",
+        "quoteMode": "close",
+        "holdingMarket": "cn",
+        "marketId": 1
+      },
+      {
+        "code": "002415",
+        "name": "海康威视",
+        "weight": 3.5,
+        "changePct": -0.4,
+        "changePctRegular": -0.4,
+        "quoteSession": "closed",
+        "quoteMode": "close",
+        "holdingMarket": "cn",
+        "marketId": 0
+      }
+    ]
+  },
+  "006479": {
+    "impactPct": 1.12,
+    "impactPctRegular": 1.12,
+    "impactSession": "closed",
+    "hasRegularHolding": false,
+    "count": 1,
+    "quoteCoverage": 100,
+    "impactSource": "proxy:040046",
+    "reportDate": null,
+    "holdings": [
+      {
+        "code": "IXIC",
+        "name": "纳斯达克100",
+        "weight": 96,
+        "changePct": 0.55,
+        "changePctRegular": 0.55,
+        "quoteSession": "closed",
+        "quoteMode": "close",
+        "holdingMarket": "us"
+      }
+    ]
+  }
+}

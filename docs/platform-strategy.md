@@ -1,5 +1,8 @@
 # 平台与技术选型（中长期）
 
+> **状态：规划文档，非当前实现。**  
+> 仓库现状：主 UI 为 **Vite + 原生 JS**（`src/main.js`），Mac 为 **Swift + WKWebView**；下文中的「Vue 3 迁移」等为方向讨论，实施前以 [architecture.md](./architecture.md) 与代码为准。
+
 > **产品定位**：个人/小团队用的**轻量资金持仓看板** — 跟踪全市场收益、多账户汇总，不是金融终端。  
 > **选型原则**：计算集中、展示分散；一套 Web UI 覆盖主端；各端壳尽量薄；不为「全栈统一」牺牲小程序与 Mac 体验。
 
@@ -166,7 +169,7 @@ fund-tracker/
 2026 Q2   定选型（本文档）+ 冻结 Electron 新功能
 2026 Q2–Q3  Vue 3 迁核心页（列表 / Hero / 详情 / 设置）
 2026 Q3     Capacitor iOS TestFlight；Docker 作日常主 API
-2026 Q3–Q4  Swift Mac 壳 + Node SEA；Electron 标记 legacy
+2026 Q3–Q4  Mac 壳后续优化（见 mac-app-roadmap）；Node sidecar 体积优化
 2026 Q4     小程序维持薄页；视需求评估 uni-app 子集
 2027+       按需 SwiftUI 局部原生（Widget、菜单栏）— 非必须
 ```
@@ -234,8 +237,8 @@ fund-tracker/
 假设 **1 人主力 + 偶发**：
 
 1. **必须先做**：Vue 迁核心 UI + API 契约测试（否则多端必痛）
-2. **其次**：Capacitor iOS 或 Swift Mac **二选一先 ship** — 建议 **先 iPhone（Capacitor）**，因配置已有、无 Electron 包袱
-3. **再次**：Swift Mac 替 Electron
+2. **其次**：Capacitor iOS ship（配置已有）
+3. **Mac**：Swift 壳已 ship；后续见 [mac-app-roadmap.md](./mac-app-roadmap.md)
 4. **可滞后**：小程序加页、uni-app、Widget、菜单栏
 
 ---
@@ -265,4 +268,4 @@ fund-tracker/
 4. **小程序单独薄做**，不为统一而统一。  
 5. **现在最值得的投资**是 Vue 化前端 + API 契约，而不是换后端语言或全原生重写。
 
-若团队只有一条行动线：**2026 下半年完成 Vue 迁移 + Capacitor iOS 上架 + 规划 Swift Mac 替 Electron**。
+若团队只有一条行动线：**2026 下半年完成 Vue 迁移（可选）+ Capacitor iOS 上架**；Mac 壳已落地。

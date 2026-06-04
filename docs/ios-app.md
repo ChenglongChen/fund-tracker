@@ -12,7 +12,7 @@
 ```bash
 npm install
 npm run build
-npm run ios:init   # cap add ios（仅首次）
+npm run ios:init   # cap add ios（仅首次，等价于 workspace 内 add-ios）
 ```
 
 ## 日常开发
@@ -24,6 +24,8 @@ npm run ios:sync
 # Xcode 打开
 npm run ios:open
 ```
+
+> **注意**：`ios/` 原生工程由 `cap add ios` 生成，未初始化前 `ios:sync` / `ios:open` 会失败。
 
 ## API 配置
 

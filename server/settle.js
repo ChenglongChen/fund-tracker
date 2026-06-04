@@ -8,6 +8,7 @@ import { creditDayForSettle } from './profit-attribution.js';
 import { computePortfolioTotals } from './aggregate.js';
 import { getLiveCache } from './live.js';
 import { ensureDayBaseline } from './day-display-state.js';
+import { isScreenshotMode } from './screenshot-bundle.js';
 
 /**
  * 取 fundgz 与东财移动端 API 中较新的净值快照（fundgz 常滞后半天）
@@ -170,6 +171,7 @@ export async function runSettlement(portfolio, opts = {}) {
 
 /** 服务启动或定时任务入口 */
 export async function settleIfNeeded() {
+  if (isScreenshotMode()) return { changed: false, events: [] };
   const portfolio = await readPortfolio();
   return runSettlement(portfolio);
 }

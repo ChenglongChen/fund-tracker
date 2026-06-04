@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/ios"
   ],
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"node server/index.js\"",
@@ -34,11 +34,14 @@
     "mac:open": "open apps/mac/FundTracker.xcodeproj",
     "mac:install": "bash scripts/install-mac-app.sh && xattr -cr '/Applications/Fund Tracker.app' 2>/dev/null || true",
     "sync:mac-data": "bash scripts/sync-data-to-mac-app.sh",
+    "screenshot:readme": "node scripts/capture-readme-screenshot.mjs",
+    "ios:init": "npm run add-ios --workspace @fund-tracker/ios",
     "ios:sync": "npm run build && npm run sync --workspace @fund-tracker/ios",
     "ios:open": "npm run open --workspace @fund-tracker/ios"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "playwright": "^1.49.1",
     "vite": "^6.2.0"
   },
   "dependencies": {

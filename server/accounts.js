@@ -7,14 +7,12 @@ export const DEFAULT_ACCOUNTS = [
   { id: 'efund', name: '易方达', order: 5 },
 ];
 
-/** @type {Record<string, string>} */
-const CODE_ACCOUNT_MAP = {
-  '017730': 'jiashi',
-  '016452': 'nanfang',
-  '006479': 'guangfa',
-  '000834': 'dacheng',
-  '012922': 'efund',
-};
+/**
+ * 可选兜底：导入数据缺 accountId 时按 code 推断渠道。
+ * 正常运行时以 portfolio 每行的 accountId 为准；开源仓库留空，避免暴露个人映射。
+ * @type {Record<string, string>}
+ */
+const CODE_ACCOUNT_MAP = {};
 
 /** @param {{ code: string, accountId?: string }} fund */
 export function inferAccountId(fund) {

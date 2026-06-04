@@ -22,7 +22,11 @@ PORT=8788 npm start  # 静态 + API 同端口
 |------|------|
 | `npm run test:fund-estimate` | RT1/EST 公式、盘前 snap |
 | `npm run test:realtime-profit` | 组合 RT1 与 baseline 一致 |
-| `node server/market-session.test.js` | 时段、suppress、盘前 display |
+| `npm run test:display-session` | phase / snapKey 会话 |
+| `npm run test:display-state` | snap 状态（`snap-state.test.js`） |
+| `npm run test:live-pipeline` | 展示流水线 |
+| `npm run test:profit-calendar` | 收益日历 / pending / attribution |
+| `node server/market-session.test.js` | 时段、suppress、当日收益 pending |
 
 ## 3. 验收脚本
 
@@ -31,6 +35,8 @@ PORT=8788 npm start  # 静态 + API 同端口
 ```bash
 npm run verify:alipay-realtime   # 支付宝 scope：Σ estimateProfit = row1
 npm run verify:tab-reconcile     # 三 tab RT1 互证、baseline+RT1=EST
+npm run verify:profit-calendar   # 收益日历 vs fixture（需 local 或 example）
+npm run backfill:profit-ledger   # 历史 ledger 回填
 ```
 
 可选参数：`node scripts/verify-alipay-realtime.js --url=http://host:port`
@@ -40,9 +46,9 @@ npm run verify:tab-reconcile     # 三 tab RT1 互证、baseline+RT1=EST
 ### 动到实时展示
 
 - [ ] `resolveLiveDisplayImpact` 与 `fundEstimateImpactPct` 盘前/盘后口径一致
-- [ ] `buildLiveFundRow` 的 `estimateProfit` 来自 **display impact**，非 raw `r`
+- [ ] `buildDisplayFundRow` 的 `estimateProfit` 来自 **display impact**，非 raw `r`
 - [ ] `fundEstimatedAssets` / `estimatedAssetsForRow` 为 **`amount+ep`**（非 `amount−settled+ep`）
-- [ ] `buildSummary` 读 API `live.totals` / `totalsByAccount`；fallback 为 `settledAssets+totalRealTime` 或 `Σ estimateAssets`
+- [ ] `buildSummary` 读 API `live.totals` / `totalsByAccount`；无 totals 时用 `Σ estimateAssets` / `Σ estimateProfit`
 - [ ] `refreshFundHoldingsDisplay` 在 `applySessionQuotes` 后调用 `maskHoldingsForLiveRt1Display`
 - [ ] snap 阶段 `applyPortfolioTotalsSnap` 覆盖 totals
 
@@ -68,20 +74,21 @@ npm run backtest:valuation
 ```bash
 curl -s http://localhost:8788/api/live | jq '{date:.beijingDate, chip:.displayContext.marketChip, totals:.totals, phase:.displayState}'
 curl -s http://localhost:8788/api/live | jq '.funds[] | select(.code=="022364") | {code, estimateProfit, impactPct, market}'
-# QDII 详情 T+1 掩码（US 正盘时段）
-curl -s http://localhost:8788/api/fund/022184/detail | jq '.holdings[] | select(.name|test("腾讯")) | {changePct,liveRt1Excluded,quoteSession}'
+# QDII 详情穿透（示例 code 见 scripts/fixtures/screenshot/fund-detail-packs.json）
+curl -s http://localhost:8788/api/fund/270023/detail | jq '.holdings[0:3]'
 ```
 
 ## 7. 目录约定
 
-- 运行时数据写 `data/`，勿提交 Git（除 `valuation-profiles.json`）
+- 运行时数据写 `data/`，勿提交 Git（除 `valuation-profiles.example.json` 等示例）
 - 规格变更先更新 `docs/realtime-spec.md`，再改代码
-- Mac App 优化任务跟踪见 [mac-app-roadmap.md](./mac-app-roadmap.md)
+- README 截图：`npm run screenshot:readme`（数据包 `scripts/fixtures/screenshot/`）
+- 贡献流程见 [CONTRIBUTING.md](../CONTRIBUTING.md)
 
-## 8. 已知后续项
+## 8. 维护备忘（非阻塞）
 
 | 项 | 说明 |
 |----|------|
-| per-scope baseline | 当前 portfolio 级；alipay 等 scope 独立 baseline 待扩展 |
-| EOD snap 完整性 | 08:00 写入已有；休市后 drift 防护可加强 |
-| 21:00 验收 | 盘前 60s header 0 变化需线上时段人工确认 |
+| per-scope baseline | 当前 portfolio 级；账户 scope 独立 baseline 待扩展 |
+| EOD snap | 休市后 drift 防护可加强 |
+| 时段验收 | 部分规则需特定北京时间人工 spot check |

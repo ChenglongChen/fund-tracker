@@ -28,9 +28,9 @@ function assert(name, cond) {
   else fail.push(name);
 }
 
-assert('022184 is us', classifyFundMarket({ name: '富国全球科技互联网' }) === 'us');
-assert('000216 is cn gold linker', classifyFundMarket({ name: '华安黄金' }) === 'cn');
-assert('001753 is cn', classifyFundMarket({ name: '红土创新新兴产业' }) === 'cn');
+assert('270023 is us', classifyFundMarket({ name: '示例 全球精选' }) === 'us');
+assert('000216 is cn gold linker', classifyFundMarket({ name: '示例 黄金联接' }) === 'cn');
+assert('022364 is cn', classifyFundMarket({ name: '示例 A 股混合' }) === 'cn');
 
 const cnOpen = new Date('2026-05-26T02:00:00.000Z');
 assert('cn open 10:00', isCnMarketOpen(cnOpen));
@@ -100,18 +100,18 @@ assert('cn session keeps impact', effectiveImpactPct('cn', -1.5, cnMorning) === 
 const jpMorning = new Date('2026-05-26T01:00:00.000Z');
 assert(
   'us qdii not live badge when us closed',
-  !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-26', jpMorning).realtimeActive,
+  !getFundProfitWindows({ name: '示例 全球精选' }, '2026-05-26', jpMorning).realtimeActive,
 );
 assert(
   'us qdii asia label',
-  getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-26', jpMorning).marketLabel === '亚太',
+  getFundProfitWindows({ name: '示例 全球精选' }, '2026-05-26', jpMorning).marketLabel === '亚太',
 );
 
 const cnLunch = new Date('2026-05-26T04:00:00.000Z');
 assert('cn lunch still session', isDomesticRealtimeSession(cnLunch));
 assert(
   'cn lunch keeps realtime',
-  getFundProfitWindows({ name: '红土创新新兴产业' }, '2026-05-26', cnLunch).realtimeActive,
+  getFundProfitWindows({ name: '示例 A 股混合' }, '2026-05-26', cnLunch).realtimeActive,
 );
 assert(
   'gold lunch keeps realtime',
@@ -122,7 +122,7 @@ const cnPostClose = new Date('2026-05-26T09:30:00.000Z');
 assert('cn post-close same day', isDomesticRealtimeSession(cnPostClose));
 assert(
   'cn post-close not live badge',
-  !getFundProfitWindows({ name: '红土创新新兴产业' }, '2026-05-26', cnPostClose).realtimeActive,
+  !getFundProfitWindows({ name: '示例 A 股混合' }, '2026-05-26', cnPostClose).realtimeActive,
 );
 resolveFundImpactPct(7, 'cn', -1.1, cnMorning);
 assert(
@@ -167,7 +167,7 @@ resolveFundImpactPct(1, 'us', 2.75, usOpen);
 assert('us closed early keeps close snapshot', resolveFundImpactPct(1, 'us', 3.1, usClosedEarly) === 2.75);
 assert(
   'us closed early no live badge',
-  !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-26', usClosedEarly).realtimeActive,
+  !getFundProfitWindows({ name: '示例 全球精选' }, '2026-05-26', usClosedEarly).realtimeActive,
 );
 assert(
   'us still display profit when overseas closed',
@@ -184,7 +184,7 @@ assert(
 );
 assert(
   'us eod no live badge',
-  !getFundProfitWindows({ name: '富国全球科技互联网' }, '2026-05-27', usEodWindow).realtimeActive,
+  !getFundProfitWindows({ name: '示例 全球精选' }, '2026-05-27', usEodWindow).realtimeActive,
 );
 assert('us eod no us label', !openMarketLabels(usEodWindow).includes('美股'));
 

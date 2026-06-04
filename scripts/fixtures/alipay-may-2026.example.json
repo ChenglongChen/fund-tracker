@@ -1,0 +1,13 @@
+{
+  "accountId": "alipay",
+  "month": "2026-05",
+  "tolerancePerDay": 500,
+  "toleranceTwoWeekPct": 0.005,
+  "twoWeekKeys": ["2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-23", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29"],
+  "days": {
+    "2026-05-29": 0,
+    "2026-05-28": 0,
+    "2026-05-27": 0
+  },
+  "_comment": "示例 fixture：复制为 alipay-may-2026.local.json 并填入真实逐日基准后跑 npm run verify:profit-calendar"
+}

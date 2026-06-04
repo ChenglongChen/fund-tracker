@@ -17,7 +17,6 @@ function minutesOfDay(parts) {
 /** @param {object} fund @returns {MarketType} */
 export function classifyFundMarket(fund) {
   const name = String(fund.name || '');
-  if (/红土创新|永赢科技智选/.test(name)) return 'cn';
   if (
     /纳斯达克|纳指|标普|全球|QDII|科技互联网|科技先锋|全球精选|成长精选|产业升级|新兴市场|博时标普|国富全球|华夏全球|富国全球|广发全球|汇添富纳斯达克|嘉实全球|易方达全球|大成纳斯达克|南方纳斯达克|华安纳斯达克|建信新兴/.test(
       name,

@@ -1,0 +1,69 @@
+{
+  "assetViewMode": "settled",
+  "dailyRecords": {},
+  "intradayTicks": [],
+  "watchlist": [
+    { "code": "006479", "name": "示例 纳指联接" },
+    { "code": "012922", "name": "示例 QDII 纳指100" },
+    { "code": "000216", "name": "示例 黄金联接" }
+  ],
+  "profitLedger": {
+    "meta": { "schemaVersion": 1 },
+    "days": {
+      "2026-05-26": {
+        "creditDay": "2026-05-26",
+        "funds": {
+          "1": { "accountId": "alipay", "code": "012922", "settledProfit": 128.2, "settledAssetsAfter": 100000 },
+          "2": { "accountId": "alipay", "code": "022364", "settledProfit": 64.1, "settledAssetsAfter": 50000 },
+          "4": { "accountId": "guangfa", "code": "006479", "settledProfit": 128.2, "settledAssetsAfter": 80000 }
+        },
+        "accounts": {
+          "alipay": { "settledProfit": 192.3, "settledAssets": 170000, "settledProfitPct": 0.11 },
+          "guangfa": { "settledProfit": 128.2, "settledAssets": 80000, "settledProfitPct": 0.16 }
+        },
+        "portfolio": { "settledProfit": 320.5, "settledAssets": 310000, "settledProfitPct": 0.1 }
+      },
+      "2026-05-27": {
+        "creditDay": "2026-05-27",
+        "funds": {
+          "1": { "accountId": "alipay", "code": "012922", "settledProfit": -72.1, "settledAssetsAfter": 100000 },
+          "2": { "accountId": "alipay", "code": "022364", "settledProfit": -36.0, "settledAssetsAfter": 50000 },
+          "5": { "accountId": "jiashi", "code": "270023", "settledProfit": -72.1, "settledAssetsAfter": 60000 }
+        },
+        "accounts": {
+          "alipay": { "settledProfit": -108.1, "settledAssets": 170000, "settledProfitPct": -0.06 },
+          "jiashi": { "settledProfit": -72.1, "settledAssets": 60000, "settledProfitPct": -0.12 }
+        },
+        "portfolio": { "settledProfit": -180.2, "settledAssets": 310000, "settledProfitPct": -0.06 }
+      },
+      "2026-05-28": {
+        "creditDay": "2026-05-28",
+        "funds": {
+          "1": { "accountId": "alipay", "code": "012922", "settledProfit": 180.0, "settledAssetsAfter": 100000 },
+          "3": { "accountId": "alipay", "code": "000216", "settledProfit": 90.0, "settledAssetsAfter": 20000 },
+          "4": { "accountId": "guangfa", "code": "006479", "settledProfit": 180.0, "settledAssetsAfter": 80000 }
+        },
+        "accounts": {
+          "alipay": { "settledProfit": 270.0, "settledAssets": 170000, "settledProfitPct": 0.16 },
+          "guangfa": { "settledProfit": 180.0, "settledAssets": 80000, "settledProfitPct": 0.23 }
+        },
+        "portfolio": { "settledProfit": 450.0, "settledAssets": 310000, "settledProfitPct": 0.15 }
+      },
+      "2026-05-29": {
+        "creditDay": "2026-05-29",
+        "funds": {
+          "1": { "accountId": "alipay", "code": "012922", "settledProfit": 120.5, "settledAssetsAfter": 100000 },
+          "2": { "accountId": "alipay", "code": "022364", "settledProfit": -80.25, "settledAssetsAfter": 50000 },
+          "4": { "accountId": "guangfa", "code": "006479", "settledProfit": 200.0, "settledAssetsAfter": 80000 },
+          "5": { "accountId": "jiashi", "code": "270023", "settledProfit": 150.0, "settledAssetsAfter": 60000 }
+        },
+        "accounts": {
+          "alipay": { "settledProfit": 40.25, "settledAssets": 170000, "settledProfitPct": 0.02 },
+          "guangfa": { "settledProfit": 200.0, "settledAssets": 80000, "settledProfitPct": 0.25 },
+          "jiashi": { "settledProfit": 150.0, "settledAssets": 60000, "settledProfitPct": 0.25 }
+        },
+        "portfolio": { "settledProfit": 390.25, "settledAssets": 310000, "settledProfitPct": 0.13 }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "currentBeijingDate": "2026-05-29",
+  "rt1AccrualDay": "2026-05-29",
+  "currentPhase": "eod_freeze",
+  "days": {
+    "2026-05-29": {
+      "baseline": {
+        "portfolio": 310000,
+        "capturedAt": "2026-05-29T17:00:00+08:00"
+      },
+      "scopes": {
+        "portfolio": {
+          "baseline": 310000,
+          "eodSnap": {
+            "at": "2026-05-29T17:00:00+08:00",
+            "seedPhase": "eod_freeze",
+            "rt1": 2014,
+            "est": 312014,
+            "funds": {
+              "1": {
+                "rt1": 850,
+                "rt2": null,
+                "amountAtSnap": 100000,
+                "impactPctRegular": 0.85,
+                "market": "us"
+              },
+              "2": {
+                "rt1": -210,
+                "rt2": null,
+                "amountAtSnap": 50000,
+                "impactPctRegular": -0.42,
+                "market": "cn"
+              },
+              "3": {
+                "rt1": 70,
+                "rt2": null,
+                "amountAtSnap": 20000,
+                "impactPctRegular": 0.35,
+                "market": "cn"
+              },
+              "4": {
+                "rt1": 896,
+                "rt2": null,
+                "amountAtSnap": 80000,
+                "impactPctRegular": 1.12,
+                "market": "us"
+              },
+              "5": {
+                "rt1": 408,
+                "rt2": null,
+                "amountAtSnap": 60000,
+                "impactPctRegular": 0.68,
+                "market": "us"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

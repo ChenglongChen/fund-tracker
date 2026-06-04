@@ -1,0 +1,15 @@
+{
+  "holdings": {},
+  "indices": {
+    "纳斯达克100": { "changePct": 0.55, "price": null, "at": 1748505600000 },
+    "上证": { "changePct": 0.22, "price": 4083.97, "at": 1748505600000 },
+    "沪深300": { "changePct": 0.31, "price": 4938.81, "at": 1748505600000 }
+  },
+  "funds": {
+    "1": { "impactPctRegular": 0.85, "at": 1748505600000 },
+    "2": { "impactPctRegular": -0.42, "at": 1748505600000 },
+    "3": { "impactPctRegular": 0.35, "at": 1748505600000 },
+    "4": { "impactPctRegular": 1.12, "at": 1748505600000 },
+    "5": { "impactPctRegular": 0.68, "at": 1748505600000 }
+  }
+}

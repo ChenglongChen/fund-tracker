@@ -1,64 +1,56 @@
-# fund-tracker 文档索引
+# 文档索引
 
-本目录描述 **实时收益 / 预估资产 / 多账户看板** 的产品规格、技术方案与运维说明。
+fund-tracker 的规格与架构说明。新读者建议：**README → manual → development**；改实时口径则优先 **realtime-spec**。
+
+## 用户
 
 | 文档 | 说明 |
 |------|------|
-| [architecture.md](./architecture.md) | **全栈**架构、后端分层、模块地图 |
-| [backend-architecture.md](./backend-architecture.md) | **后端** 组件、snap、single writer |
-| [frontend-architecture.md](./frontend-architecture.md) | **前端** ViewModel、组件、single source |
-| [data-flow.md](./data-flow.md) | 端到端数据流、状态机、持久化 |
-| [realtime-spec.md](./realtime-spec.md) | 功能规格：公式、时段规则、UI 口径 |
-| [manual.md](./manual.md) | 用户使用手册 |
-| [development.md](./development.md) | 开发、测试、验收脚本 |
-| [mac-app.md](./mac-app.md) | **Mac App** Swift 轻壳使用与打包 |
-| [mac-app-roadmap.md](./mac-app-roadmap.md) | **Mac App** 体积 / 启动 / 响应优化清单与壳替换路线 |
-| [platform-strategy.md](./platform-strategy.md) | **中长期** 跨端技术选型（Vue / Capacitor / Swift / 小程序） |
+| [manual.md](./manual.md) | 界面、收益列、预估资产、常见问题 |
+| [screenshots/README.md](./screenshots/README.md) | README 预览图与示例数据包 |
 
-## 快速参考
+## 开发者与贡献者
 
-### 核心公式（T / T+1）
-
-```
-账户资产_T     = amount（T 日已入账）
-实时收益 RT1   = Σ estimateProfit（当前会话；US 正盘仅 regular 持仓）
-预估资产 EST   = 账户资产 + RT1 = Σ amount + Σ estimateProfit
-```
-
-**禁止** `amount − settled + ep`。snap 阶段 header 仍可用 `baseline + RT1` 防入账跳变。
-
-### 后端关键文件（Single writer）
-
-| 路径 | 职责 |
+| 文档 | 说明 |
 |------|------|
-| `server/display-session.js` | phase / snapKey **唯一接口** |
-| `server/fund-display.js` | `estimateProfit` **唯一计算** |
-| `server/fund-estimate.js` | per-fund EST：`amount + ep` |
-| `server/holdings-pipeline.js` | `liveRt1Only` + `maskHoldingsForLiveRt1Display` |
-| `server/market.js` | 穿透 + **`refreshFundHoldingsDisplay`**（详情 API） |
-| `server/live-pipeline.js` | 展示 **唯一编排** |
-| `server/aggregate.js` | Σ ep / Σ estimateAssets |
-| `server/live.js` | `/api/live` cache |
+| [development.md](./development.md) | 环境、测试、验收脚本、改代码检查清单 |
+| [architecture.md](./architecture.md) | 全栈分层与模块地图 |
+| [backend-architecture.md](./backend-architecture.md) | 后端 snap、single writer |
+| [frontend-architecture.md](./frontend-architecture.md) | ViewModel、组件、禁止重算 row1 |
+| [data-flow.md](./data-flow.md) | 数据流、状态机、持久化 |
+| [realtime-spec.md](./realtime-spec.md) | **Canonical** 公式、时段、UI 口径 |
+| [profit-calendar-spec.md](./profit-calendar-spec.md) | 收益 Tab / ledger |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献流程与提交前检查 |
+| [../AGENTS.md](../AGENTS.md) | Cursor / Agent 入口 |
 
-### 前端关键文件
+## 多端与部署
 
-| 路径 | 职责 |
+| 文档 | 说明 |
 |------|------|
-| `src/live-view-model.js` | API → fundRows（禁止 pct 重算 row1） |
-| `src/summary.js` | scope Hero（SCOPE_ALL 读 totals） |
-| `src/components/metrics.js` | 模式 A/B 可复用组件 |
-| `src/components/session.js` | 时段标签；详情 `liveRt1Excluded` → **—** |
+| [multi-platform.md](./multi-platform.md) | Web / Mac / iOS / 小程序、Remote API、Docker |
+| [mac-app.md](./mac-app.md) | Mac Swift 壳 + Node sidecar |
+| [ios-app.md](./ios-app.md) | Capacitor iOS |
+| [miniprogram.md](./miniprogram.md) | 微信小程序 MVP |
 
-### 验收命令
+## 规划（非当前实现必读）
 
-```bash
-npm run test:display-session
-npm run test:live-pipeline
-npm run test:fund-estimate
-npm run test:realtime-profit
-node server/live-rt1-holdings.test.js
-node server/scope-totals.test.js
-npm run build
-npm run verify:alipay-realtime
-npm run verify:tab-reconcile
+以下文档描述中长期方向，**与仓库现状可能不一致**（例如当前主 UI 为 Vite + 原生 JS，非 Vue 3）：
+
+| 文档 | 说明 |
+|------|------|
+| [platform-strategy.md](./platform-strategy.md) | 跨端技术选型备忘 |
+| [mac-app-roadmap.md](./mac-app-roadmap.md) | Mac App 维护者 backlog |
+
+## 核心公式（速查）
+
 ```
+账户资产 = Σ amount（已入账）
+RT1      = Σ estimateProfit（row1；禁止前端用 pct×amount 重算）
+预估资产 = Σ estimateAssets = Σ (amount + ep)（与列表行一致）
+```
+
+snap 阶段 header 可用 `baseline + RT1` 防入账跳变；细则见 [realtime-spec.md](./realtime-spec.md)。
+
+## 测试命令
+
+见 [development.md §2](./development.md#2-测试) 与 [CONTRIBUTING.md](../CONTRIBUTING.md#提交前检查)。

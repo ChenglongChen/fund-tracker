@@ -30,6 +30,7 @@ import {
 } from './watchlist.js';
 import { handleCorsAndAuth } from './auth.js';
 import { bootstrapServer } from './bootstrap.js';
+import { isScreenshotMode, getScreenshotFundDetailPack } from './screenshot-bundle.js';
 import { beijingDateTimeString, beijingIsoString, beijingDateString, beijingIsoAddDays } from './time.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -461,11 +462,14 @@ async function handler(req, res, port) {
         const nav = await fetchFundNavInfo(code);
         fundName = nav?.name ?? '';
       }
-      const fxStrip = resolveFxStripFromMarket(live.indices ?? []);
-      const r = await refreshFundHoldingsDisplay(
-        getCachedFundImpactDetail(code, fundName, 120_000) ??
-          (await resolveFundImpact(code, fxStrip ?? live.fxPct, fundName, live.indices ?? [])),
-      );
+      let r = isScreenshotMode() ? await getScreenshotFundDetailPack(code) : null;
+      if (!r) {
+        const fxStrip = resolveFxStripFromMarket(live.indices ?? []);
+        r = await refreshFundHoldingsDisplay(
+          getCachedFundImpactDetail(code, fundName, 120_000) ??
+            (await resolveFundImpact(code, fxStrip ?? live.fxPct, fundName, live.indices ?? [])),
+        );
+      }
       const market = classifyFundMarket(fund ?? { name: fundName, code });
       const displayImpact = resolveLiveDisplayImpact(fund?.id ?? null, market, r);
       const impactPct = displayImpact.impactPct;

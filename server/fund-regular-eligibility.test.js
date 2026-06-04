@@ -29,8 +29,8 @@ assert('kr morning has regular holding', fundHasRegularHolding(krHoldings, krMor
 assert('us overnight afternoon no kr regular', !fundHasRegularHolding(krHoldings, usOvernightNoAsia));
 assert('us holdings premarket not regular', !fundHasRegularHolding(usHoldings, usPremarket));
 
-const qdiiFund = { code: '022184', name: '富国全球科技互联网' };
-const cnFund = { code: '001753', name: '红土创新新兴产业' };
+const qdiiFund = { code: '270023', name: '示例 全球精选' };
+const cnFund = { code: '022364', name: '示例 A 股混合' };
 
 assert(
   'qdii live when kr regular',

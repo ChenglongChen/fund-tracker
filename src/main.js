@@ -205,6 +205,8 @@ bindHideAssets(() => state.hideAssets);
 
 let refreshTimer = null;
 let refreshPending = false;
+let watchlistBusy = false;
+let watchlistRefreshPending = false;
 let lastDetailHoldingsFetchAt = 0;
 
 function fmtTableDate(dateStr) {
@@ -713,6 +715,45 @@ function applyWatchlistLive(wl) {
   state.watchlistRows = applyWatchlistSort(mapWatchlistLiveRows(wl.funds ?? []));
 }
 
+/** 有自选 codes 但 live 未返回时，先渲染基金名 + —，避免切 Tab 白等 */
+function ensureWatchlistSkeletonRows() {
+  const items = state.watchlistItems ?? [];
+  if (!items.length) {
+    if (!state.watchlistRows?.length) state.watchlistRows = [];
+    return false;
+  }
+  const rows = state.watchlistRows ?? [];
+  const sameCodes =
+    rows.length === items.length && rows.every((r, i) => r.code === items[i]?.code);
+  if (sameCodes && rows.length > 0) return false;
+  state.watchlistRows = applyWatchlistSort(
+    items.map((item, i) => ({
+      id: -(i + 1),
+      code: item.code,
+      name: item.name || item.code,
+      amount: 10_000,
+      dailyPending: true,
+      estimateImpactPct: null,
+      realTimePct: null,
+      settledPct: null,
+    })),
+  );
+  return true;
+}
+
+async function prefetchWatchlistLive() {
+  if (!state.watchlistItems?.length) return;
+  try {
+    const wl = await fetchWatchlistLive();
+    applyWatchlistLive(wl);
+    state.updatedAt = wl.updatedAt || state.updatedAt;
+    state.quoteUpdatedAt = wl.quoteUpdatedAt || state.quoteUpdatedAt;
+    if (state.view === 'watchlist' && canPatchWatchlistDom()) patchWatchlistDom();
+  } catch {
+    /* background warm-up */
+  }
+}
+
 async function loadWatchlistItems() {
   const data = await fetchWatchlist();
   state.watchlistItems = data.items ?? [];
@@ -875,6 +916,7 @@ function activateMainTab(tab) {
   } else if (tab === 'watchlist') {
     navigateTo({ type: 'watchlist' });
     state.view = 'watchlist';
+    ensureWatchlistSkeletonRows();
   } else if (tab === 'profile') {
     navigateTo({ type: 'profile' });
     state.view = 'profile';
@@ -1000,8 +1042,9 @@ async function syncRouteFromHash() {
     } catch {
       /* optional */
     }
+    ensureWatchlistSkeletonRows();
     paint();
-    await refreshWatchlistView();
+    void refreshWatchlistView();
     return;
   }
 
@@ -1628,19 +1671,14 @@ async function refreshListView() {
 }
 
 async function refreshWatchlistView() {
-  if (state.busy) {
-    refreshPending = true;
+  if (watchlistBusy) {
+    watchlistRefreshPending = true;
     return;
   }
-  state.busy = true;
+  watchlistBusy = true;
   const blockPaint = watchlistSearchBlockingPaint();
   try {
-    const [, wl] = await Promise.all([
-      pullLive().catch(() => false),
-      fetchWatchlistLive(),
-    ]);
-    state.indices = state.lastLive?.indices ?? state.indices;
-    state.fundRows = mergeLiveIntoFunds(FUNDS, state.lastLive ?? { funds: [] });
+    const wl = await fetchWatchlistLive();
     state.updatedAt = wl.updatedAt || state.updatedAt;
     state.quoteUpdatedAt = wl.quoteUpdatedAt || state.quoteUpdatedAt;
     applyWatchlistLive(wl);
@@ -1664,9 +1702,9 @@ async function refreshWatchlistView() {
     state.liveBannerDismissed = false;
     if (!patchLiveBanner() && !blockPaint) paint();
   } finally {
-    state.busy = false;
-    if (refreshPending) {
-      refreshPending = false;
+    watchlistBusy = false;
+    if (watchlistRefreshPending) {
+      watchlistRefreshPending = false;
       void refreshWatchlistView();
     }
   }
@@ -1835,7 +1873,8 @@ async function refreshDetailView() {
 function scheduleRefresh() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = null;
-  if (!isLiveView()) {
+  const onWatchlist = state.view === 'watchlist';
+  if (!isLiveView() && !onWatchlist) {
     stopIndexDockCarousel();
     return;
   }
@@ -1904,6 +1943,7 @@ async function bootstrap() {
   try {
     await loadPortfolioState();
     await loadWatchlistItems().catch(() => {});
+    void prefetchWatchlistLive();
     const live = await fetchLiveWhenReady();
     applyLive(live);
     await syncRouteFromHash();
@@ -1931,7 +1971,7 @@ window.addEventListener('hashchange', () => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (isLiveView()) scheduleRefresh();
+  if (isLiveView() || state.view === 'watchlist') scheduleRefresh();
 });
 
 initTheme();

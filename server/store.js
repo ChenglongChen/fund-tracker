@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migratePortfolio } from './accounts.js';
+import { isScreenshotMode } from './screenshot-bundle.js';
 import { beijingIsoString } from './time.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -43,6 +44,9 @@ export async function readPortfolio() {
 
 /** @param {{ meta?: object, funds: object[], accounts?: object[] }} data */
 export async function writePortfolio(data) {
+  if (isScreenshotMode()) {
+    return migratePortfolio(data);
+  }
   await ensurePortfolio();
   const payload = migratePortfolio({
     ...data,

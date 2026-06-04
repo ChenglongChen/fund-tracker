@@ -3,6 +3,7 @@ import {
   countsTowardLiveRt1,
   estimateFromHoldingsWithFx,
   maskHoldingsForLiveRt1Display,
+  shouldMaskHoldingForLiveRt1Display,
 } from './holdings-pipeline.js';
 
 const mixed = [
@@ -20,12 +21,43 @@ assert.equal(liveOnly, -0.1);
 const all = estimateFromHoldingsWithFx(mixed, 0);
 assert.ok(all < -0.1);
 
-const masked = maskHoldingsForLiveRt1Display(mixed, true);
+const usRegular = new Date('2026-05-27T22:00:00.000Z');
+const masked = maskHoldingsForLiveRt1Display(mixed, true, usRegular);
 assert.equal(masked[0].changePct, -1.0);
 assert.equal(masked[1].changePct, null);
 assert.equal(masked[1].liveRt1Excluded, true);
 assert.equal(masked[2].changePct, null);
 assert.equal(masked[2].liveRt1Excluded, true);
+
+const hkLiveCnClosed = new Date('2026-05-28T07:30:00.000Z');
+const cnClosedRow = {
+  code: '600519',
+  name: '贵州茅台',
+  weight: 2,
+  changePct: 1.2,
+  quoteSession: 'closed',
+  quoteMode: 'close',
+  holdingMarket: 'cn',
+};
+const hkLiveRow = {
+  code: '00700',
+  name: '腾讯控股',
+  weight: 3,
+  changePct: -0.5,
+  quoteSession: 'regular',
+  quoteMode: 'live',
+  holdingMarket: 'hk',
+  marketId: 116,
+};
+assert.equal(
+  shouldMaskHoldingForLiveRt1Display(cnClosedRow, true, hkLiveCnClosed),
+  false,
+  'cn close visible when hk regular',
+);
+const maskedCn = maskHoldingsForLiveRt1Display([hkLiveRow, cnClosedRow], true, hkLiveCnClosed);
+assert.equal(maskedCn[1].changePct, 1.2);
+assert.equal(maskedCn[1].liveRt1Excluded, undefined);
+assert.equal(maskedCn[0].changePct, -0.5);
 
 const dayOpenClosed = [
   { code: 'NVDA', weight: 10, changePct: -1.0, quoteSession: 'closed', holdingMarket: 'us' },

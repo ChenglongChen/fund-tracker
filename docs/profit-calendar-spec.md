@@ -105,7 +105,7 @@ dayProfit(all, D) = Σ dayProfit(accountId, D)
 | A 股 / 黄金联接（`market=cn` 或 code 在 cn 集合） | **`navDate`** |
 | QDII / 美股穿透 | **`navDate` 的下一个中国交易日**（跳过周六日；周一合并周末多笔 NAV） |
 
-> 实测（2026-05 支付宝 alipay 账户）：近两周合计误差 **+0.36%**；5/18–5/29 逐日多数 **±500 元** 内；5/29 差 **1.6 元**。
+> 示例验收（单账户、近两周）：合计误差 **≤ 0.5%**；逐日多数在 **±500 元** 容差内（见 `scripts/fixtures/alipay-may-2026.example.json`）。
 
 ### 3.3 收益率（%）
 
@@ -316,7 +316,7 @@ src/
 ├── pages/profit-page.js           # render + patchProfitDom
 ├── profit-calendar-view-model.js  # API → calendar model
 ├── components/profit-calendar.js  # 月网格、月切换、单位切换
-└── components/profit-hero.js      # 本月累计 / 选中日解读
+└── components/profit-calendar.js  # 月历网格 + Hero 累计
 ```
 
 ### 7.2 状态（main.js）
@@ -392,15 +392,15 @@ profitCalendar: {
 
 ### 9.2 验收脚本 `npm run verify:profit-calendar`
 
-1. 读取 `scripts/fixtures/alipay-may-2026.local.json`（私有；example 见同目录）
-2. 调 API `scope=alipay&month=2026-05`
-3. 断言关键日 ±500 元、近两周合计 ±0.5%
-4. 断言 `5/29` 与 `Σ yesterdayProfit` 一致
+1. 可选：本地放置 `scripts/fixtures/alipay-may-2026.local.json`（不提交；结构见 `alipay-may-2026.example.json`）
+2. 调 API `scope=alipay&month=2026-05`（或你 fixture 中的账户/月份）
+3. 断言关键日与合计在脚本容差内
+4. 示例数据包可用 `scripts/fixtures/screenshot/app-state.json` 做 smoke
 
 ### 9.3 手动清单
 
-- [ ] 切换 scope：支付宝 ↔ 全部 ↔ 嘉实，数字随 scope 变化
-- [ ] 与支付宝 App 同月逐日肉眼对比（至少 10 个交易日）
+- [ ] 切换 scope：单账户 ↔ 全部 ↔ 账户概况，数字随 scope 变化
+- [ ] 与官方 App 同月逐日对比（使用你自己的 private fixture，勿写入仓库）
 - [ ] 入账后刷新，今日格从 pending → 数值
 - [ ] 隐私模式：日历金额脱敏
 
@@ -439,7 +439,7 @@ flowchart TB
 | 独立 `profitLedger` 而非扩 `dailyRecords` | 避免 snap 膨胀；支持 account/fund 粒度 |
 | scope=all 不求 merge by code | 日历是账户资产合计，不是持仓代码维度 |
 | 历史回填用恒定 shares | 用户确认近期无大额申赎；实现简单 |
-| QDII 回填用下一中国交易日 | 与支付宝 2026-05 实测最佳吻合 |
+| QDII 回填用下一中国交易日 | 与主流渠道 T+1 入账口径一致（示例验收见 fixtures） |
 | 运行时 creditDay=beijingDate | settle 实际入账日即支付宝展示日 |
 
 ---

@@ -3,12 +3,19 @@
  * 运行时只读 profile，新增基金跑校准即可，无需改代码。
  */
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mergeWeightParams } from './weight-model.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-export const PROFILES_PATH = join(__dirname, '..', 'data', 'valuation-profiles.json');
+const ROOT = join(__dirname, '..');
+const DATA_ROOT = process.env.FUND_TRACKER_DATA_DIR?.trim()
+  ? resolve(process.env.FUND_TRACKER_DATA_DIR)
+  : join(ROOT, 'data');
+/** 本地校准结果（gitignore）；`npm run calibrate:valuation` 写入 */
+export const PROFILES_PATH = join(DATA_ROOT, 'valuation-profiles.json');
+/** 仓库示例，与 `src/portfolio.json` 种子基金一致 */
+export const PROFILES_EXAMPLE_PATH = join(ROOT, 'data', 'valuation-profiles.example.json');
 
 /** @typedef {'proxy'|'holdings'|'index'|'fundgz'} ValuationStrategy */
 
@@ -37,14 +44,21 @@ export const PROFILES_PATH = join(__dirname, '..', 'data', 'valuation-profiles.j
 /** @type {Record<string, FundValuationProfile>|null} */
 let cache = null;
 
+function resolveProfilesPath() {
+  if (existsSync(PROFILES_PATH)) return PROFILES_PATH;
+  if (existsSync(PROFILES_EXAMPLE_PATH)) return PROFILES_EXAMPLE_PATH;
+  return null;
+}
+
 export function loadValuationProfiles() {
   if (cache) return cache;
-  if (!existsSync(PROFILES_PATH)) {
+  const pathToLoad = resolveProfilesPath();
+  if (!pathToLoad) {
     cache = {};
     return cache;
   }
   try {
-    cache = JSON.parse(readFileSync(PROFILES_PATH, 'utf8'));
+    cache = JSON.parse(readFileSync(pathToLoad, 'utf8'));
   } catch {
     cache = {};
   }
