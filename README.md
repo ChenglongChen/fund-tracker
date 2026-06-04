@@ -10,7 +10,7 @@ npm run build && PORT=8788 npm start
 | | |
 |--|--|
 | Docs (ZH) | [docs/README.md](./docs/README.md) · spec: [realtime-spec.md](./docs/realtime-spec.md) |
-| Contribute | [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) |
+| Security | [SECURITY.md](./SECURITY.md) |
 | License | [MIT](./LICENSE) |
 | Demo data | [scripts/fixtures/screenshot/](./scripts/fixtures/screenshot/) — do not commit real `data/` |
 
@@ -20,7 +20,7 @@ Full README below is in **Chinese** (product UI is Chinese-first).
 
 多账户基金持仓看板。聚合各渠道持仓，展示当日收益与盘中实时预估，支持分市场行情、账户概况与大盘指数。
 
-**License:** [MIT](./LICENSE) · **文档**：[docs/README.md](./docs/README.md) · **贡献**：[CONTRIBUTING.md](./CONTRIBUTING.md)  
+**License:** [MIT](./LICENSE) · **文档**：[docs/README.md](./docs/README.md)  
 **Cursor**：[AGENTS.md](./AGENTS.md) — Agent 入口；规则见 [.cursor/rules/](./.cursor/rules/)
 
 ## 预览
@@ -222,9 +222,9 @@ npm run calibrate:valuation
 npm run backtest:valuation
 ```
 
-## 贡献
+## 安全
 
-见 [CONTRIBUTING.md](./CONTRIBUTING.md)。安全问题见 [SECURITY.md](./SECURITY.md)。
+见 [SECURITY.md](./SECURITY.md)。
 
 ## 开源与隐私
 

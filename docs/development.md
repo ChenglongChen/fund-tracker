@@ -83,7 +83,6 @@ curl -s http://localhost:8788/api/fund/270023/detail | jq '.holdings[0:3]'
 - 运行时数据写 `data/`，勿提交 Git（除 `valuation-profiles.example.json` 等示例）
 - 规格变更先更新 `docs/realtime-spec.md`，再改代码
 - README 截图：`npm run screenshot:readme`（数据包 `scripts/fixtures/screenshot/`）
-- 贡献流程见 [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ## 8. 维护备忘（非阻塞）
 

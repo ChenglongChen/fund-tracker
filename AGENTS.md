@@ -1,6 +1,6 @@
 # AGENTS.md — fund-tracker
 
-多账户基金持仓看板（Node API + Vite SPA）。核心难点在 **实时收益 RT1 / 预估资产 EST / EOD snap** 的时段口径一致性。人类贡献者见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+多账户基金持仓看板（Node API + Vite SPA）。核心难点在 **实时收益 RT1 / 预估资产 EST / EOD snap** 的时段口径一致性。
 
 ## 先读文档
 

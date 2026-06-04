@@ -11,7 +11,7 @@
 | 预估资产 EST（EOD snap） | ¥312,014 |
 | 支付宝 scope（3 只） | 资产 ¥170,000 · RT1 ¥710 · EST ¥170,710 |
 
-自托管实盘数字因持仓而异；验收以 `npm run test:*` 与 [CONTRIBUTING.md](../CONTRIBUTING.md) 中的脚本为准。
+自托管实盘数字因持仓而异；验收以 `npm run test:*` 与 `docs/development.md` 中的脚本为准。
 
 ## 2. Canonical 公式
 
