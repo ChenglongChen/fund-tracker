@@ -267,7 +267,7 @@ export function countsTowardLiveRt1(h) {
 
 /**
  * 是否对单只持仓做 live RT1 展示掩码（涨跌幅/状态置 —）。
- * A 股/台股当日已收盘（quoteMode=close）在非 suppress 窗口仍展示收盘涨跌，仅不参与 row1 加权。
+ * 已有收盘快照（quoteMode=close）时仍展示涨跌幅，仅不参与 row1 加权；A 股 suppress 窗口除外。
  * @param {object} h
  * @param {boolean} shouldLive
  * @param {Date} [now]
@@ -275,13 +275,20 @@ export function countsTowardLiveRt1(h) {
 export function shouldMaskHoldingForLiveRt1Display(h, shouldLive, now = new Date()) {
   if (!shouldLive || h.quoteSession === 'regular') return false;
   const market = h.holdingMarket ?? classifyHoldingMarket(h);
-  if ((market === 'cn' || market === 'tw') && h.quoteMode === 'close') {
-    return shouldSuppressDomesticRealtimeDisplay(market, now);
+  if (
+    h.quoteMode === 'close' &&
+    h.changePct != null &&
+    Number.isFinite(h.changePct)
+  ) {
+    if (market === 'cn' || market === 'tw') {
+      return shouldSuppressDomesticRealtimeDisplay(market, now);
+    }
+    return false;
   }
   return true;
 }
 
-/** live RT1 展示：非正盘持仓涨跌幅置空（UI 显示 —），A 股收盘除外 */
+/** live RT1 展示：非正盘且无收盘快照的持仓涨跌幅置空（UI 显示 —） */
 export function maskHoldingsForLiveRt1Display(holdings, shouldLive, now = new Date()) {
   if (!shouldLive) return holdings;
   return holdings.map((h) => {

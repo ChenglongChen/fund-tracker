@@ -166,9 +166,9 @@ async function fetchEastmoneyQuote(secid, prevCloseOnly = false) {
     const price = d.f43 != null && d.f43 !== '' ? Number(d.f43) / 100 : null;
     const prevClose = d.f60 != null && d.f60 !== '' ? Number(d.f60) / 100 : null;
     const code = secid.split('.').pop();
-    if (prevClose > 0 && code) prevCloseByTicker.set(code, prevClose);
 
     if (prevCloseOnly) {
+      if (prevClose > 0 && code) prevCloseByTicker.set(code, prevClose);
       return prevClose > 0 ? { prevClose, quoteSource: 'eastmoney' } : null;
     }
 
@@ -181,7 +181,10 @@ async function fetchEastmoneyQuote(secid, prevCloseOnly = false) {
     }
 
     if (!Number.isFinite(changePct)) return null;
-    return { changePct, price, quoteSource: 'eastmoney', name: d.f58 || undefined };
+    const row = { changePct, price, quoteSource: 'eastmoney', name: d.f58 || undefined };
+    if (!isValidQuote(row)) return null;
+    if (prevClose > 0 && code) prevCloseByTicker.set(code, prevClose);
+    return row;
   } catch {
     return null;
   }
@@ -213,9 +216,11 @@ async function fetchEastmoneyBatch(secids, opts = {}) {
             changePct = ((price - prevClose) / prevClose) * 100;
           }
           const code = d.f12;
-          if (prevClose > 0 && code) prevCloseByTicker.set(String(code), prevClose);
           if (!Number.isFinite(changePct) || !code) continue;
-          out[String(code)] = { changePct, price, quoteSource: 'eastmoney' };
+          const row = { changePct, price, quoteSource: 'eastmoney' };
+          if (!isValidQuote(row)) continue;
+          if (prevClose > 0) prevCloseByTicker.set(String(code), prevClose);
+          out[String(code)] = row;
         }
       }
     }
@@ -255,17 +260,20 @@ async function fetchStooqIntradayQuote(stooqSymbol) {
     const prevClose = prevCloseByTicker.get(ticker);
     const open = parseFloat(parts[3]);
     let changePct = null;
-    if (prevClose > 0) {
+    const prevLooksCompatible =
+      prevClose > 0 && price / prevClose >= 0.34 && price / prevClose <= 3;
+    if (prevLooksCompatible) {
       changePct = ((price - prevClose) / prevClose) * 100;
     } else if (open > 0) {
       changePct = ((price - open) / open) * 100;
     }
     if (!Number.isFinite(changePct)) return null;
-    return {
+    const row = {
       changePct,
       price,
-      quoteSource: prevClose > 0 ? 'stooq' : 'stooq-intraday',
+      quoteSource: prevLooksCompatible ? 'stooq' : 'stooq-intraday',
     };
+    return isValidQuote(row) ? row : null;
   } catch {
     return null;
   }
@@ -296,7 +304,8 @@ async function fetchStooqDailyQuote(stooqSymbol) {
       }
     }
     if (!Number.isFinite(changePct)) return null;
-    return { changePct, price: close, quoteSource: 'stooq-daily' };
+    const row = { changePct, price: close, quoteSource: 'stooq-daily' };
+    return isValidQuote(row) ? row : null;
   } catch {
     return null;
   }
@@ -314,7 +323,10 @@ async function fetchStooqQuoteOnce(stooqSymbol, opts = {}) {
 async function fetchStooqQuote(stooqSymbol, opts = {}) {
   const sym = stooqSymbol.toLowerCase();
   const cached = stooqQuoteCache.get(sym);
-  if (cached && Date.now() - cached.at < STOOQ_CACHE_TTL_MS) return cached.quote;
+  if (cached && Date.now() - cached.at < STOOQ_CACHE_TTL_MS) {
+    if (isValidQuote(cached.quote)) return cached.quote;
+    stooqQuoteCache.delete(sym);
+  }
 
   const failUntil = stooqFailUntil.get(sym);
   if (failUntil && Date.now() < failUntil) return null;
@@ -353,7 +365,7 @@ function getCachedStooqQuote(stooqSymbol) {
 function applyCachedStooqQuotes(holdings, symbolByHolding, byHoldingKey) {
   for (const h of holdings) {
     const key = holdingKey(h);
-    if (isValidQuote(byHoldingKey[key])) continue;
+    if (!shouldReplaceQuote(byHoldingKey[key])) continue;
     const sym = symbolByHolding.get(key);
     if (!sym) continue;
     const cached = getCachedStooqQuote(sym);
@@ -387,7 +399,7 @@ async function drainStooqBackground(byHoldingKey) {
       const batch = [...stooqBackgroundQueue.values()].slice(0, MAX_STOOQ_FETCHES_PER_CALL);
       for (const t of batch) stooqBackgroundQueue.delete(t.sym);
       await runWithConcurrency(batch, STOOQ_CONCURRENCY, async (t) => {
-        if (isValidQuote(byHoldingKey[t.holdingKey])) return;
+        if (!shouldReplaceQuote(byHoldingKey[t.holdingKey])) return;
         const quote = await fetchStooqQuote(t.sym, { preferDaily: t.preferDaily });
         if (quote && isValidQuote(quote)) {
           byHoldingKey[t.holdingKey] = { ...quote, name: t.name || quote.name };
@@ -414,6 +426,7 @@ function topByWeight(items, limit = MAX_STOOQ_FETCHES_PER_CALL) {
 function shouldReplaceQuote(q) {
   if (!q) return true;
   if (q.quoteSource === 'soxx-fallback') return true;
+  if (q.quoteSource === 'tencent-us-adr' && isValidQuote(q)) return false;
   return !isValidQuote(q);
 }
 
@@ -666,13 +679,13 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
   /** @type {Array<{ sym: string, preferDaily: boolean, holdingKey: string, name?: string }>} */
   const stooqTasks = [];
 
-  for (const h of topByWeight(jpNeeds.filter((x) => !isValidQuote(byHoldingKey[holdingKey(x)])))) {
+  for (const h of topByWeight(jpNeeds.filter((x) => shouldReplaceQuote(byHoldingKey[holdingKey(x)])))) {
     const key = holdingKey(h);
     const sym = jpSymByHolding.get(key);
     if (!sym) continue;
     stooqTasks.push({ sym, preferDaily: jpPreferDaily, holdingKey: key, name: h.name });
   }
-  for (const h of topByWeight(euNeeds.filter((x) => !isValidQuote(byHoldingKey[holdingKey(x)])))) {
+  for (const h of topByWeight(euNeeds.filter((x) => shouldReplaceQuote(byHoldingKey[holdingKey(x)])))) {
     const key = holdingKey(h);
     const sym = euSymByHolding.get(key);
     if (!sym) continue;
@@ -683,7 +696,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
 
   if (awaitStooq) {
     await runWithConcurrency(stooqTasks, STOOQ_CONCURRENCY, async (t) => {
-      if (isValidQuote(byHoldingKey[t.holdingKey])) return;
+      if (!shouldReplaceQuote(byHoldingKey[t.holdingKey])) return;
       const quote = await fetchStooqQuote(t.sym, { preferDaily: t.preferDaily });
       if (quote && isValidQuote(quote)) {
         byHoldingKey[t.holdingKey] = { ...quote, name: t.name || quote.name };

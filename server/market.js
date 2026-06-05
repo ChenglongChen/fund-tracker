@@ -89,7 +89,13 @@ function getSharedHoldingQuotes(maxAgeMs = FUND_DETAIL_CACHE_TTL_MS) {
 export function mergeSharedHoldingQuotes(partial) {
   if (!partial || !Object.keys(partial).length) return;
   const shared = getSharedHoldingQuotes(10 * 60 * 1000) ?? {};
-  rememberSharedHoldingQuotes({ ...shared, ...partial });
+  /** @type {Record<string, object>} */
+  const sanitized = {};
+  for (const [key, q] of Object.entries(partial)) {
+    if (q && isValidQuote(q)) sanitized[key] = q;
+  }
+  if (!Object.keys(sanitized).length) return;
+  rememberSharedHoldingQuotes({ ...shared, ...sanitized });
 }
 
 /**

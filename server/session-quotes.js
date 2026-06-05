@@ -101,7 +101,12 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
         ensureRegularSnapFromDisk(cacheKey);
         closeSnapshot.set(cacheKey, snap);
       }
-      if ((market === 'jp' || market === 'kr' || market === 'eu') && snap.price != null) {
+      const quoteSource = q.quoteSource || '';
+      if (
+        (market === 'jp' || market === 'kr' || market === 'eu') &&
+        snap.price != null &&
+        quoteSource !== 'tencent-us-adr'
+      ) {
         const ticker =
           market === 'jp'
             ? normalizeJpTicker(h.code, h.name)

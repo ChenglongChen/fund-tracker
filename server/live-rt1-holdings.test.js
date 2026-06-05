@@ -59,6 +59,34 @@ assert.equal(maskedCn[1].changePct, 1.2);
 assert.equal(maskedCn[1].liveRt1Excluded, undefined);
 assert.equal(maskedCn[0].changePct, -0.5);
 
+const euAfternoon = new Date('2026-06-02T09:00:00.000Z');
+const usCloseEuLive = [
+  {
+    code: 'AAPL',
+    weight: 4,
+    changePct: 0.31,
+    quoteSession: 'closed',
+    quoteMode: 'close',
+    holdingMarket: 'us',
+  },
+  {
+    code: 'AIRFP',
+    weight: 0.1,
+    changePct: 4.92,
+    quoteSession: 'regular',
+    quoteMode: 'live',
+    holdingMarket: 'eu',
+  },
+];
+const maskedUsClose = maskHoldingsForLiveRt1Display(usCloseEuLive, true, euAfternoon);
+assert.equal(
+  maskedUsClose[0].changePct,
+  0.31,
+  'us close visible when eu regular',
+);
+assert.equal(maskedUsClose[0].liveRt1Excluded, undefined);
+assert.equal(maskedUsClose[1].changePct, 4.92);
+
 const dayOpenClosed = [
   { code: 'NVDA', weight: 10, changePct: -1.0, quoteSession: 'closed', holdingMarket: 'us' },
   { code: '00700', weight: 8, changePct: -2.0, quoteSession: 'closed', holdingMarket: 'hk' },

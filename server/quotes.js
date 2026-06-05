@@ -10,12 +10,16 @@ const SINA_HEADERS = { Referer: 'https://finance.sina.com.cn/' };
 const SEMI_FALLBACK_KEY = 'gb_soxx';
 const TENCENT_ORIGIN = 'https://qt.gtimg.cn';
 
+/** 单日涨跌幅合理上界（东财 f170 错位、prev 单位错误等会产出万级 %） */
+export const MAX_ABS_CHANGE_PCT = 30;
+
 /** @param {{ changePct?: number|null, price?: number|null }} [q] */
 export function isValidQuote(q) {
   if (!q || !Number.isFinite(q.changePct)) return false;
   if (q.price != null && Number.isFinite(q.price) && q.price <= 0) return false;
   // 新浪 A 股开盘前常见 price=0 → changePct=-100
   if (q.changePct <= -99.9) return false;
+  if (Math.abs(q.changePct) > MAX_ABS_CHANGE_PCT) return false;
   return true;
 }
 

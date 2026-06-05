@@ -57,24 +57,6 @@ Mac App（iPhone 15 手机壳 · **浅色** · 统一示例数据 [`scripts/fixt
 |:---:|:---:|
 | ![自选基金列表与涨跌幅](./docs/screenshots/watchlist.png) | ![自选基金穿透详情](./docs/screenshots/watchlist-detail.png) |
 
-### 我的
-
-主题、隐私模式、资产口径与 Remote API 连接（Mac 本地 / VPS 远程）。
-
-![我的：设置与 API 连接](./docs/screenshots/profile.png)
-
-## 功能
-
-- 多账户切换：账户概况、全部持仓、单渠道视图
-- **实时收益 row1 + 盘前/盘后 row2**（Hero、账户卡、列表三处同构）
-- **预估资产**：`账户资产 + 实时收益`（canonical：`baseline + RT1`）
-- 当日收益：东财公布净值自动入账
-- 实时穿透：重仓估值或联接 proxy；美股 extended 与 regular 拆分
-- 分市场会话：A 股、美股 QDII 等按时段 live / snap / 隐藏（`—`）
-- 账户概况：各账户资产、实时/当日收益、涨跌家数
-- 大盘指数：上证、沪深300、恒生、标普500 等
-- 隐私模式、深色 / 浅色主题
-
 ## 环境要求
 
 - Node.js 18+
