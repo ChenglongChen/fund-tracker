@@ -6,6 +6,7 @@ build
 .env
 .env.*
 !.env.example
+.mailmap
 
 # Screenshot / local API 临时数据
 .tmp/screenshot-data/
