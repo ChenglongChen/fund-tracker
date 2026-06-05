@@ -204,28 +204,18 @@ npm run calibrate:valuation
 npm run backtest:valuation
 ```
 
-## 安全
+## 隐私与本地数据
 
-见 [SECURITY.md](./SECURITY.md)。
-
-## 开源与隐私
-
-本项目可公开源码；**请勿提交个人持仓与密钥**。
+Fork 或自托管时，**勿提交个人持仓与密钥**：
 
 | 类型 | 处理方式 |
 |------|----------|
 | 持仓 / 收益 / snap | `data/portfolio.json`、`app-state.json` 等已在 `.gitignore` |
 | 估值校准 | 仓库仅含 `data/valuation-profiles.example.json`；本地 `valuation-profiles.json` 不提交 |
 | 验收基准 | `scripts/fixtures/*.local.json` 不提交；用 `*.example.json` 作结构参考 |
-| API Token | 复制 `.env.example` → `.env`，设置 `FUND_TRACKER_API_TOKEN`；勿写入代码 |
-| 远程部署 | 客户端通过 `Authorization: Bearer` 携带 token；`VITE_API_TOKEN` 仅用于构建/本地 |
+| API Token | 复制 `.env.example` → `.env`；勿写入代码或提交 `.env` |
 
-公开仓库前建议：
-
-```bash
-git status   # 确认无 data/*.json（除 example）、无 .env
-gitleaks detect --source . -v   # 可选：扫描历史密钥
-```
+部署与 token 配置详见 [SECURITY.md](./SECURITY.md)。
 
 行情数据来自东财、新浪等公开接口，仅供个人学习参考；请遵守各平台服务条款。
 
