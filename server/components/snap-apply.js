@@ -58,8 +58,9 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
     return finalizeLiveFundDisplayRow(fallback ?? liveRow, now);
   }
   const rt1 = fundSnap.rt1;
-  const amount = fundSnap.amountAtSnap ?? liveRow.amount ?? 0;
-  const pct = amount > 0 ? round2((rt1 / amount) * 10000) / 100 : null;
+  const amountAtSnap = fundSnap.amountAtSnap ?? liveRow.amount ?? 0;
+  const pct =
+    amountAtSnap > 0 ? round2((rt1 / amountAtSnap) * 10000) / 100 : null;
   return finalizeLiveFundDisplayRow(
     {
       ...liveRow,
@@ -67,7 +68,7 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
       estimateImpactPct: pct ?? liveRow.estimateImpactPct,
       impactPct: pct ?? liveRow.impactPct,
       impactPctRegular: fundSnap.impactPctRegular ?? liveRow.impactPctRegular,
-      estimateAssets: round2(amount + rt1),
+      estimateAssets: round2(amountAtSnap + rt1),
       displaySnap: true,
     },
     now,
@@ -146,22 +147,36 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
     getBaselineForDay(accrualDay, 'portfolio') ??
     getBaselineForDay(beijingDateString(now), 'portfolio') ??
     totalsLive.settledAssets;
-  const rt1 = round2(totalsLive.realtimeProfit ?? 0);
+  const rt1Live = round2(totalsLive.realtimeProfit ?? 0);
+  const settled = totalsLive.settledAssets ?? 0;
   const accLike = {
-    settledAssets: totalsLive.settledAssets ?? 0,
-    realtimeProfit: rt1,
-    estimateAssetsSum: totalsLive.estimateAssetsSum ?? totalsLive.settledAssets ?? 0,
+    settledAssets: settled,
+    realtimeProfit: rt1Live,
+    estimateAssetsSum: totalsLive.estimateAssetsSum ?? settled,
   };
-  const est = resolvePortfolioRealtimeAssets(accLike, baseline);
+  const estFromFunds = resolvePortfolioRealtimeAssets(accLike, baseline);
   const estimateFrozen = session.isRt1SnapPhase;
+  const readySnap = estimateFrozen ? getReadyFundRt1Snap(accrualDay, now, 'portfolio') : null;
+
+  let rt1 = rt1Live;
+  let est = estFromFunds;
+  if (estimateFrozen && readySnap) {
+    if (readySnap.rt1 != null && Number.isFinite(readySnap.rt1)) {
+      rt1 = round2(readySnap.rt1);
+    }
+    if (readySnap.est != null && Number.isFinite(readySnap.est)) {
+      est = round2(readySnap.est);
+    }
+  }
 
   return {
     ...totalsLive,
-    settledAssets: totalsLive.settledAssets,
+    settledAssets: settled,
     realtimeProfit: rt1,
     realtimeProfitPct:
       baseline > 0 ? round2((rt1 / baseline) * 10000) / 100 : totalsLive.realtimeProfitPct,
     realtimeAssets: est,
+    estimateAssetsSum: est,
     baseline,
     liveMode: estimateFrozen ? 'snap' : 'live',
     estimateFrozen,

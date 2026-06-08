@@ -19,9 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        let sem = DispatchSemaphore(value: 0)
         Task { @MainActor in
             AppModel.shared.shutdown()
+            sem.signal()
         }
+        _ = sem.wait(timeout: .now() + 2.0)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

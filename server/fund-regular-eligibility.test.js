@@ -69,6 +69,17 @@ assert(
 
 assert('us closed midday 08:30', getUsSessionPhase(krMorning) === 'closed');
 
+const cnLunch = new Date('2026-05-26T04:00:00.000Z'); // 12:00 BJ
+const cnHoldings = [{ code: '300308', name: '中际旭创', marketId: null }];
+assert(
+  'cn lunch refreshes holding quotes',
+  fundNeedsHoldingQuoteRefresh(cnFund, { holdings: cnHoldings }, 'holdings', cnLunch),
+);
+assert(
+  'cn lunch no live rt1 refresh',
+  !fundShouldRefreshLiveRt1(cnFund, { holdings: cnHoldings }, 'holdings', cnLunch),
+);
+
 console.log(`fund-regular-eligibility tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {
   console.error('FAILED:', fail);

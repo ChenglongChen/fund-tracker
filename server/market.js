@@ -1,7 +1,8 @@
 import { extractQuotedVar } from './quote-utils.js';
 import { fetchHoldingQuotes, isValidQuote, quoteForHolding } from './quotes.js';
 import { applySessionMarketStrip, applySessionQuotes } from './session-quotes.js';
-import { getUsSessionPhase, holdingCacheKey } from './holding-market.js';
+import { getUsSessionPhase, holdingCacheKey, classifyHoldingMarket } from './holding-market.js';
+import { isCnMiddayBreak } from './components/market-hours.js';
 import {
   fundHasRegularHolding,
   fundNeedsHoldingQuoteRefresh,
@@ -733,11 +734,17 @@ export async function refreshFundHoldingsDisplay(result, now = new Date()) {
   let byHoldingKey = { ...shared };
 
   const needsLive = fundHasRegularHolding(holdings, now);
+  const cnMiddayRefresh =
+    isCnMiddayBreak(now) &&
+    holdings.some((h) => {
+      const m = classifyHoldingMarket(h);
+      return m === 'cn' || m === 'tw';
+    });
   const missing = holdings.filter((h) => {
     const q = quoteForHolding(h, byHoldingKey);
     return !q || !isValidQuote(q);
   });
-  const toFetch = needsLive ? holdings : missing;
+  const toFetch = needsLive || cnMiddayRefresh ? holdings : missing;
   if (toFetch.length) {
     byHoldingKey = {
       ...byHoldingKey,

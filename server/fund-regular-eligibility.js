@@ -1,7 +1,11 @@
 /**
  * 逐基金正盘门控：仅 regular 持仓（或无穿透时基金自身市场 regular）才 live 更新 row1。
  */
-import { classifyFundMarket, isRealtimeMarketOpen } from './components/market-hours.js';
+import {
+  classifyFundMarket,
+  isCnMiddayBreak,
+  isRealtimeMarketOpen,
+} from './components/market-hours.js';
 import {
   classifyHoldingMarket,
   getHoldingSessionPhase,
@@ -51,6 +55,13 @@ export function fundShouldRefreshLiveRt1(fund, pack, impactSource = null, now = 
 export function fundNeedsHoldingQuoteRefresh(fund, pack, impactSource = null, now = new Date()) {
   if (fundShouldRefreshLiveRt1(fund, pack, impactSource, now)) return true;
   const market = classifyFundMarket(fund);
+  if (
+    (market === 'cn' || market === 'gold_cn') &&
+    isCnMiddayBreak(now) &&
+    (pack?.holdings?.length ?? 0) > 0
+  ) {
+    return true;
+  }
   if (market === 'us' && pack?.holdings?.length) return true;
   if (market !== 'us' || !pack?.holdings?.length) return false;
   return false;

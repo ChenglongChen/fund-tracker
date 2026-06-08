@@ -117,6 +117,16 @@ assert(
   'gold lunch keeps realtime',
   getFundProfitWindows({ name: '华安黄金' }, '2026-05-26', cnLunch).realtimeActive,
 );
+resolveFundImpactPct(7, 'cn', -1.1, cnMorning);
+assert(
+  'cn lunch keeps morning snapshot',
+  resolveFundImpactPct(7, 'cn', null, cnLunch) === -1.1,
+);
+assert(
+  'cn lunch accepts midday close impact',
+  resolveFundImpactPct(8, 'cn', -2.3, cnLunch) === -2.3,
+);
+clearFundImpactSnapshots();
 
 const cnPostClose = new Date('2026-05-26T09:30:00.000Z');
 assert('cn post-close same day', isDomesticRealtimeSession(cnPostClose));
@@ -223,7 +233,7 @@ assert(
 );
 
 const asiaRelay = new Date('2026-05-28T00:24:00.000Z');
-assert('asia relay rt1 live', resolveDisplaySession(asiaRelay).rt1Source === 'live');
+assert('asia relay rt1 snap before us open', resolveDisplaySession(asiaRelay).rt1Source === 'snap');
 clearFundImpactSnapshots();
 
 const cnPending = new Date('2026-05-27T10:30:00.000Z');

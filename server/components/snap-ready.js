@@ -16,12 +16,18 @@ function isStaleDayOpenSnap(snap) {
   return mins >= 4 * 60 && mins < 8 * 60 && getUsSessionPhase(at) === 'closed';
 }
 
+/** @param {object|null|undefined} snap */
+function isStaleAsiaLiveSnap(snap) {
+  return snap?.seedPhase === 'asia_live';
+}
+
 /**
  * @param {object|null|undefined} snap
  */
 export function isScopeSnapReady(snap) {
   if (!snap || snap.provisional) return false;
   if (isStaleDayOpenSnap(snap)) return false;
+  if (isStaleAsiaLiveSnap(snap)) return false;
   if (!snap.funds || typeof snap.funds !== 'object') return false;
   return Object.keys(snap.funds).length > 0;
 }

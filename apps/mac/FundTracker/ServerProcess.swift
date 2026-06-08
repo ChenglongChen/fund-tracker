@@ -54,6 +54,7 @@ final class ServerProcess {
     }
 
     func start() throws {
+        terminateStaleListeners(on: ServerProcess.defaultPort)
         guard !isRunning else { return }
         let root = AppPaths.appRoot
         guard FileManager.default.fileExists(atPath: AppPaths.serverEntry.path) else {
@@ -91,10 +92,37 @@ final class ServerProcess {
     }
 
     func stop() {
-        guard let process, process.isRunning else { return }
-        process.terminate()
-        process.waitUntilExit()
+        guard let process else { return }
+        if process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+        }
         self.process = nil
+    }
+
+    /// 清理占用端口的遗留 sidecar（上次异常退出未 kill 时）
+    private func terminateStaleListeners(on port: Int) {
+        let pipe = Pipe()
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        task.arguments = ["-ti", "tcp:\(port)"]
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        guard (try? task.run()) != nil else { return }
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let text = String(data: data, encoding: .utf8), !text.isEmpty else { return }
+        let myPid = process?.processIdentifier
+        let pids = text.split(whereSeparator: \.isNewline).compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
+        for pid in pids where pid != myPid {
+            kill(pid, SIGTERM)
+        }
+        usleep(200_000)
+        for pid in pids where pid != myPid {
+            if kill(pid, 0) == 0 {
+                kill(pid, SIGKILL)
+            }
+        }
     }
 
     func waitForHealth(timeout: TimeInterval = 15) async throws {

@@ -90,6 +90,7 @@ const totalsLive = computePortfolioTotals(portfolio, snappedRows, eodWindow);
 setCurrentPhase('eod_freeze', eodWindow);
 const totals = applyPortfolioTotalsSnap(totalsLive, accrualDay, eodWindow);
 assert('header rt1 from live sum in eod', totals.realtimeProfit === 500);
+assert('header est frozen from snap', totals.realtimeAssets === 300500);
 assert('header frozen in eod snap mode', totals.liveMode === 'snap' && totals.estimateFrozen === true);
 
 reconcileDisplayState(
@@ -133,8 +134,19 @@ const liveAsia = [
   },
 ];
 const mixedSnapped = liveAsia.map((row) => applyFundRt1Snap(row.id, row, accrualDay, asiaMidday));
-assert('live fund keeps live rt1 during asia relay', mixedSnapped[0].estimateProfit === 2000 && !mixedSnapped[0].displaySnap);
+assert(
+  'asia relay reads eod snap not live rt1',
+  mixedSnapped[0].displaySnap && mixedSnapped[0].estimateProfit === 1500,
+);
 assert('snap fund reads eod snap', mixedSnapped[1].displaySnap && mixedSnapped[1].estimateProfit === -1000);
+
+const amountDriftRow = { id: 1, amount: 95000, market: 'us', estimateProfit: 999 };
+const amountDriftSnapped = applyFundRt1Snap(1, amountDriftRow, accrualDay, eodWindow);
+assert(
+  'snap est frozen at seed amount not current amount',
+  amountDriftSnapped.estimateProfit === 1500 &&
+    amountDriftSnapped.estimateAssets === round2(100000 + 1500),
+);
 
 const eodEuBypass = new Date('2026-05-28T09:00:00.000Z'); // 17:00 BJ eod_freeze + EU regular
 setCurrentPhase('eod_freeze', eodEuBypass);
@@ -169,7 +181,7 @@ seedSessionQuoteSnapshots();
 rememberFundRegular(3, 0.35);
 const relaySnapped = applyFundRt1Snap(3, indexRelayRow, accrualDay, asiaNoSnap);
 assert(
-  'asia afternoon index fund uses index strip close snapshot',
+  'asia afternoon index uses close snapshot when no eod snap',
   relaySnapped.displaySnap &&
     relaySnapped.rt1SnapSource === 'regularSnapshot' &&
     relaySnapped.estimateProfit === round2((200000 * 0.46) / 100) &&
@@ -186,9 +198,10 @@ setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
 });
 const indexWithStaleSnap = applyFundRt1Snap(3, indexRelayRow, accrualDay, asiaNoSnap);
 assert(
-  'asia afternoon index prefers index strip close over bootstrap eod snap',
-  indexWithStaleSnap.rt1SnapSource === 'regularSnapshot' &&
-    indexWithStaleSnap.estimateProfit === round2((200000 * 0.46) / 100),
+  'asia afternoon index reads eod snap when us closed',
+  indexWithStaleSnap.displaySnap &&
+    indexWithStaleSnap.estimateProfit === 700 &&
+    !indexWithStaleSnap.rt1SnapSource,
 );
 
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {

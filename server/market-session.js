@@ -4,6 +4,7 @@
  */
 import { isJpMarketOpen, isKrMarketOpen, isHkMarketOpen } from './holding-market.js';
 import { getFundRegular, rememberFundRegular } from './impact-snapshots.js';
+import { isCnMiddayBreak } from './components/market-hours.js';
 import { resolveDisplaySession } from './display-session.js';
 import { shouldSuppressDomesticRealtimeDisplay } from './components/suppress.js';
 import {
@@ -49,8 +50,15 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
 
   const hasRaw = rawImpactPct != null && Number.isFinite(rawImpactPct);
   const live = isFundImpactLiveWindow(market, now);
+  const middayCn = (market === 'cn' || market === 'gold_cn') && isCnMiddayBreak(now);
   const session = resolveDisplaySession(now);
   const usPhase = market === 'us' ? session.usPhase : null;
+
+  const rememberDomesticClose = (pct) => {
+    if (fundId == null) return;
+    fundImpactCloseSnapshot.set(fundId, pct);
+    if (market === 'cn' || market === 'gold_cn') rememberFundRegular(fundId, pct);
+  };
 
   if (live && hasRaw) {
     if (fundId != null) {
@@ -59,7 +67,7 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
         fundImpactCloseSnapshot.set(fundId, rawImpactPct);
         rememberFundRegular(fundId, rawImpactPct);
       } else {
-        fundImpactCloseSnapshot.set(fundId, rawImpactPct);
+        rememberDomesticClose(rawImpactPct);
       }
     }
     return rawImpactPct;
@@ -69,8 +77,16 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
     return fundImpactCloseSnapshot.get(fundId);
   }
 
+  if (middayCn && fundId != null && !hasRaw) {
+    const persisted = getFundRegularImpactPct(fundId);
+    if (typeof persisted === 'number' && Number.isFinite(persisted)) return persisted;
+    if (persisted?.impactPctRegular != null && Number.isFinite(persisted.impactPctRegular)) {
+      return persisted.impactPctRegular;
+    }
+  }
+
   if (hasRaw && fundId != null) {
-    fundImpactCloseSnapshot.set(fundId, rawImpactPct);
+    rememberDomesticClose(rawImpactPct);
     return rawImpactPct;
   }
   return null;

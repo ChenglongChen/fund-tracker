@@ -84,7 +84,12 @@ export function reconcileDisplayState(
     );
   } else if (snapKey === 'eodSnap' && targetPhase === 'eod_freeze') {
     const existing = getScopeSnap(accrualDay, snapKey, 'portfolio');
-    if (sessionSnapNeedsReseed(existing, portfolio, liveFunds, now)) {
+    const needsFirstEodSnap = !isScopeSnapReady(existing);
+    const needsUpgradeToEod =
+      isScopeSnapReady(existing) &&
+      existing.seedPhase !== 'eod_freeze' &&
+      sessionSnapNeedsReseed(existing, portfolio, liveFunds, now);
+    if (needsFirstEodSnap || needsUpgradeToEod) {
       if (existing) clearScopeSnap(accrualDay, snapKey, 'portfolio');
       seedEodSnap(
         accrualDay,
@@ -99,7 +104,7 @@ export function reconcileDisplayState(
     }
   } else if (
     !getScopeSnap(accrualDay, 'eodSnap', 'portfolio') &&
-    (targetPhase === 'eod_freeze' || targetPhase === 'day_open' || targetPhase === 'asia_live')
+    (targetPhase === 'eod_freeze' || targetPhase === 'day_open')
   ) {
     seedEodSnap(
       accrualDay,

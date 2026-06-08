@@ -46,8 +46,9 @@ assert(
   'asia live clockPhase',
   resolveDisplaySession(asiaLive).clockPhase === 'asia_live',
 );
-assert('asia live snapKey null', resolveDisplaySession(asiaLive).snapKey == null);
-assert('asia live rt1 live', resolveDisplaySession(asiaLive).rt1Source === 'live');
+assert('asia live snapKey eodSnap', resolveDisplaySession(asiaLive).snapKey === 'eodSnap');
+assert('asia live rt1 snap', resolveDisplaySession(asiaLive).rt1Source === 'snap');
+assert('asia live frozen', resolveDisplaySession(asiaLive).isRt1SnapPhase === true);
 assert('weekend asia live phase', resolveDisplaySession(weekendAsia).clockPhase === 'asia_live');
 
 assert(
