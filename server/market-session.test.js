@@ -144,6 +144,11 @@ assert(
   'cn post-close frozen snapshot',
   resolveFundImpactPct(7, 'cn', -2.5, cnPostClose) === -1.1,
 );
+resolveFundImpactPct(10, 'cn', 1.8, cnMorning);
+assert(
+  'cn post-close keeps afternoon close over stale fundgz',
+  resolveFundImpactPct(10, 'cn', -0.08, cnPostClose) === 1.8,
+);
 clearFundImpactSnapshots();
 
 const cnUsRegular = new Date('2026-05-26T14:30:00.000Z');
@@ -194,8 +199,8 @@ clearFundImpactSnapshots();
 resolveFundImpactPct(2, 'us', 1.78, usOpen);
 assert('us eod window not live', !isFundImpactLiveWindow('us', usEodWindow));
 assert(
-  'us eod keeps prior close snapshot',
-  resolveFundImpactPct(2, 'us', 0.44, usEodWindow) === 1.78,
+  'us eod uses fresh asia composite not us regular snapshot',
+  resolveFundImpactPct(2, 'us', 0.44, usEodWindow) === 0.44,
 );
 assert(
   'us eod no live badge',
@@ -209,8 +214,12 @@ const eodImpact = resolveLiveDisplayImpact(
   { impactPct: 2.31, impactPctRegular: 1.76, impactPctExtended: 0.55, impactSession: 'closed' },
   usEodWindow,
 );
-assert('eod display uses close snapshot', eodImpact.impactPct === 1.78);
+assert('eod display uses fresh penetration', eodImpact.impactPct === 2.31);
 assert('eod display no extended', eodImpact.impactPctExtended == null);
+assert(
+  'us eod without raw keeps prior close snapshot',
+  resolveFundImpactPct(2, 'us', null, usEodWindow) === 2.31,
+);
 clearFundImpactSnapshots();
 
 const sat = new Date('2026-05-30T02:00:00.000Z');
@@ -239,6 +248,12 @@ assert(
 
 const asiaRelay = new Date('2026-05-28T00:24:00.000Z');
 assert('asia relay rt1 snap before us open', resolveDisplaySession(asiaRelay).rt1Source === 'snap');
+const asiaAfternoon = new Date('2026-05-28T07:30:00.000Z');
+resolveFundImpactPct(11, 'us', 1.9, usOpen);
+assert(
+  'asia afternoon qdii uses fresh penetration not us regular snapshot',
+  resolveFundImpactPct(11, 'us', 3.64, asiaAfternoon) === 3.64,
+);
 clearFundImpactSnapshots();
 
 const cnPending = new Date('2026-05-27T10:30:00.000Z');

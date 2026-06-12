@@ -4,12 +4,12 @@
  */
 import { isJpMarketOpen, isKrMarketOpen, isHkMarketOpen } from './holding-market.js';
 import { getFundRegular, rememberFundRegular } from './impact-snapshots.js';
-import { isCnMiddayBreak } from './components/market-hours.js';
 import { resolveDisplaySession } from './display-session.js';
 import { shouldSuppressDomesticRealtimeDisplay } from './components/suppress.js';
 import {
   classifyFundMarket,
   fmtMd,
+  isDomesticRealtimeSession,
   isFundImpactLiveWindow,
   isRealtimeMarketOpen,
 } from './components/market-hours.js';
@@ -50,7 +50,10 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
 
   const hasRaw = rawImpactPct != null && Number.isFinite(rawImpactPct);
   const live = isFundImpactLiveWindow(market, now);
-  const middayCn = (market === 'cn' || market === 'gold_cn') && isCnMiddayBreak(now);
+  const cnFrozenWindow =
+    (market === 'cn' || market === 'gold_cn') &&
+    isDomesticRealtimeSession(now) &&
+    !isFundImpactLiveWindow(market, now);
   const session = resolveDisplaySession(now);
   const usPhase = market === 'us' ? session.usPhase : null;
 
@@ -73,11 +76,24 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
     return rawImpactPct;
   }
 
+  // 亚太收盘后 ~ 美股正盘前：穿透 composite 已就绪，不得读正盘/旧 close 快照
+  if (
+    (session.clockPhase === 'asia_live' || session.clockPhase === 'eod_freeze') &&
+    market === 'us' &&
+    hasRaw
+  ) {
+    if (fundId != null) {
+      fundImpactCloseSnapshot.set(fundId, rawImpactPct);
+      rememberFundRegular(fundId, rawImpactPct);
+    }
+    return rawImpactPct;
+  }
+
   if (fundId != null && fundImpactCloseSnapshot.has(fundId)) {
     return fundImpactCloseSnapshot.get(fundId);
   }
 
-  if (middayCn && fundId != null && !hasRaw) {
+  if (cnFrozenWindow && fundId != null && !hasRaw) {
     const persisted = getFundRegularImpactPct(fundId);
     if (typeof persisted === 'number' && Number.isFinite(persisted)) return persisted;
     if (persisted?.impactPctRegular != null && Number.isFinite(persisted.impactPctRegular)) {
@@ -86,6 +102,13 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
   }
 
   if (hasRaw && fundId != null) {
+    if (cnFrozenWindow) {
+      const persisted = getFundRegularImpactPct(fundId);
+      if (typeof persisted === 'number' && Number.isFinite(persisted)) return persisted;
+      if (fundImpactCloseSnapshot.has(fundId)) {
+        return fundImpactCloseSnapshot.get(fundId);
+      }
+    }
     rememberDomesticClose(rawImpactPct);
     return rawImpactPct;
   }

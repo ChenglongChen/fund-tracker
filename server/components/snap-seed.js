@@ -11,7 +11,7 @@ import {
   clearScopeSnap,
 } from '../day-display-state.js';
 import { buildFundSnapEntry, sessionSnapNeedsReseed } from './snap-entry.js';
-import { getReadyScopeSnap, isScopeSnapReady } from './snap-ready.js';
+import { getReadyScopeSnap, isScopeSnapReady, isStalePreEodSnap } from './snap-ready.js';
 
 /**
  * @param {string} accrualDay
@@ -97,7 +97,8 @@ export function reconcileDisplayState(
     const needsEodSnap =
       !existing ||
       existing.seedPhase !== 'eod_freeze' ||
-      (isScopeSnapReady(existing) &&
+      isStalePreEodSnap(existing, now, accrualDay) ||
+      (isScopeSnapReady(existing, now, accrualDay) &&
         sessionSnapNeedsReseed(existing, portfolio, liveFunds, now));
     if (needsEodSnap) {
       if (existing) clearScopeSnap(accrualDay, snapKey, 'portfolio');

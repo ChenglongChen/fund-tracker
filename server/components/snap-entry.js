@@ -33,16 +33,20 @@ export function buildFundSnapEntry(fund, liveRow, impactRaw, market, now) {
   const rowCtx = { ...liveRow, market };
   const isIndexStyle = isUsIndexStyleFund(rowCtx);
   const useLiveIndex = shouldUseLiveUsIndexStyle(rowCtx, now);
+  const src = String(liveRow?.impactSource ?? liveRow?.estimateSource ?? '');
+  const isHoldingsStyle = src === 'holdings' || src === 'ensemble';
   const preferRegularSnapshot =
     (isIndexStyle && !useLiveIndex) ||
     (!isIndexStyle &&
+      !isHoldingsStyle &&
       liveRow?.shouldRefreshLiveRt1 === false &&
       liveRow?.hasRegularHolding !== true);
   let rt1Live =
     liveRow?.estimateProfit != null && Number.isFinite(liveRow.estimateProfit)
       ? round2(liveRow.estimateProfit)
       : null;
-  if (preferRegularSnapshot || rt1Live == null) {
+  // eod seed：穿透/融合优先用 16:00 liveRow，不得回退 stale regularSnapshot
+  if ((preferRegularSnapshot && !isHoldingsStyle) || rt1Live == null) {
     const snapPct = isIndexStyle
       ? resolveUsIndexCloseImpactPct(rowCtx, (id) => getFundRegular(id))
       : getFundRegular(fund.id) ??
@@ -69,6 +73,7 @@ export function buildFundSnapEntry(fund, liveRow, impactRaw, market, now) {
 /** @param {object} snap @param {{ funds: object[] }} portfolio @param {object[]} liveFunds @param {Date} now */
 export function sessionSnapNeedsReseed(snap, portfolio, liveFunds, now) {
   if (!isScopeSnapReady(snap)) return true;
+  // eod_freeze(16:00–21:30) 仅 suppress 变化可 reseed；不得因穿透 drift / 重启覆盖 16:00 snap
   for (const f of portfolio.funds) {
     const liveRow = liveFunds.find((x) => x.id === f.id);
     const market = liveRow?.market ?? 'cn';

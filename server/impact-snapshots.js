@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DATA_DIR } from './store.js';
+import { DATA_DIR } from './data-dir.js';
 import { isValidQuote } from './quotes.js';
 
 const PATH = path.join(DATA_DIR, 'impact-snapshots.json');

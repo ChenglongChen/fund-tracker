@@ -59,7 +59,8 @@
 - A 股 / 黄金联接：通常当晚更新 **当天** 净值日
 - QDII：可能更新 **上一 US 交易日** 净值日
 - 入账更新：`amount`、当日收益、持有收益
-- **预估资产不变**：仍 `B[D] + RT1`，不随 `amount` 增大而跳变
+- **Hero / 列表展示**（入账后）：`预估资产 = Σ amount + Σ estimateProfit`（§2.2）
+- **baseline `B[D]`** 同日不变；snap 阶段 header 亦用 Σ per-fund，**禁止**用 `snap.est` 或 `B[D]+RT1` 替代 Σ（§9）
 
 ### 规则 3b — 当日收益 pending（北京 16:00）
 
@@ -151,7 +152,7 @@
 | 00:00–04:00 | US 正盘 live | live |
 | 04:00–08:00 | 冻结（正盘收市 snap） | snap |
 | 08:00–16:00 | 亚太 per-fund live / snap | live |
-| 16:00–21:30 | **EOD snap** | snap |
+| 16:00–21:30 | **EOD snap**（per-fund rt1 冻结） | **Σ amount + Σ ep**（入账后 amount 已更新） |
 | 21:30–24:00 | US 正盘 live | live |
 
 ## 8. Suppress 三处

@@ -2,15 +2,14 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migratePortfolio } from './accounts.js';
+import { DATA_DIR } from './data-dir.js';
 import { isScreenshotMode } from './screenshot-bundle.js';
 import { beijingIsoString } from './time.js';
 
+export { DATA_DIR } from './data-dir.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-const DATA_ROOT = process.env.FUND_TRACKER_DATA_DIR?.trim()
-  ? path.resolve(process.env.FUND_TRACKER_DATA_DIR)
-  : path.join(ROOT, 'data');
-export const DATA_DIR = DATA_ROOT;
 export const PORTFOLIO_PATH = path.join(DATA_DIR, 'portfolio.json');
 const SEED_PATH = path.join(ROOT, 'src', 'portfolio.json');
 

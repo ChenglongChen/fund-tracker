@@ -12,7 +12,7 @@ import { fundEstimateProfit } from '../fund-estimate.js';
 import { getFundRegularImpactPct } from '../market-session.js';
 import { beijingDateString } from '../time.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './suppress.js';
-import { getReadyFundRt1Snap } from './snap-ready.js';
+import { getReadyFundRt1Snap, isStalePreEodSnap } from './snap-ready.js';
 import {
   shouldFreezeUsIndexCloseSnapshot,
   shouldUseLiveUsIndexStyle,
@@ -47,20 +47,33 @@ function applyRegularSnapshotFallback(fundId, liveRow, now = new Date()) {
 }
 
 /**
+ * snap 条目 rt1=0 且为美指 style 时视为无效（坏 seed），改读指数 4:00 收盘。
+ * @param {object|null|undefined} fundSnap
+ * @param {object} liveRow
+ * @param {Date} [now]
+ */
+function snapEntryRt1Usable(fundSnap, liveRow, now) {
+  if (fundSnap?.rt1 == null) return false;
+  if (fundSnap.rt1 !== 0) return true;
+  return !shouldFreezeUsIndexCloseSnapshot(liveRow, now);
+}
+
+/**
  * @param {number} fundId
  * @param {object} liveRow
- * @param {object|null} fundSnap
+ * @param {object|null|undefined} fundSnap
  * @param {Date} [now]
  */
 function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
-  if (fundSnap?.rt1 == null) {
+  if (!snapEntryRt1Usable(fundSnap, liveRow, now)) {
     const fallback = applyRegularSnapshotFallback(fundId, liveRow, now);
     return finalizeLiveFundDisplayRow(fallback ?? liveRow, now);
   }
   const rt1 = fundSnap.rt1;
   const amountAtSnap = fundSnap.amountAtSnap ?? liveRow.amount ?? 0;
+  const amountForEst = liveRow.amount ?? amountAtSnap;
   const pct =
-    amountAtSnap > 0 ? round2((rt1 / amountAtSnap) * 10000) / 100 : null;
+    amountForEst > 0 ? round2((rt1 / amountForEst) * 10000) / 100 : null;
   return finalizeLiveFundDisplayRow(
     {
       ...liveRow,
@@ -68,11 +81,22 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
       estimateImpactPct: pct ?? liveRow.estimateImpactPct,
       impactPct: pct ?? liveRow.impactPct,
       impactPctRegular: fundSnap.impactPctRegular ?? liveRow.impactPctRegular,
-      estimateAssets: round2(amountAtSnap + rt1),
+      estimateAssets: round2(amountForEst + rt1),
       displaySnap: true,
     },
     now,
   );
+}
+
+/**
+ * 穿透/融合基金在 asia_live 已算好 row1，不得用旧 regularSnapshot 覆盖。
+ * @param {ReturnType<typeof resolveDisplaySession>} clockSession
+ * @param {object} liveRow
+ */
+function isAsiaLiveHoldingsRow(clockSession, liveRow) {
+  if (clockSession.clockPhase !== 'asia_live') return false;
+  const src = String(liveRow?.impactSource ?? liveRow?.estimateSource ?? '');
+  return src === 'holdings' || src === 'ensemble';
 }
 
 /**
@@ -83,9 +107,12 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
  */
 export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) {
   const clockSession = resolveDisplaySession(now);
-  // snap 阶段（day_open / eod_freeze）强制读 snap，不得因欧股等 regular 持仓 bypass
+  if (isAsiaLiveHoldingsRow(clockSession, liveRow)) {
+    return finalizeLiveFundDisplayRow(liveRow, now);
+  }
+  // 仅美股正盘允许 regular 持仓 live bypass；asia_live / eod_freeze 读 snap 或 fallback
   const shouldRefreshLive =
-    !clockSession.isRt1SnapPhase &&
+    clockSession.clockPhase === 'us_regular_live' &&
     (liveRow?.shouldRefreshLiveRt1 === true || liveRow?.hasRegularHolding === true);
   if (shouldRefreshLive) {
     return finalizeLiveFundDisplayRow(liveRow, now);
@@ -97,7 +124,18 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
   if (shouldUseLiveUsIndexStyle(liveRow, now)) {
     return finalizeLiveFundDisplayRow(liveRow, now);
   }
-  // eod_freeze 读 16:00 per-fund snap；day_open / asia_live 美指 style 读指数条 4:00 收盘
+  // eod_freeze：美指 style 读 4:00 指数收盘；snap 中 rt1=0 时 fallback
+  if (clockSession.clockPhase === 'eod_freeze' && shouldFreezeUsIndexCloseSnapshot(liveRow, now)) {
+    const readySnap = getReadyFundRt1Snap(accrualDay, now, 'portfolio');
+    const fundSnap = readySnap?.funds?.[fundId] ?? readySnap?.funds?.[String(fundId)];
+    if (!snapEntryRt1Usable(fundSnap, liveRow, now)) {
+      const closeFallback = applyRegularSnapshotFallback(fundId, liveRow, now);
+      if (closeFallback) {
+        return finalizeLiveFundDisplayRow(closeFallback, now);
+      }
+    }
+  }
+  // day_open / asia_live 美指 style 读指数条 4:00 收盘
   if (
     shouldFreezeUsIndexCloseSnapshot(liveRow, now) &&
     clockSession.clockPhase !== 'eod_freeze'
@@ -115,9 +153,11 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
   }
 
   const rawSnap = getScopeSnap(accrualDay, 'eodSnap', 'portfolio');
-  const rawFundSnap = rawSnap?.funds?.[fundId] ?? rawSnap?.funds?.[String(fundId)];
-  if (rawFundSnap?.rt1 != null) {
-    return applyFundSnapEntry(fundId, liveRow, rawFundSnap, now);
+  if (rawSnap && !isStalePreEodSnap(rawSnap, now, accrualDay)) {
+    const rawFundSnap = rawSnap?.funds?.[fundId] ?? rawSnap?.funds?.[String(fundId)];
+    if (rawFundSnap?.rt1 != null) {
+      return applyFundSnapEntry(fundId, liveRow, rawFundSnap, now);
+    }
   }
 
   const fallback = applyRegularSnapshotFallback(fundId, liveRow, now);
@@ -160,28 +200,16 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
   };
   const estFromFunds = resolvePortfolioRealtimeAssets(accLike, baseline);
   const estimateFrozen = session.isRt1SnapPhase;
-  const eodFreeze = session.clockPhase === 'eod_freeze';
-  const readySnap = estimateFrozen && eodFreeze ? getReadyFundRt1Snap(accrualDay, now, 'portfolio') : null;
 
-  let rt1 = rt1Live;
-  let est = estFromFunds;
-  if (eodFreeze && readySnap) {
-    if (readySnap.rt1 != null && Number.isFinite(readySnap.rt1)) {
-      rt1 = round2(readySnap.rt1);
-    }
-    if (readySnap.est != null && Number.isFinite(readySnap.est)) {
-      est = round2(readySnap.est);
-    }
-  }
-
+  // spec §2.2 / §9：header RT1/EST 恒为 Σ per-fund（amount+ep）；16:00 冻结在 per-fund snap 读回
   return {
     ...totalsLive,
     settledAssets: settled,
-    realtimeProfit: rt1,
+    realtimeProfit: rt1Live,
     realtimeProfitPct:
-      baseline > 0 ? round2((rt1 / baseline) * 10000) / 100 : totalsLive.realtimeProfitPct,
-    realtimeAssets: est,
-    estimateAssetsSum: est,
+      settled > 0 ? round2((rt1Live / settled) * 10000) / 100 : totalsLive.realtimeProfitPct,
+    realtimeAssets: estFromFunds,
+    estimateAssetsSum: estFromFunds,
     baseline,
     liveMode: estimateFrozen ? 'snap' : 'live',
     estimateFrozen,

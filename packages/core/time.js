@@ -48,6 +48,7 @@ export function beijingTimeHms(date = new Date()) {
   for (const p of parts) {
     if (p.type !== 'literal') map[p.type] = p.value;
   }
+  if (map.hour === '24') map.hour = '00';
   return `${map.hour}:${map.minute}:${map.second}`;
 }
 
