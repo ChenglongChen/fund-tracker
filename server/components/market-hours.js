@@ -81,8 +81,8 @@ export function isUsFundImpactLive(now = new Date()) {
 }
 
 export function isFundImpactLiveWindow(market, now = new Date()) {
-  if (market === 'cn') return isCnMarketOpen(now);
-  if (market === 'gold_cn') return isGoldCnMarketOpen(now);
+  if (market === 'cn') return isCnMarketOpen(now) || isCnMiddayBreak(now);
+  if (market === 'gold_cn') return isGoldCnMarketOpen(now) || isCnMiddayBreak(now);
   if (market === 'us') return isUsFundImpactLive(now);
   return false;
 }

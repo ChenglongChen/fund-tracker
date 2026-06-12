@@ -126,6 +126,11 @@ assert(
   'cn lunch accepts midday close impact',
   resolveFundImpactPct(8, 'cn', -2.3, cnLunch) === -2.3,
 );
+resolveFundImpactPct(9, 'cn', -1.1, cnMorning);
+assert(
+  'cn lunch upgrades to positive morning close',
+  resolveFundImpactPct(9, 'cn', 1.57, cnLunch) === 1.57,
+);
 clearFundImpactSnapshots();
 
 const cnPostClose = new Date('2026-05-26T09:30:00.000Z');
