@@ -257,8 +257,8 @@ function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
 
   holdings = applySessionQuotes(holdings, byHoldingKey, now);
   const hasRegularHolding = fundHasRegularHolding(holdings, now);
-  // row1 仅计当前正盘持仓；休市/A 股/亚盘/欧股昨日收盘涨跌幅不参与 RT1
-  const liveRt1Opts = { liveRt1Only: true };
+  // spec §8：liveRt1Only 仅美股正盘；亚太正盘时仍保留美股昨收 + 亚太 live 全穿透
+  const liveRt1Opts = getUsSessionPhase(now) === 'regular' ? { liveRt1Only: true } : {};
   const cov = summarizeHoldingsCoverage(holdings, liveRt1Opts);
   const impactBreakdown = computeHoldingsImpactBreakdown(holdings, fxStrip, liveRt1Opts);
   const penetrationBreakdown = computeHoldingsImpactBreakdown(holdings, fxStrip, {});

@@ -94,4 +94,34 @@ const dayOpenClosed = [
 assert.equal(estimateFromHoldingsWithFx(dayOpenClosed, 0, { liveRt1Only: true }), null);
 assert.ok(Math.abs(estimateFromHoldingsWithFx(dayOpenClosed, 0)) > 0.2);
 
+const asiaKrOpen = new Date('2026-06-12T00:35:00.000Z'); // BJ 08:35
+const usCloseKrLive = [
+  {
+    code: 'NVDA',
+    weight: 40,
+    changePct: 3.29,
+    quoteSession: 'closed',
+    quoteMode: 'close',
+    holdingMarket: 'us',
+  },
+  {
+    code: '000660',
+    weight: 5,
+    changePct: 8.2,
+    quoteSession: 'regular',
+    quoteMode: 'live',
+    holdingMarket: 'kr',
+  },
+];
+const asiaBlend = estimateFromHoldingsWithFx(usCloseKrLive, 0);
+assert.ok(
+  asiaBlend > 1.5,
+  'asia kr open keeps us close in rt1 weight',
+);
+const usRegularOnly = estimateFromHoldingsWithFx(usCloseKrLive, 0, { liveRt1Only: true });
+assert.ok(
+  usRegularOnly < 0.5,
+  'liveRt1Only excludes us close',
+);
+
 console.log('live-rt1-holdings.test.js OK');

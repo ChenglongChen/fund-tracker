@@ -97,7 +97,11 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
   if (shouldUseLiveUsIndexStyle(liveRow, now)) {
     return finalizeLiveFundDisplayRow(liveRow, now);
   }
-  if (shouldFreezeUsIndexCloseSnapshot(liveRow, now) && !clockSession.isRt1SnapPhase) {
+  // eod_freeze 读 16:00 per-fund snap；day_open / asia_live 美指 style 读指数条 4:00 收盘
+  if (
+    shouldFreezeUsIndexCloseSnapshot(liveRow, now) &&
+    clockSession.clockPhase !== 'eod_freeze'
+  ) {
     const closeFallback = applyRegularSnapshotFallback(fundId, liveRow, now);
     if (closeFallback) {
       return finalizeLiveFundDisplayRow(closeFallback, now);
@@ -156,11 +160,12 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
   };
   const estFromFunds = resolvePortfolioRealtimeAssets(accLike, baseline);
   const estimateFrozen = session.isRt1SnapPhase;
-  const readySnap = estimateFrozen ? getReadyFundRt1Snap(accrualDay, now, 'portfolio') : null;
+  const eodFreeze = session.clockPhase === 'eod_freeze';
+  const readySnap = estimateFrozen && eodFreeze ? getReadyFundRt1Snap(accrualDay, now, 'portfolio') : null;
 
   let rt1 = rt1Live;
   let est = estFromFunds;
-  if (estimateFrozen && readySnap) {
+  if (eodFreeze && readySnap) {
     if (readySnap.rt1 != null && Number.isFinite(readySnap.rt1)) {
       rt1 = round2(readySnap.rt1);
     }

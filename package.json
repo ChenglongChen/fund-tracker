@@ -18,6 +18,7 @@
     "calibrate:valuation": "node scripts/calibrate-valuation.js --days=25",
     "test:fund-estimate": "node server/fund-estimate.test.js",
     "test:display-session": "node server/display-session.test.js",
+    "test:phase-transition": "node server/phase-transition.test.js",
     "test:display-state": "node server/snap-state.test.js",
     "test:live-pipeline": "node server/live-pipeline.test.js",
     "test:realtime-display-pipeline": "node server/realtime-display-pipeline.test.js",

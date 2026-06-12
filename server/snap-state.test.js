@@ -198,10 +198,10 @@ setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
 });
 const indexWithStaleSnap = applyFundRt1Snap(3, indexRelayRow, accrualDay, asiaNoSnap);
 assert(
-  'asia afternoon index reads eod snap when us closed',
+  'asia afternoon index prefers index close over stale snap',
   indexWithStaleSnap.displaySnap &&
-    indexWithStaleSnap.estimateProfit === 700 &&
-    !indexWithStaleSnap.rt1SnapSource,
+    indexWithStaleSnap.rt1SnapSource === 'regularSnapshot' &&
+    indexWithStaleSnap.estimateProfit === round2((200000 * 0.46) / 100),
 );
 
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {

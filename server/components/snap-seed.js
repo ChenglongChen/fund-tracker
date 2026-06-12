@@ -71,25 +71,35 @@ export function reconcileDisplayState(
   const s = session ?? resolveDisplaySession(now, { persistedPhase: getCurrentPhase() });
   const { accrualDay, clockPhase: targetPhase, snapKey } = s;
 
-  if (targetPhase === 'us_regular_live') {
-    seedEodSnap(
-      accrualDay,
-      'eodSnap',
-      portfolio,
-      liveFunds,
-      totalsLive,
-      impactRawList,
-      now,
-      targetPhase,
-    );
+  if (targetPhase === 'day_open') {
+    const existing = getScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+    // 04:00 首次写入；已有 day_open snap 不重复 seed（isScopeSnapReady 对 day_open 恒 false）
+    const needsDayOpenSnap =
+      !existing ||
+      existing.seedPhase === 'us_regular_live' ||
+      (existing.seedPhase !== 'day_open' && !isScopeSnapReady(existing));
+    if (needsDayOpenSnap) {
+      if (existing) clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+      seedEodSnap(
+        accrualDay,
+        'eodSnap',
+        portfolio,
+        liveFunds,
+        totalsLive,
+        impactRawList,
+        now,
+        targetPhase,
+      );
+    }
   } else if (snapKey === 'eodSnap' && targetPhase === 'eod_freeze') {
     const existing = getScopeSnap(accrualDay, snapKey, 'portfolio');
-    const needsFirstEodSnap = !isScopeSnapReady(existing);
-    const needsUpgradeToEod =
-      isScopeSnapReady(existing) &&
-      existing.seedPhase !== 'eod_freeze' &&
-      sessionSnapNeedsReseed(existing, portfolio, liveFunds, now);
-    if (needsFirstEodSnap || needsUpgradeToEod) {
+    // 16:00 从 day_open snap 升级一次；eod_freeze 已就绪则仅 suppress 变化时 reseed
+    const needsEodSnap =
+      !existing ||
+      existing.seedPhase !== 'eod_freeze' ||
+      (isScopeSnapReady(existing) &&
+        sessionSnapNeedsReseed(existing, portfolio, liveFunds, now));
+    if (needsEodSnap) {
       if (existing) clearScopeSnap(accrualDay, snapKey, 'portfolio');
       seedEodSnap(
         accrualDay,

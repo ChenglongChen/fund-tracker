@@ -5,6 +5,7 @@ import {
   computeHoldingsImpactBreakdown,
   summarizeFxExposure,
 } from './holdings-pipeline.js';
+import { getUsSessionPhase } from './holding-market.js';
 
 export { computeHoldingsImpactBreakdown, summarizeFxExposure };
 
@@ -113,8 +114,11 @@ export function applyHoldingsEnsemble(r, gz, pack, now = new Date()) {
   }
 
   if (gz?.gszzl == null || !Number.isFinite(gz.gszzl)) {
+    const usRegular = getUsSessionPhase(now) === 'regular';
     const rt1Pct =
-      r.impactSession === 'regular' ? (breakdown?.totalPct ?? r.impactPct) : null;
+      usRegular && r.impactSession === 'regular'
+        ? (breakdown?.totalPct ?? r.impactPct)
+        : holdingsPct;
     return {
       ...r,
       impactPct: rt1Pct,

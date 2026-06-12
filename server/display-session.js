@@ -80,7 +80,9 @@ export function resolveDisplaySession(now = new Date(), opts = {}) {
   const snapKey = resolveSnapKey(usPhase, effectivePhase);
   const phaseToPersist = resolvePhaseToPersist(usPhase, snapKey, clockPhase);
 
-  const isRt1SnapPhase = usPhase !== 'regular';
+  // realtime-spec §7：仅 day_open(04–08) 与 eod_freeze(16–21:30) 冻结 header RT1/EST；
+  // asia_live(08–16) 亚太 per-fund live，header = Σ estimateProfit / Σ estimateAssets。
+  const isRt1SnapPhase = clockPhase === 'eod_freeze' || clockPhase === 'day_open';
   const rt1Source = isRt1SnapPhase ? 'snap' : 'live';
 
   return {
