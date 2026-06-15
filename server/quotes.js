@@ -12,15 +12,22 @@ const TENCENT_ORIGIN = 'https://qt.gtimg.cn';
 
 /** 单日涨跌幅合理上界（东财 f170 错位、prev 单位错误等会产出万级 %） */
 export const MAX_ABS_CHANGE_PCT = 30;
+/** 穿透持仓：港股新股 / 美股 3x ETF 等可超过 30%；仍拦截东财万级脏数据 */
+export const MAX_ABS_HOLDING_CHANGE_PCT = 80;
 
-/** @param {{ changePct?: number|null, price?: number|null }} [q] */
-export function isValidQuote(q) {
+/** @param {{ changePct?: number|null, price?: number|null }} [q] @param {number} [maxAbs] */
+export function isValidQuote(q, maxAbs = MAX_ABS_CHANGE_PCT) {
   if (!q || !Number.isFinite(q.changePct)) return false;
   if (q.price != null && Number.isFinite(q.price) && q.price <= 0) return false;
   // 新浪 A 股开盘前常见 price=0 → changePct=-100
   if (q.changePct <= -99.9) return false;
-  if (Math.abs(q.changePct) > MAX_ABS_CHANGE_PCT) return false;
+  if (Math.abs(q.changePct) > maxAbs) return false;
   return true;
+}
+
+/** 穿透持仓行情校验（港股等可超过 30%） */
+export function isValidHoldingQuote(q) {
+  return isValidQuote(q, MAX_ABS_HOLDING_CHANGE_PCT);
 }
 
 /** @param {string} stockCode @param {number|null} marketId */
@@ -312,7 +319,7 @@ export async function fetchHoldingQuotes(holdings, now = new Date(), opts = {}) 
     let q = fetchKey ? quotes[fetchKey] : null;
     let quoteSource = fetchKey ? 'sina' : null;
     if (
-      (!q || !isValidQuote(q)) &&
+      (!q || !isValidHoldingQuote(q)) &&
       isLikelyKoreanHolding(h.code, h.name) &&
       !krSessionLive
     ) {
@@ -322,7 +329,7 @@ export async function fetchHoldingQuotes(holdings, now = new Date(), opts = {}) 
         quoteSource = 'soxx-fallback';
       }
     }
-    if (q && isValidQuote(q)) byHoldingKey[`${h.code}\0${h.name}`] = { ...q, quoteSource };
+    if (q && isValidQuote(q, MAX_ABS_HOLDING_CHANGE_PCT)) byHoldingKey[`${h.code}\0${h.name}`] = { ...q, quoteSource };
   }
 
   const needTencent = holdings.filter((h) => {
@@ -336,7 +343,7 @@ export async function fetchHoldingQuotes(holdings, now = new Date(), opts = {}) 
     for (const h of needTencent) {
       const sym = toTencentSymbol(h.code, h.marketId ?? null);
       const q = sym ? tencentQuotes[sym] : null;
-      if (q && isValidQuote(q)) {
+      if (q && isValidQuote(q, MAX_ABS_HOLDING_CHANGE_PCT)) {
         byHoldingKey[`${h.code}\0${h.name}`] = { ...q, quoteSource: 'tencent' };
       }
     }

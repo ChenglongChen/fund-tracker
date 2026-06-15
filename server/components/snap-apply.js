@@ -12,7 +12,7 @@ import { fundEstimateProfit } from '../fund-estimate.js';
 import { getFundRegularImpactPct } from '../market-session.js';
 import { beijingDateString } from '../time.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './suppress.js';
-import { getReadyFundRt1Snap, isStalePreEodSnap } from './snap-ready.js';
+import { getReadyFundRt1Snap, isScopeSnapReady } from './snap-ready.js';
 import {
   shouldFreezeUsIndexCloseSnapshot,
   shouldUseLiveUsIndexStyle,
@@ -153,7 +153,7 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
   }
 
   const rawSnap = getScopeSnap(accrualDay, 'eodSnap', 'portfolio');
-  if (rawSnap && !isStalePreEodSnap(rawSnap, now, accrualDay)) {
+  if (rawSnap && isScopeSnapReady(rawSnap, now, accrualDay)) {
     const rawFundSnap = rawSnap?.funds?.[fundId] ?? rawSnap?.funds?.[String(fundId)];
     if (rawFundSnap?.rt1 != null) {
       return applyFundSnapEntry(fundId, liveRow, rawFundSnap, now);

@@ -1,7 +1,7 @@
 /**
  * 分市场会话行情：开盘用实时价，休市冻结最近收盘涨跌幅。
  */
-import { isValidQuote, quoteForHolding } from './quotes.js';
+import { isValidHoldingQuote, quoteForHolding } from './quotes.js';
 import {
   classifyHoldingMarket,
   holdingCacheKey,
@@ -55,7 +55,7 @@ function resolveUsExtendedFields(q, quoteSession, regularSnap, market) {
   }
   let changePctRegular =
     q.changePctRegular != null && Number.isFinite(q.changePctRegular) ? q.changePctRegular : null;
-  if (changePctRegular == null && regularSnap && isValidQuote(regularSnap) && regularSnap.source !== 'live') {
+  if (changePctRegular == null && regularSnap && isValidHoldingQuote(regularSnap) && regularSnap.source !== 'live') {
     changePctRegular = regularSnap.changePct;
   }
   const changePctPremarket =
@@ -77,7 +77,7 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
     const cacheKey = `${holdingCacheKey(h)}|${market}`;
     const q = quoteForHolding(h, byHoldingKey);
 
-    if (open && q && isValidQuote(q)) {
+    if (open && q && isValidHoldingQuote(q)) {
       const snap = {
         changePct: q.changePct,
         price: q.price ?? null,
@@ -149,12 +149,12 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
     }
 
     const frozen = closeSnapshot.get(cacheKey);
-    if (frozen && isValidQuote(frozen)) {
+    if (frozen && isValidHoldingQuote(frozen)) {
       const regularSnap = regularCloseSnapshot.get(cacheKey);
       let changePctRegular = frozen.changePct;
       let changePctPremarket = null;
       if (market === 'us' || market === 'other') {
-        if (regularSnap && isValidQuote(regularSnap) && regularSnap.source !== 'live') {
+        if (regularSnap && isValidHoldingQuote(regularSnap) && regularSnap.source !== 'live') {
           changePctRegular = regularSnap.changePct;
         } else if (closeSession === 'premarket' || closeSession === 'afterhours') {
           changePctRegular = null;
@@ -173,7 +173,7 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
       };
     }
 
-    if (q && isValidQuote(q)) {
+    if (q && isValidHoldingQuote(q)) {
       closeSnapshot.set(cacheKey, {
         changePct: q.changePct,
         price: q.price ?? null,
@@ -194,7 +194,7 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
 
     ensureRegularSnapFromDisk(cacheKey);
     const diskRegular = regularCloseSnapshot.get(cacheKey);
-    if (diskRegular && isValidQuote(diskRegular)) {
+    if (diskRegular && isValidHoldingQuote(diskRegular)) {
       return {
         ...h,
         changePct: diskRegular.changePct,

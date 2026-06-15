@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR } from './data-dir.js';
-import { isValidQuote } from './quotes.js';
+import { isValidHoldingQuote } from './quotes.js';
 
 const PATH = path.join(DATA_DIR, 'impact-snapshots.json');
 
@@ -18,7 +18,7 @@ export async function loadImpactSnapshots() {
     const holdings = data?.holdings && typeof data.holdings === 'object' ? data.holdings : {};
     const cleanedHoldings = {};
     for (const [key, snap] of Object.entries(holdings)) {
-      if (snap && isValidQuote(snap)) cleanedHoldings[key] = snap;
+      if (snap && isValidHoldingQuote(snap)) cleanedHoldings[key] = snap;
     }
     cache = {
       holdings: cleanedHoldings,
@@ -48,7 +48,7 @@ function scheduleSave() {
 
 /** @param {string} key @param {{ changePct: number, price?: number|null, at?: number }} snap */
 export function rememberHoldingRegular(key, snap) {
-  if (!isValidQuote(snap)) return;
+  if (!isValidHoldingQuote(snap)) return;
   cache.holdings[key] = {
     changePct: snap.changePct,
     price: snap.price ?? null,
@@ -98,7 +98,7 @@ export function getFundSnapshotRecords() {
 /** 启动时灌入内存快照 */
 export function seedHoldingRegularSnapshots(targetMap) {
   for (const [key, snap] of Object.entries(cache.holdings)) {
-    if (snap && isValidQuote(snap) && !targetMap.has(key)) {
+    if (snap && isValidHoldingQuote(snap) && !targetMap.has(key)) {
       targetMap.set(key, { ...snap, source: 'disk' });
     }
   }

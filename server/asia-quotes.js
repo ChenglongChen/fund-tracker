@@ -1,7 +1,7 @@
 /**
  * 日韩欧股实时行情：东财 push2 → Naver KRX → 港开时 CSOP 2x → Stooq（日股/欧股）。
  */
-import { isValidQuote, quoteForHolding, fetchSinaQuoteKeys, fetchTencentUsQuotes, resolveTencentUsSymbol, resolveTencentUsSymbolFromMap } from './quotes.js';
+import { isValidHoldingQuote, quoteForHolding, fetchSinaQuoteKeys, fetchTencentUsQuotes, resolveTencentUsSymbol, resolveTencentUsSymbolFromMap } from './quotes.js';
 import { runWithConcurrency } from './concurrency.js';
 import {
   classifyHoldingMarket,
@@ -182,7 +182,7 @@ async function fetchEastmoneyQuote(secid, prevCloseOnly = false) {
 
     if (!Number.isFinite(changePct)) return null;
     const row = { changePct, price, quoteSource: 'eastmoney', name: d.f58 || undefined };
-    if (!isValidQuote(row)) return null;
+    if (!isValidHoldingQuote(row)) return null;
     if (prevClose > 0 && code) prevCloseByTicker.set(code, prevClose);
     return row;
   } catch {
@@ -218,7 +218,7 @@ async function fetchEastmoneyBatch(secids, opts = {}) {
           const code = d.f12;
           if (!Number.isFinite(changePct) || !code) continue;
           const row = { changePct, price, quoteSource: 'eastmoney' };
-          if (!isValidQuote(row)) continue;
+          if (!isValidHoldingQuote(row)) continue;
           if (prevClose > 0) prevCloseByTicker.set(String(code), prevClose);
           out[String(code)] = row;
         }
@@ -273,7 +273,7 @@ async function fetchStooqIntradayQuote(stooqSymbol) {
       price,
       quoteSource: prevLooksCompatible ? 'stooq' : 'stooq-intraday',
     };
-    return isValidQuote(row) ? row : null;
+    return isValidHoldingQuote(row) ? row : null;
   } catch {
     return null;
   }
@@ -305,7 +305,7 @@ async function fetchStooqDailyQuote(stooqSymbol) {
     }
     if (!Number.isFinite(changePct)) return null;
     const row = { changePct, price: close, quoteSource: 'stooq-daily' };
-    return isValidQuote(row) ? row : null;
+    return isValidHoldingQuote(row) ? row : null;
   } catch {
     return null;
   }
@@ -324,7 +324,7 @@ async function fetchStooqQuote(stooqSymbol, opts = {}) {
   const sym = stooqSymbol.toLowerCase();
   const cached = stooqQuoteCache.get(sym);
   if (cached && Date.now() - cached.at < STOOQ_CACHE_TTL_MS) {
-    if (isValidQuote(cached.quote)) return cached.quote;
+    if (isValidHoldingQuote(cached.quote)) return cached.quote;
     stooqQuoteCache.delete(sym);
   }
 
@@ -335,7 +335,7 @@ async function fetchStooqQuote(stooqSymbol, opts = {}) {
 
   const task = (async () => {
     const quote = await fetchStooqQuoteOnce(sym, opts);
-    if (quote && isValidQuote(quote)) {
+    if (quote && isValidHoldingQuote(quote)) {
       stooqQuoteCache.set(sym, { quote, at: Date.now() });
       stooqFailUntil.delete(sym);
       return quote;
@@ -355,7 +355,7 @@ async function fetchStooqJpQuote(ticker, preferDaily = false) {
 
 function getCachedStooqQuote(stooqSymbol) {
   const cached = stooqQuoteCache.get(stooqSymbol.toLowerCase());
-  if (cached && Date.now() - cached.at < STOOQ_CACHE_TTL_MS && isValidQuote(cached.quote)) {
+  if (cached && Date.now() - cached.at < STOOQ_CACHE_TTL_MS && isValidHoldingQuote(cached.quote)) {
     return cached.quote;
   }
   return null;
@@ -401,7 +401,7 @@ async function drainStooqBackground(byHoldingKey) {
       await runWithConcurrency(batch, STOOQ_CONCURRENCY, async (t) => {
         if (!shouldReplaceQuote(byHoldingKey[t.holdingKey])) return;
         const quote = await fetchStooqQuote(t.sym, { preferDaily: t.preferDaily });
-        if (quote && isValidQuote(quote)) {
+        if (quote && isValidHoldingQuote(quote)) {
           byHoldingKey[t.holdingKey] = { ...quote, name: t.name || quote.name };
           updated = true;
         }
@@ -426,8 +426,8 @@ function topByWeight(items, limit = MAX_STOOQ_FETCHES_PER_CALL) {
 function shouldReplaceQuote(q) {
   if (!q) return true;
   if (q.quoteSource === 'soxx-fallback') return true;
-  if (q.quoteSource === 'tencent-us-adr' && isValidQuote(q)) return false;
-  return !isValidQuote(q);
+  if (q.quoteSource === 'tencent-us-adr' && isValidHoldingQuote(q)) return false;
+  return !isValidHoldingQuote(q);
 }
 
 /** @param {string} code */
@@ -473,7 +473,7 @@ async function fetchNaverKrQuotes(codes) {
         const rows = j?.result?.areas?.flatMap((a) => a.datas || []) || [];
         const row = rows.find((r) => normalizeKrCode(r.cd) === code) || rows[0];
         const q = quoteFromNaverRow(row);
-        if (q && isValidQuote(q)) out[code] = q;
+        if (q && isValidHoldingQuote(q)) out[code] = q;
       } catch {
         /* ignore */
       }
@@ -489,7 +489,7 @@ function quoteFromCsopProxy(h, proxyQuotes, leverage, now = new Date()) {
   if (!proxy) return null;
   const hkKey = `rt_hk${proxy.hkCode.padStart(5, '0')}`;
   const pq = proxyQuotes[hkKey];
-  if (!pq || !isValidQuote(pq)) return null;
+  if (!pq || !isValidHoldingQuote(pq)) return null;
   return {
     changePct: pq.changePct / leverage,
     price: pq.price != null ? pq.price / leverage : null,
@@ -504,13 +504,13 @@ async function supplementTencentUsAdrQuotes(holdings, byHoldingKey) {
   const symByHolding = new Map();
   for (const h of holdings) {
     const key = holdingKey(h);
-    if (isValidQuote(byHoldingKey[key])) continue;
+    if (isValidHoldingQuote(byHoldingKey[key])) continue;
     const mapped = resolveTencentUsSymbolFromMap(h.code, h.name);
     if (mapped) symByHolding.set(key, mapped);
   }
   const needLookup = holdings.filter((h) => {
     const key = holdingKey(h);
-    return !isValidQuote(byHoldingKey[key]) && !symByHolding.has(key);
+    return !isValidHoldingQuote(byHoldingKey[key]) && !symByHolding.has(key);
   });
   for (const h of needLookup) {
     const key = holdingKey(h);
@@ -523,10 +523,10 @@ async function supplementTencentUsAdrQuotes(holdings, byHoldingKey) {
   let updated = false;
   for (const h of holdings) {
     const key = holdingKey(h);
-    if (isValidQuote(byHoldingKey[key])) continue;
+    if (isValidHoldingQuote(byHoldingKey[key])) continue;
     const sym = symByHolding.get(key);
     const q = sym ? quotes[sym] : null;
-    if (q && isValidQuote(q)) {
+    if (q && isValidHoldingQuote(q)) {
       byHoldingKey[key] = { ...q, name: h.name || q.name };
       updated = true;
     }
@@ -562,9 +562,9 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
   for (const h of holdings) {
     const market = classifyHoldingMarket(h);
     const key = holdingKey(h);
-    if (market === 'kr' && krOpen && !isValidQuote(byHoldingKey[key])) krNeeds.push(h);
-    if (market === 'jp' && !isValidQuote(byHoldingKey[key])) jpNeeds.push(h);
-    if (market === 'eu' && !isValidQuote(byHoldingKey[key])) euNeeds.push(h);
+    if (market === 'kr' && krOpen && !isValidHoldingQuote(byHoldingKey[key])) krNeeds.push(h);
+    if (market === 'jp' && !isValidHoldingQuote(byHoldingKey[key])) jpNeeds.push(h);
+    if (market === 'eu' && !isValidHoldingQuote(byHoldingKey[key])) euNeeds.push(h);
   }
 
   if (!krNeeds.length && !jpNeeds.length && !euNeeds.length) return;
@@ -616,12 +616,12 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
     const key = holdingKey(h);
     const code = String(h.code).padStart(6, '0');
     const em = eastmoneyQuotes[code];
-    if (em && isValidQuote(em)) {
+    if (em && isValidHoldingQuote(em)) {
       byHoldingKey[key] = { ...em, name: h.name || em.name };
       continue;
     }
     const naver = naverQuotes[code];
-    if (naver && isValidQuote(naver)) {
+    if (naver && isValidHoldingQuote(naver)) {
       byHoldingKey[key] = { ...naver, name: h.name || naver.name };
       continue;
     }
@@ -631,7 +631,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
       KR_CSOP_PROXY[code]?.leverage ?? 2,
       now,
     );
-    if (proxy && isValidQuote(proxy)) byHoldingKey[key] = proxy;
+    if (proxy && isValidHoldingQuote(proxy)) byHoldingKey[key] = proxy;
   }
 
   /** @type {Map<string, string>} */
@@ -642,7 +642,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
     if (!ticker) continue;
     jpSymByHolding.set(key, `${ticker.toLowerCase()}.jp`);
     const em = eastmoneyQuotes[ticker];
-    if (em && isValidQuote(em)) {
+    if (em && isValidHoldingQuote(em)) {
       byHoldingKey[key] = { ...em, name: h.name || em.name };
     }
   }
@@ -656,7 +656,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
     if (sym) euSymByHolding.set(key, sym);
     const code = String(h.code || '').trim().toUpperCase();
     let em = eastmoneyQuotes[code];
-    if (!em || !isValidQuote(em)) {
+    if (!em || !isValidHoldingQuote(em)) {
       for (const secid of euEastmoneySecidCandidates(h.code)) {
         const ticker = secid.split('.').pop();
         if (ticker && eastmoneyQuotes[ticker]) {
@@ -665,7 +665,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
         }
       }
     }
-    if (em && isValidQuote(em)) {
+    if (em && isValidHoldingQuote(em)) {
       byHoldingKey[key] = { ...em, name: h.name || em.name };
     }
   }
@@ -698,7 +698,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
     await runWithConcurrency(stooqTasks, STOOQ_CONCURRENCY, async (t) => {
       if (!shouldReplaceQuote(byHoldingKey[t.holdingKey])) return;
       const quote = await fetchStooqQuote(t.sym, { preferDaily: t.preferDaily });
-      if (quote && isValidQuote(quote)) {
+      if (quote && isValidHoldingQuote(quote)) {
         byHoldingKey[t.holdingKey] = { ...quote, name: t.name || quote.name };
       }
     });

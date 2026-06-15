@@ -114,6 +114,19 @@ const hkMid = applySessionQuotes(
 assert('hk midday session', hkMid[0].quoteSession === 'midday');
 assert('hk midday frozen close mode', hkMid[0].quoteMode === 'close');
 
+const zhipuH = { code: '02513', name: '智谱', marketId: 116 };
+const zhipuLive = applySessionQuotes(
+  [zhipuH],
+  { '02513\0智谱': { changePct: 34.18, price: 1472, quoteSource: 'sina' } },
+  hkOpen,
+);
+assert(
+  'hk large move live not missing',
+  zhipuLive[0].quoteMode === 'live' &&
+    zhipuLive[0].quoteSession === 'regular' &&
+    Math.abs(zhipuLive[0].changePct - 34.18) < 0.01,
+);
+
 const jpMidday = new Date('2026-05-28T03:00:00.000Z');
 const jpH = { code: '8035', name: '东京电子' };
 const jpMid = applySessionQuotes(

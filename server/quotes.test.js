@@ -1,4 +1,4 @@
-import { isValidQuote, toSinaFetchCode, resolveTencentUsSymbolFromMap, fetchTencentUsQuotes } from './quotes.js';
+import { isValidQuote, isValidHoldingQuote, toSinaFetchCode, resolveTencentUsSymbolFromMap, fetchTencentUsQuotes } from './quotes.js';
 import { supplementAsiaQuotes, rememberAsiaPrevClose } from './asia-quotes.js';
 
 const ok = [];
@@ -13,6 +13,10 @@ assert('reject price 0', !isValidQuote({ changePct: 5, price: 0 }));
 assert('accept normal', isValidQuote({ changePct: 6.22, price: 688 }));
 assert('accept leveraged etf', isValidQuote({ changePct: 18.49, price: 45.2 }));
 assert('reject eastmoney garbage', !isValidQuote({ changePct: 30274.06, price: 34190 }));
+assert('reject 34 for default cap', !isValidQuote({ changePct: 34.18, price: 1472 }));
+assert('accept 34 for hk holding', isValidHoldingQuote({ changePct: 34.18, price: 1472 }));
+assert('accept 55 for leveraged etf holding', isValidHoldingQuote({ changePct: 55, price: 45 }));
+assert('reject 120 for holding cap', !isValidHoldingQuote({ changePct: 120, price: 10 }));
 assert('bse 920808', toSinaFetchCode('920808', 0) === 'bj920808');
 assert('jp code skip sina', toSinaFetchCode('8035JP', null) === null);
 assert('eu fp skip sina', toSinaFetchCode('AIRFP', null) === null);

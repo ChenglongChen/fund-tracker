@@ -1,5 +1,5 @@
 import { extractQuotedVar } from './quote-utils.js';
-import { fetchHoldingQuotes, isValidQuote, quoteForHolding } from './quotes.js';
+import { fetchHoldingQuotes, isValidHoldingQuote, isValidQuote, quoteForHolding } from './quotes.js';
 import { applySessionMarketStrip, applySessionQuotes } from './session-quotes.js';
 import { getUsSessionPhase, holdingCacheKey, classifyHoldingMarket } from './holding-market.js';
 import { isCnMiddayBreak } from './components/market-hours.js';
@@ -93,7 +93,7 @@ export function mergeSharedHoldingQuotes(partial) {
   /** @type {Record<string, object>} */
   const sanitized = {};
   for (const [key, q] of Object.entries(partial)) {
-    if (q && isValidQuote(q)) sanitized[key] = q;
+    if (q && isValidHoldingQuote(q)) sanitized[key] = q;
   }
   if (!Object.keys(sanitized).length) return;
   rememberSharedHoldingQuotes({ ...shared, ...sanitized });
@@ -742,7 +742,7 @@ export async function refreshFundHoldingsDisplay(result, now = new Date()) {
     });
   const missing = holdings.filter((h) => {
     const q = quoteForHolding(h, byHoldingKey);
-    return !q || !isValidQuote(q);
+    return !q || !isValidHoldingQuote(q);
   });
   const toFetch = needsLive || cnMiddayRefresh ? holdings : missing;
   if (toFetch.length) {

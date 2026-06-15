@@ -29,6 +29,7 @@ await loadDayDisplayState();
 
 const eodWindow = new Date('2026-05-28T08:30:00.000Z');
 const accrualDay = '2026-05-28';
+const eodSnapMeta = { at: '2026-05-28T16:30:00+08:00', seedPhase: 'eod_freeze' };
 
 const portfolio = {
   funds: [
@@ -73,6 +74,7 @@ assert('provisional empty snap not ready', !isScopeSnapReady({
 }));
 
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  ...eodSnapMeta,
   rt1: 500,
   est: 300500,
   funds: {
@@ -115,6 +117,7 @@ const asiaMidday = new Date('2026-05-28T02:00:00.000Z');
 setCurrentPhase('asia_live', asiaMidday);
 clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  ...eodSnapMeta,
   rt1: 500,
   est: 300500,
   funds: {
@@ -172,9 +175,9 @@ assert(
 );
 
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  ...eodSnapMeta,
   rt1: 52000,
   est: 300000,
-  seedPhase: 'eod_freeze',
   funds: { 1: { rt1: 52000, amountAtSnap: 100000 } },
 });
 setCurrentPhase('eod_freeze', eodWindow);
@@ -195,6 +198,7 @@ clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
 
 const eodEuBypass = new Date('2026-05-28T09:00:00.000Z'); // 17:00 BJ eod_freeze + EU regular
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  ...eodSnapMeta,
   rt1: 1500,
   funds: { 1: { rt1: 1500, amountAtSnap: 100000, impactPctRegular: 1.5 } },
 });
@@ -237,6 +241,21 @@ assert(
     relaySnapped.impactPct === 0.46,
 );
 
+const asiaAfternoon = new Date('2026-05-28T07:30:00.000Z');
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  rt1: 100,
+  seedPhase: 'day_open',
+  at: '2026-05-28T04:30:00+08:00',
+  funds: { 3: { rt1: 100, amountAtSnap: 200000, impactPctRegular: 0.05 } },
+});
+setCurrentPhase('asia_live', asiaAfternoon);
+const dayOpenSnapIgnored = applyFundRt1Snap(3, indexRelayRow, accrualDay, asiaAfternoon);
+assert(
+  'asia live ignores day_open raw snap',
+  dayOpenSnapIgnored.estimateProfit !== 100 &&
+    dayOpenSnapIgnored.estimateProfit === round2((200000 * 0.46) / 100),
+);
+
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
   rt1: 700,
   est: 300700,
@@ -254,9 +273,9 @@ assert(
 );
 
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  ...eodSnapMeta,
   rt1: 700,
   est: 300700,
-  seedPhase: 'eod_freeze',
   funds: {
     3: { rt1: 700, amountAtSnap: 200000, impactPctRegular: 0.35 },
   },

@@ -88,6 +88,6 @@ export function getReadyActiveScopeSnap(day, now = new Date(), scope = 'portfoli
 export function getReadyFundRt1Snap(day, now = new Date(), scope = 'portfolio') {
   return (
     getReadyActiveScopeSnap(day, now, scope) ??
-    getReadyScopeSnap(day, 'eodSnap', scope)
+    getReadyScopeSnap(day, 'eodSnap', scope, now)
   );
 }
