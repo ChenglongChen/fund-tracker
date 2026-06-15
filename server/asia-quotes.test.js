@@ -71,6 +71,7 @@ const JP_EU_SOURCES = new Set([
   'stooq-daily',
   'stooq-intraday',
   'eastmoney',
+  'kabutan',
   'tencent-us-adr',
 ]);
 
@@ -101,9 +102,22 @@ const jpKeys = {};
 await supplementAsiaQuotes(jpHoldings, jpKeys, now, { awaitStooq: false });
 const jpApplied = applySessionQuotes(jpHoldings, jpKeys, now);
 assert(
-  'jp tencent adr',
-  (jpApplied[0]?.quoteSource === 'tencent-us-adr' && jpApplied[0]?.changePct != null) ||
+  'jp tencent or kabutan',
+  ((jpApplied[0]?.quoteSource === 'tencent-us-adr' || jpApplied[0]?.quoteSource === 'kabutan') &&
+    jpApplied[0]?.changePct != null) ||
     jpApplied[0]?.quoteMode === 'missing',
+);
+
+const kioxiaHoldings = [{ code: '285AJP', name: '铠侠' }];
+const kioxiaKeys = {};
+await supplementAsiaQuotes(kioxiaHoldings, kioxiaKeys, jpClosed, { awaitStooq: false });
+const kioxiaApplied = applySessionQuotes(kioxiaHoldings, kioxiaKeys, jpClosed);
+assert(
+  'kioxia kabutan tokyo quote',
+  (kioxiaApplied[0]?.quoteSource === 'kabutan' &&
+    kioxiaApplied[0]?.changePct != null &&
+    kioxiaApplied[0]?.changePct > 5) ||
+    kioxiaApplied[0]?.quoteMode === 'missing',
 );
 
 console.log(`asia-quotes tests: ${ok.length} passed, ${fail.length} failed`);

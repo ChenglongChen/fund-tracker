@@ -1,8 +1,9 @@
 /**
- * 日韩欧股实时行情：东财 push2 → Naver KRX → 港开时 CSOP 2x → Stooq（日股/欧股）。
+ * 日韩欧股实时行情：东财 push2 → 株探 kabutan（日股）→ Naver KRX → 港开时 CSOP 2x → Stooq（日股/欧股）。
  */
 import { isValidHoldingQuote, quoteForHolding, fetchSinaQuoteKeys, fetchTencentUsQuotes, resolveTencentUsSymbol, resolveTencentUsSymbolFromMap } from './quotes.js';
 import { runWithConcurrency } from './concurrency.js';
+import { applyKabutanJpQuotes, shouldFetchKabutanJp } from './kabutan-quotes.js';
 import {
   classifyHoldingMarket,
   isEuMarketOpen,
@@ -426,6 +427,7 @@ function topByWeight(items, limit = MAX_STOOQ_FETCHES_PER_CALL) {
 function shouldReplaceQuote(q) {
   if (!q) return true;
   if (q.quoteSource === 'soxx-fallback') return true;
+  if (q.quoteSource === 'kabutan' && isValidHoldingQuote(q)) return false;
   if (q.quoteSource === 'tencent-us-adr' && isValidHoldingQuote(q)) return false;
   return !isValidHoldingQuote(q);
 }
@@ -563,7 +565,7 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
     const market = classifyHoldingMarket(h);
     const key = holdingKey(h);
     if (market === 'kr' && krOpen && !isValidHoldingQuote(byHoldingKey[key])) krNeeds.push(h);
-    if (market === 'jp' && !isValidHoldingQuote(byHoldingKey[key])) jpNeeds.push(h);
+    if (market === 'jp' && shouldFetchKabutanJp(byHoldingKey[key])) jpNeeds.push(h);
     if (market === 'eu' && !isValidHoldingQuote(byHoldingKey[key])) euNeeds.push(h);
   }
 
@@ -636,6 +638,8 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
 
   /** @type {Map<string, string>} */
   const jpSymByHolding = new Map();
+  /** @type {Array<{ holdingKey: string, ticker: string, name?: string }>} */
+  const kabutanTasks = [];
   for (const h of jpNeeds) {
     const key = holdingKey(h);
     const ticker = jpTickerByHolding.get(key);
@@ -644,6 +648,18 @@ export async function supplementAsiaQuotes(holdings, byHoldingKey, now = new Dat
     const em = eastmoneyQuotes[ticker];
     if (em && isValidHoldingQuote(em)) {
       byHoldingKey[key] = { ...em, name: h.name || em.name };
+      continue;
+    }
+    if (shouldFetchKabutanJp(byHoldingKey[key])) {
+      kabutanTasks.push({ holdingKey: key, ticker, name: h.name });
+    }
+  }
+  await applyKabutanJpQuotes(kabutanTasks, byHoldingKey);
+  for (const t of kabutanTasks) {
+    const prevClose = byHoldingKey[t.holdingKey]?._kabutanPrevClose;
+    if (prevClose != null) rememberAsiaPrevClose(t.ticker, prevClose);
+    if (byHoldingKey[t.holdingKey]?._kabutanPrevClose != null) {
+      delete byHoldingKey[t.holdingKey]._kabutanPrevClose;
     }
   }
   applyCachedStooqQuotes(jpNeeds, jpSymByHolding, byHoldingKey);

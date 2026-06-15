@@ -22,6 +22,8 @@ assert('jp code skip sina', toSinaFetchCode('8035JP', null) === null);
 assert('eu fp skip sina', toSinaFetchCode('AIRFP', null) === null);
 assert('tencent AIRFP', resolveTencentUsSymbolFromMap('AIRFP', '空客') === 'EADSY');
 assert('tencent 8035JP', resolveTencentUsSymbolFromMap('8035JP', '东京电子') === 'TOELY');
+assert('tencent 285AJP', resolveTencentUsSymbolFromMap('285AJP', '铠侠') === 'KXIAY');
+assert('name kioxia', resolveTencentUsSymbolFromMap('X', 'Kioxia Holdings') === 'KXIAY');
 
 const tq = await fetchTencentUsQuotes(['EADSY', 'TOELY', 'HESAY', 'RNMBF']);
 assert('tencent us fetch', tq.EADSY && isValidQuote(tq.EADSY));

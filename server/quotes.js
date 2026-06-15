@@ -163,6 +163,8 @@ const TENCENT_US_BY_CODE = {
   RHMGR: 'RNMBF',
   '8035JP': 'TOELY',
   '6594JP': 'NJDCY',
+  '285AJP': 'KXIAY',
+  JP3236330001: 'KXIAY',
   '4062JP': 'IBIDF',
 };
 
@@ -170,6 +172,7 @@ const TENCENT_US_BY_CODE = {
 const TENCENT_US_BY_NAME = [
   [/东京电子|Tokyo Electron/i, 'TOELY'],
   [/日本电产|Nidec/i, 'NJDCY'],
+  [/铠侠|Kioxia/i, 'KXIAY'],
   [/揖斐电|Ibiden/i, 'IBIDF'],
   [/空客|Airbus/i, 'EADSY'],
   [/爱马仕|Herm[eè]s/i, 'HESAY'],
