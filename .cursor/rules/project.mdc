@@ -21,7 +21,7 @@ Node 18+ ESM 项目：`server/` API + `src/` Vite SPA（iPhone PWA）。
 
 - ep 只在 `fund-display.js` 计算；session 只在 `display-session.js` 解析
 - 编排只用 `live-pipeline.runLiveDisplayPipeline()`
-- Header EST（live）= `Σ estimateAssets`；**禁止** `amount−settled+ep` 或单独 `baseline+RT1` 替代 `Σ estimateAssets`
+- Header EST：**live** = `Σ estimateAssets`；**snap**（day_open/eod_freeze）= `B[D]+RT1`（见 `applyPortfolioTotalsSnap`）
 - QDII T+1：`liveRt1Only` + `maskHoldingsForLiveRt1Display`（`computeFundImpactFromPack` **与** `refreshFundHoldingsDisplay` 两处必调）
 - A 股 suppress 三处 + `finalizeLiveFundDisplayRow`
 - settle 不得 clear snap
@@ -35,11 +35,14 @@ Node 18+ ESM 项目：`server/` API + `src/` Vite SPA（iPhone PWA）。
 
 ## 改动后
 
+**大改（RT1/EST/snap/suppress/穿透/aggregate/display-session）合并前必跑：**
+
 ```bash
-npm run test:display-session && npm run test:live-pipeline && npm run test:fund-estimate && npm run test:realtime-profit
-node server/live-rt1-holdings.test.js && node server/scope-totals.test.js
+npm run test:regression
 npm run build   # 动 src/
 ```
+
+`test:regression` = 14 组单元测试串联（见 `package.json`）。小改可只跑相关子集，但交付前仍建议全量 regression。
 
 ## 临时文件
 

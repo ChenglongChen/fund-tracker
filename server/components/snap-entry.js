@@ -72,7 +72,7 @@ export function buildFundSnapEntry(fund, liveRow, impactRaw, market, now) {
 
 /** @param {object} snap @param {{ funds: object[] }} portfolio @param {object[]} liveFunds @param {Date} now */
 export function sessionSnapNeedsReseed(snap, portfolio, liveFunds, now) {
-  if (!isScopeSnapReady(snap)) return true;
+  if (!isScopeSnapReady(snap, now)) return true;
   // eod_freeze(16:00–21:30) 仅 suppress 变化可 reseed；不得因穿透 drift / 重启覆盖 16:00 snap
   for (const f of portfolio.funds) {
     const liveRow = liveFunds.find((x) => x.id === f.id);
@@ -80,7 +80,6 @@ export function sessionSnapNeedsReseed(snap, portfolio, liveFunds, now) {
     const entry = snap.funds?.[f.id] ?? snap.funds?.[String(f.id)];
     const suppressed = shouldSuppressDomesticRealtimeDisplay(market, now);
     if (suppressed && entry?.rt1 != null) return true;
-    if (!suppressed && entry?.rt1 == null && liveRow?.estimateProfit != null) return true;
   }
   return false;
 }

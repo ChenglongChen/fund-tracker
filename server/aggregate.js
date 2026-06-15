@@ -37,7 +37,9 @@ function accumulateScopeTotals(portfolioFunds, liveById) {
     const ea =
       live?.estimateAssets != null && Number.isFinite(live.estimateAssets)
         ? live.estimateAssets
-        : amount;
+        : ep != null
+          ? round2(amount + ep)
+          : amount;
     estimateAssetsSum += ea;
   }
 

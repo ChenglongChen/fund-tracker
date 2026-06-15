@@ -93,12 +93,13 @@ setCurrentPhase('eod_freeze', eodWindow);
 const totals = applyPortfolioTotalsSnap(totalsLive, accrualDay, eodWindow);
 assert('header rt1 from live sum in eod', totals.realtimeProfit === 500);
 assert(
-  'header est equals sum estimateAssets',
-  totals.realtimeAssets === totalsLive.estimateAssetsSum,
+  'header est equals baseline plus frozen rt1 in eod snap',
+  totals.realtimeAssets === round2(300000 + 500),
 );
 assert(
-  'header rt1 est reconcile settled plus sum ep',
-  totals.realtimeAssets === round2(totals.settledAssets + totals.realtimeProfit),
+  'header est not settled plus rt1 after nav credit window',
+  totals.realtimeAssets !== round2(totals.settledAssets + totals.realtimeProfit) ||
+    totals.settledAssets === 300000,
 );
 assert('header frozen in eod snap mode', totals.liveMode === 'snap' && totals.estimateFrozen === true);
 
@@ -153,9 +154,9 @@ assert('snap fund reads eod snap', mixedSnapped[1].displaySnap && mixedSnapped[1
 const amountDriftRow = { id: 1, amount: 95000, market: 'us', estimateProfit: 999 };
 const amountDriftSnapped = applyFundRt1Snap(1, amountDriftRow, accrualDay, eodWindow);
 assert(
-  'snap est uses current amount plus frozen rt1 after settle drift',
+  'snap est frozen at amountAtSnap plus rt1 after settle drift',
   amountDriftSnapped.estimateProfit === 1500 &&
-    amountDriftSnapped.estimateAssets === round2(95000 + 1500),
+    amountDriftSnapped.estimateAssets === round2(100000 + 1500),
 );
 
 const settledDriftPortfolio = {
@@ -169,9 +170,11 @@ const settledDriftSnapped = snappedRows.map((row) =>
 );
 const settledDriftTotalsLive = computePortfolioTotals(settledDriftPortfolio, settledDriftSnapped, eodWindow);
 const settledDriftTotals = applyPortfolioTotalsSnap(settledDriftTotalsLive, accrualDay, eodWindow);
+const estBeforeSettle = totals.realtimeAssets;
 assert(
-  'header est tracks settled assets after nav credit',
-  settledDriftTotals.realtimeAssets === round2(settledDriftTotals.settledAssets + settledDriftTotals.realtimeProfit),
+  'header est unchanged after nav credit in eod snap',
+  settledDriftTotals.realtimeAssets === estBeforeSettle &&
+    settledDriftTotals.settledAssets > totals.settledAssets,
 );
 
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
@@ -213,6 +216,52 @@ const euLiveRow = {
 };
 const euSnapped = applyFundRt1Snap(1, euLiveRow, accrualDay, eodEuBypass);
 assert('eod freeze ignores regular bypass', euSnapped.displaySnap && euSnapped.estimateProfit === 1500);
+
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  at: '2026-05-28T04:30:00+08:00',
+  seedPhase: 'day_open',
+  rt1: 9000,
+  est: 309000,
+  funds: { 1: { rt1: 9000, amountAtSnap: 100000, impactPctRegular: 9 } },
+});
+setCurrentPhase('eod_freeze', eodWindow);
+const holdingsLiveRow = {
+  id: 1,
+  amount: 100000,
+  market: 'us',
+  estimateProfit: 25000,
+  impactSource: 'holdings',
+  impactPct: 25,
+};
+const holdingsEodSnapped = applyFundRt1Snap(1, holdingsLiveRow, accrualDay, eodWindow);
+assert(
+  'eod freeze ignores live holdings when snap stale',
+  holdingsEodSnapped.displaySnap && holdingsEodSnapped.estimateProfit == null,
+);
+
+clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  at: '2026-05-28T04:30:00+08:00',
+  seedPhase: 'day_open',
+  rt1: 9000,
+  est: 309000,
+  funds: { 1: { rt1: 9000, amountAtSnap: 100000, impactPctRegular: 9 } },
+});
+setCurrentPhase('eod_freeze', eodWindow);
+reconcileDisplayState(
+  { funds: [{ id: 1, amount: 100000, accountId: 'a' }] },
+  [holdingsLiveRow],
+  { settledAssets: 300000, realtimeProfit: 25000 },
+  [],
+  eodWindow,
+);
+const reseededEod = getScopeSnap(accrualDay, 'eodSnap', 'portfolio');
+assert(
+  'eod reconcile replaces day_open with live seed',
+  reseededEod?.seedPhase === 'eod_freeze' &&
+    reseededEod?.rt1 === 25000 &&
+    reseededEod?.rt1 !== 9000,
+);
 
 const asiaNoSnap = new Date('2026-05-28T02:00:00.000Z');
 setCurrentPhase('asia_live', asiaNoSnap);

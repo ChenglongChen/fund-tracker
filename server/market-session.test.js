@@ -247,7 +247,7 @@ assert(
 );
 
 const asiaRelay = new Date('2026-05-28T00:24:00.000Z');
-assert('asia relay rt1 snap before us open', resolveDisplaySession(asiaRelay).rt1Source === 'snap');
+assert('asia relay rt1 live per-fund before us open', resolveDisplaySession(asiaRelay).rt1Source === 'live');
 const asiaAfternoon = new Date('2026-05-28T07:30:00.000Z');
 resolveFundImpactPct(11, 'us', 1.9, usOpen);
 assert(

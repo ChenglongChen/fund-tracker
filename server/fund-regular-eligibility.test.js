@@ -49,8 +49,8 @@ assert(
   !fundShouldRefreshLiveRt1(cnFund, { holdings: [] }, 'fundgz', weekendClosed),
 );
 assert(
-  'us holdings no quote refresh in closed premarket window',
-  !fundNeedsHoldingQuoteRefresh(
+  'us holdings still fetch quotes in eod for detail display',
+  fundNeedsHoldingQuoteRefresh(
     qdiiFund,
     { holdings: usHoldings },
     'holdings',
@@ -58,13 +58,21 @@ assert(
   ),
 );
 assert(
-  'no quote refresh when all markets closed',
-  !fundNeedsHoldingQuoteRefresh(
+  'us qdii no live rt1 in eod window',
+  !fundShouldRefreshLiveRt1(qdiiFund, { holdings: usHoldings }, 'holdings', usPremarket),
+);
+assert(
+  'weekend still fetch quotes for us qdii detail',
+  fundNeedsHoldingQuoteRefresh(
     qdiiFund,
     { holdings: krHoldings },
     'holdings',
     weekendClosed,
   ),
+);
+assert(
+  'weekend no live rt1 refresh',
+  !fundShouldRefreshLiveRt1(qdiiFund, { holdings: krHoldings }, 'holdings', weekendClosed),
 );
 
 assert('us closed midday 08:30', getUsSessionPhase(krMorning) === 'closed');

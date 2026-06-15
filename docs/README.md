@@ -43,13 +43,17 @@ fund-tracker 的规格与架构说明。新读者建议：**README → manual �
 ## 核心公式（速查）
 
 ```
-账户资产 = Σ amount（已入账）
-RT1      = Σ estimateProfit（row1；禁止前端用 pct×amount 重算）
-预估资产 = Σ estimateAssets = Σ (amount + ep)（与列表行一致）
+账户资产 = Σ amount（Hero 主值，随净值入账更新）
+RT1      = Σ estimateProfit（snap 阶段读 eodSnap 冻结值）
 ```
 
-snap 阶段 header 可用 `baseline + RT1` 防入账跳变；细则见 [realtime-spec.md](./realtime-spec.md)。
+| 阶段 | EST |
+|------|-----|
+| live（asia / us_regular） | `Σ estimateAssets` = `Σ (amount + ep)` |
+| snap（day_open / eod_freeze） | **`B[D] + RT1`**（入账后 EST 不变） |
+
+细则见 [realtime-spec.md §2.1](./realtime-spec.md)。
 
 ## 测试命令
 
-见 [development.md §2](./development.md#2-测试)。
+首选 **`npm run test:regression`**（大改后必跑）。单测列表见 [development.md §2](./development.md#2-测试)。

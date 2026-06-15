@@ -71,7 +71,11 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
   }
   const rt1 = fundSnap.rt1;
   const amountAtSnap = fundSnap.amountAtSnap ?? liveRow.amount ?? 0;
-  const amountForEst = liveRow.amount ?? amountAtSnap;
+  const session = resolveDisplaySession(now);
+  // snap 阶段（16:00 eod / 04:00 day_open）：EST 用 seed 时 amount，入账后不变
+  const amountForEst = session.isRt1SnapPhase
+    ? amountAtSnap
+    : (liveRow.amount ?? amountAtSnap);
   const pct =
     amountForEst > 0 ? round2((rt1 / amountForEst) * 10000) / 100 : null;
   return finalizeLiveFundDisplayRow(
@@ -100,6 +104,24 @@ function isAsiaLiveHoldingsRow(clockSession, liveRow) {
 }
 
 /**
+ * eod_freeze(16:00–21:30)：仅读 ready snap，禁止 live / 亚太穿透 fallback。
+ * @param {object} liveRow
+ * @param {Date} now
+ */
+function finalizeEodFreezeSnapRow(liveRow, now) {
+  return finalizeLiveFundDisplayRow(
+    {
+      ...liveRow,
+      estimateProfit: null,
+      estimateImpactPct: null,
+      estimateAssets: round2(liveRow.amount ?? 0),
+      displaySnap: true,
+    },
+    now,
+  );
+}
+
+/**
  * @param {number} fundId
  * @param {object} liveRow
  * @param {string} accrualDay
@@ -107,14 +129,30 @@ function isAsiaLiveHoldingsRow(clockSession, liveRow) {
  */
 export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) {
   const clockSession = resolveDisplaySession(now);
-  if (isAsiaLiveHoldingsRow(clockSession, liveRow)) {
+
+  if (clockSession.clockPhase === 'eod_freeze') {
+    if (shouldSuppressDomesticRealtimeDisplay(liveRow?.market ?? 'cn', now)) {
+      return finalizeLiveFundDisplayRow(liveRow, now);
+    }
+    const readySnap = getReadyFundRt1Snap(accrualDay, now, 'portfolio');
+    if (readySnap) {
+      const fundSnap = readySnap.funds?.[fundId] ?? readySnap.funds?.[String(fundId)];
+      if (snapEntryRt1Usable(fundSnap, liveRow, now)) {
+        return applyFundSnapEntry(fundId, liveRow, fundSnap, now);
+      }
+    }
+    return finalizeEodFreezeSnapRow(liveRow, now);
+  }
+
+  // 21:30–04:00 美股正盘：row1 live（A 股 suppress 除外），禁止读 eodSnap
+  if (clockSession.clockPhase === 'us_regular_live') {
+    if (shouldSuppressDomesticRealtimeDisplay(liveRow?.market ?? 'cn', now)) {
+      return finalizeLiveFundDisplayRow(liveRow, now);
+    }
     return finalizeLiveFundDisplayRow(liveRow, now);
   }
-  // 仅美股正盘允许 regular 持仓 live bypass；asia_live / eod_freeze 读 snap 或 fallback
-  const shouldRefreshLive =
-    clockSession.clockPhase === 'us_regular_live' &&
-    (liveRow?.shouldRefreshLiveRt1 === true || liveRow?.hasRegularHolding === true);
-  if (shouldRefreshLive) {
+
+  if (isAsiaLiveHoldingsRow(clockSession, liveRow)) {
     return finalizeLiveFundDisplayRow(liveRow, now);
   }
   if (shouldSuppressDomesticRealtimeDisplay(liveRow?.market ?? 'cn', now)) {
@@ -123,17 +161,6 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
   // 美指 style：仅美股正盘 live index；休市后（如亚太午后）读 4:00 收盘 snapshot
   if (shouldUseLiveUsIndexStyle(liveRow, now)) {
     return finalizeLiveFundDisplayRow(liveRow, now);
-  }
-  // eod_freeze：美指 style 读 4:00 指数收盘；snap 中 rt1=0 时 fallback
-  if (clockSession.clockPhase === 'eod_freeze' && shouldFreezeUsIndexCloseSnapshot(liveRow, now)) {
-    const readySnap = getReadyFundRt1Snap(accrualDay, now, 'portfolio');
-    const fundSnap = readySnap?.funds?.[fundId] ?? readySnap?.funds?.[String(fundId)];
-    if (!snapEntryRt1Usable(fundSnap, liveRow, now)) {
-      const closeFallback = applyRegularSnapshotFallback(fundId, liveRow, now);
-      if (closeFallback) {
-        return finalizeLiveFundDisplayRow(closeFallback, now);
-      }
-    }
   }
   // day_open / asia_live 美指 style 读指数条 4:00 收盘
   if (
@@ -198,10 +225,16 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
     realtimeProfit: rt1Live,
     estimateAssetsSum: totalsLive.estimateAssetsSum ?? settled,
   };
-  const estFromFunds = resolvePortfolioRealtimeAssets(accLike, baseline);
+  let estFromFunds = resolvePortfolioRealtimeAssets(accLike, baseline);
   const estimateFrozen = session.isRt1SnapPhase;
 
-  // spec §2.2 / §9：header RT1/EST 恒为 Σ per-fund（amount+ep）；16:00 冻结在 per-fund snap 读回
+  // snap 阶段：EST = B[D] + RT1（spec §2.1）；入账后账户资产变、预估不变
+  if (estimateFrozen && baseline != null && Number.isFinite(baseline)) {
+    estFromFunds = round2(baseline + rt1Live);
+  }
+
+  // spec §9：header RT1 恒为 Σ per-fund；snap 阶段 header EST = B[D]+RT1
+  const sumEa = totalsLive.estimateAssetsSum ?? estFromFunds;
   return {
     ...totalsLive,
     settledAssets: settled,
@@ -209,7 +242,7 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
     realtimeProfitPct:
       settled > 0 ? round2((rt1Live / settled) * 10000) / 100 : totalsLive.realtimeProfitPct,
     realtimeAssets: estFromFunds,
-    estimateAssetsSum: estFromFunds,
+    estimateAssetsSum: sumEa,
     baseline,
     liveMode: estimateFrozen ? 'snap' : 'live',
     estimateFrozen,

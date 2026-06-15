@@ -11,7 +11,15 @@ import {
   clearScopeSnap,
 } from '../day-display-state.js';
 import { buildFundSnapEntry, sessionSnapNeedsReseed } from './snap-entry.js';
-import { getReadyScopeSnap, isScopeSnapReady, isStalePreEodSnap } from './snap-ready.js';
+import { getReadyScopeSnap, isScopeSnapReady } from './snap-ready.js';
+
+/** 16:00 eod_freeze snap 已就绪（非 day_open / 非 provisional）。 */
+function hasReadyEodFreezeSnap(existing, now, accrualDay) {
+  return (
+    existing?.seedPhase === 'eod_freeze' &&
+    isScopeSnapReady(existing, now, accrualDay)
+  );
+}
 
 /**
  * @param {string} accrualDay
@@ -21,6 +29,7 @@ import { getReadyScopeSnap, isScopeSnapReady, isStalePreEodSnap } from './snap-r
  * @param {object} totalsLive
  * @param {object[]} impactRawList
  * @param {Date} now
+ * @param {DisplayPhase} seedPhase
  */
 function seedEodSnap(
   accrualDay,
@@ -42,7 +51,8 @@ function seedEodSnap(
     fundsSnap[f.id] = buildFundSnapEntry(f, liveRow, raw, market, now);
   }
   const rt1 = round2(Object.values(fundsSnap).reduce((s, entry) => s + (entry.rt1 ?? 0), 0));
-  const baseline = getBaselineForDay(accrualDay, 'portfolio') ?? totalsLive.settledAssets;
+  const baseline =
+    getBaselineForDay(accrualDay, 'portfolio') ?? totalsLive.settledAssets ?? 0;
   setScopeSnap(accrualDay, snapKey, 'portfolio', {
     at: beijingIsoString(now),
     seedPhase,
@@ -93,14 +103,23 @@ export function reconcileDisplayState(
     }
   } else if (snapKey === 'eodSnap' && targetPhase === 'eod_freeze') {
     const existing = getScopeSnap(accrualDay, snapKey, 'portfolio');
-    // 16:00 从 day_open snap 升级一次；eod_freeze 已就绪则仅 suppress 变化时 reseed
-    const needsEodSnap =
-      !existing ||
-      existing.seedPhase !== 'eod_freeze' ||
-      isStalePreEodSnap(existing, now, accrualDay) ||
-      (isScopeSnapReady(existing, now, accrualDay) &&
-        sessionSnapNeedsReseed(existing, portfolio, liveFunds, now));
-    if (needsEodSnap) {
+
+    if (hasReadyEodFreezeSnap(existing, now, accrualDay)) {
+      if (sessionSnapNeedsReseed(existing, portfolio, liveFunds, now)) {
+        clearScopeSnap(accrualDay, snapKey, 'portfolio');
+        seedEodSnap(
+          accrualDay,
+          snapKey,
+          portfolio,
+          liveFunds,
+          totalsLive,
+          impactRawList,
+          now,
+          targetPhase,
+        );
+      }
+    } else {
+      // 16:00 首次或仅有 day_open：用当前 live 写入 eod snap（capture ~39k），禁止 promote day_open
       if (existing) clearScopeSnap(accrualDay, snapKey, 'portfolio');
       seedEodSnap(
         accrualDay,

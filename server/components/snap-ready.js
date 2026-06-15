@@ -29,8 +29,10 @@ export function isStalePreEodSnap(snap, now, accrualDay) {
   if (session.clockPhase !== 'eod_freeze') return false;
   const at = parseSnapAt(snap.at);
   if (!at) return snap.seedPhase !== 'eod_freeze';
-  if (beijingDateString(at) !== accrualDay) return snap.seedPhase !== 'eod_freeze';
-  return beijingMinutesOfDay(at) < BJ_EOD_FREEZE_START_MIN;
+  if (beijingDateString(at) !== accrualDay) return true;
+  // 16:00–21:30 仅接受当日 16:00 后写入的 eod_freeze snap（禁止 promote 01:00 day_open）
+  if (beijingMinutesOfDay(at) < BJ_EOD_FREEZE_START_MIN) return true;
+  return snap.seedPhase !== 'eod_freeze';
 }
 
 /** @param {object|null|undefined} snap */

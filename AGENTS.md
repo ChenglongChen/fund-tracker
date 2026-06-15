@@ -23,32 +23,55 @@ npm run dev          # web :5178, api :8788
 npm run dev:api      # 仅 API
 npm run test:fund-estimate && npm run test:realtime-profit
 npm run test:display-session && npm run test:display-state && npm run test:live-pipeline
+npm run test:regression                 # 大改后必跑（见下方）
 npm run verify:alipay-realtime   # 需 API 运行
 ```
+
+## 回归测试（大改后必跑）
+
+**凡动 RT1/EST/snap/suppress/穿透/持仓展示/aggregate/display-session，合并或交付前必须：**
+
+```bash
+npm run test:regression
+npm run build   # 若动 src/
+```
+
+`test:regression` 串联：fund-estimate、realtime-profit、display-session、display-state、live-pipeline、realtime-display-pipeline、phase-transition、**timeline-audit**、**fund-holding-fields**、fund-regular-eligibility、holdings-rt1、scope-totals、holding-market、market-session。
+
+| 改动范围 | 额外必跑 |
+|----------|----------|
+| snap / suppress / pipeline | 上表已含；仍建议 `test:qdii-valuation` |
+| 前端 ViewModel / session UI | `npm run build` |
+| 口径变更 / 发版前 | `verify:alipay-realtime`、`verify:tab-reconcile`（需 API） |
+
+改口径须同步补/改 `server/*.test.js`；**禁止**在未跑 regression 的情况下声称完成。
 
 ## Canonical 公式（不可随意改口径）
 
 ```
-账户资产     = Σ amount
-RT1 (row1)   = Σ estimateProfit
-EST (header) = Σ amount + Σ estimateProfit = Σ estimateAssets（scope 内）
+账户资产       = Σ amount（Hero 主值，随净值入账更新）
+RT1 (row1)     = Σ estimateProfit（snap 阶段读 eodSnap 冻结值）
 ```
 
-**时序（T / T+1）**：`预估_{T+1} = 账户资产_T + RT1_{T+1}`。**禁止** `amount − settled + ep`（RT1 为 T+1 增量时会少加 settled）。
+| 阶段 | EST (header 预估) |
+|------|-------------------|
+| **live**（asia / us_regular） | `Σ amount + Σ estimateProfit` = `Σ estimateAssets` |
+| **snap**（day_open / eod_freeze） | **`B[D] + RT1`**（baseline 同日不变；入账后 EST 不变） |
+
+**禁止** `amount − settled + ep`（RT1 为 T+1 增量时会少加 settled）。  
+**禁止** snap 阶段用 **`Σ 当前 amount + ep`**（净值入账后会 double-count）。
 
 - **穿透层永远 live 算**；**展示层**按 phase 读 snap 或 live
 - **settle 入账**只更新 `portfolio.json`（AMT/DAY/持有）；**禁止** clear snap
-- 单基金 EST：`amount + ep`（`fund-estimate.js`）；组合 EST：`aggregate.resolvePortfolioRealtimeAssets` → `Σ estimateAssets`
-- snap 阶段 portfolio header 仍可用 `baseline + RT1` 防入账跳变；live 阶段与账户 Tab 一律 `Σ estimateAssets`
 
 ## 北京时间轴（QDII 主视角）
 
-| 时段 (BJ) | phase | RT1 / row1 |
-|-----------|-------|------------|
-| 08:00–16:00 | `asia_live` | **per-fund**：有 regular 持仓 live，否则 snap |
-| 16:00–21:30 | `eod_freeze` | **EOD snap** |
-| 21:30–04:00 | `us_regular_live` | live（仅正盘） |
-| 04:00–08:00 | `day_open` | per-fund 门控 + snap |
+| 时段 (BJ) | phase | RT1 / row1 | EST (header) |
+|-----------|-------|------------|--------------|
+| 08:00–16:00 | `asia_live` | per-fund live / snap | **live** Σ estimateAssets |
+| 16:00–21:30 | `eod_freeze` | **EOD snap** | **snap** B[D]+RT1 |
+| 21:30–04:00 | `us_regular_live` | live（仅正盘） | **live** Σ estimateAssets |
+| 04:00–08:00 | `day_open` | snap | **snap** B[D]+RT1 |
 | A 股 21:30–09:30 | — | **`—`**（含 snap 阶段） |
 | 周末 A 股/黄金 | — | **`—`** |
 
@@ -68,7 +91,7 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 |------|------------|-----------|
 | per-fund `estimateProfit` | `fund-display.js` | snap 复制；suppress 清空 |
 | header `realtimeProfit` | `Σ estimateProfit` via `aggregate.js` | snap 阶段不再读 `snap.rt1` 覆盖 |
-| header `realtimeAssets` | `Σ estimateAssets` via `aggregate.js` | snap 阶段可读 `baseline+RT1` |
+| header `realtimeAssets` | live：`Σ estimateAssets`；snap：`B[D]+RT1` via `applyPortfolioTotalsSnap` | 禁止 snap 阶段用 `Σ 当前 amount+ep` |
 | 穿透 / 持仓 RT1 门控 | `market.js`, `holdings-pipeline.js`, `fund-regular-eligibility.js` | 详情须 `maskHoldingsForLiveRt1Display` |
 | raw 穿透 pct | `market.js` | 输入 fund-display，不直出 UI |
 | **会话/phase/snapKey** | **`display-session.resolveDisplaySession()`** | 只读 session |
@@ -146,11 +169,10 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 
 ## 完成前检查
 
-- [ ] `npm run test:fund-estimate && npm run test:realtime-profit`
-- [ ] 若动 snap/suppress：`npm run test:display-session && npm run test:display-state && npm run test:live-pipeline`
+- [ ] **`npm run test:regression`**（动 RT1/EST/snap/穿透/持仓/aggregate 时 **必跑**）
+- [ ] 若仅小改公式单元：`npm run test:fund-estimate && npm run test:realtime-profit`
 - [ ] 若动前端 ViewModel/组件：`npm run build`
-- [ ] 若动 RT1/EST/snap：`node server/live-rt1-holdings.test.js && node server/scope-totals.test.js`
-- [ ] 若动 RT1/EST/snap：考虑 `verify:alipay-realtime` / `verify:tab-reconcile`
+- [ ] 发版 / 口径变更：考虑 `verify:alipay-realtime` / `verify:tab-reconcile`
 - [ ] 文档与代码不一致时，优先更新 `docs/realtime-spec.md` 或 `docs/data-flow.md`
 
 ## 目录结构

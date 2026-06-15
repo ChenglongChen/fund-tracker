@@ -75,7 +75,10 @@ const snapped = portfolio.funds.map((f) => {
   );
 });
 
-assert('cn suppressed after snap', snapped[1].estimateProfit == null && !snapped[1].displaySnap);
+assert(
+  'cn eod snap null rt1 frozen not suppressed',
+  snapped[1].estimateProfit == null && snapped[1].displaySnap,
+);
 assert('us snapped row1', snapped[0].displaySnap && snapped[0].estimateProfit === 6000);
 
 const totalsLive = computePortfolioTotals(portfolio, snapped, eodWindow);
