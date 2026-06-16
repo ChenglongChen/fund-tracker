@@ -118,10 +118,11 @@ function renderDayGrid(data, state) {
   const unit = pc.unit ?? 'amount';
   const selectedDay = pc.selectedDay ?? data.selectedDay;
   const { month } = data;
+  const monthDays = data.days ?? [];
   const first = `${month}-01`;
   const pad = weekdayFromIso(first);
-  const dayMap = new Map(data.days.map((d) => [d.date, d]));
-  const lastDay = data.days.filter((d) => d.date.startsWith(month)).length;
+  const dayMap = new Map(monthDays.map((d) => [d.date, d]));
+  const lastDay = monthDays.filter((d) => d.date.startsWith(month)).length;
   const today = data.days.find((d) => d.status === 'pending')?.date?.slice(8);
 
   /** @type {string[]} */
@@ -233,6 +234,10 @@ function renderYearCards(data, state) {
 
 export function renderProfitCalendarBody(data, state) {
   const period = state.profitCalendar.period ?? 'day';
+  const dataPeriod = data?.period ?? 'day';
+  if (dataPeriod !== period) {
+    return '<p class="profit-loading">加载收益日历…</p>';
+  }
   if (period === 'week') {
     return `<div class="profit-range-grid profit-range-grid--week">${renderWeekCards(data, state)}</div>`;
   }

@@ -122,11 +122,12 @@ export async function recordFundSettle(entry) {
   const id = String(entry.fundId);
   const existing = funds[id];
   const profit = round2(entry.settledProfit);
+  // 同一 fund + creditDay 只保留最新一笔入账（重复 settle 须幂等，禁止累加）
   funds[id] = {
     accountId: entry.accountId,
     code: entry.code,
     navDate: entry.navDate ?? existing?.navDate ?? null,
-    settledProfit: round2((existing?.settledProfit ?? 0) + profit),
+    settledProfit: profit,
     settledAssetsAfter: round2(entry.settledAssetsAfter),
   };
 
@@ -228,7 +229,40 @@ export function sumScopeRange(ledger, scope, from, to) {
   return hasAny ? round2(profit) : null;
 }
 
-/** @param {string} scope @param {string} day */
+/** @param {object} ledger @param {object} portfolio @param {string} creditDay */
+export function repairDoubledCreditDayFromPortfolio(ledger, portfolio, creditDay) {
+  const row = ledger.days?.[creditDay];
+  if (!row?.funds) return { ledger, changed: false };
+  /** @type {Record<string, object>} */
+  const byId = Object.fromEntries((portfolio.funds ?? []).map((f) => [String(f.id), f]));
+  const funds = { ...row.funds };
+  let changed = false;
+  for (const [id, entry] of Object.entries(funds)) {
+    const f = byId[id];
+    if (!f || entry.navDate !== f.lastNavDate) continue;
+    const yp = f.yesterdayProfit;
+    if (yp == null || !Number.isFinite(yp) || yp === 0) continue;
+    const ratio = entry.settledProfit / yp;
+    if (ratio > 1.5 && ratio < 2.5) {
+      funds[id] = {
+        ...entry,
+        settledProfit: round2(yp),
+        settledAssetsAfter: round2(f.amount),
+      };
+      changed = true;
+    }
+  }
+  if (!changed) return { ledger, changed: false };
+  const next = { ...ledger, days: { ...ledger.days } };
+  next.days[creditDay] = rebuildDayAggregates({
+    ...row,
+    funds,
+    updatedAt: new Date().toISOString(),
+  });
+  return { ledger: next, changed: true };
+}
+
+/** @param {object} ledger @param {string} scope @param {string} day */
 export function getDayFundDetails(ledger, scope, day) {
   const row = ledger.days?.[day];
   if (!row?.funds) return [];

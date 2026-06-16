@@ -128,11 +128,13 @@ export async function runSettlement(portfolio, opts = {}) {
   if (changed && !dryRun) {
     ensureDayBaseline(portfolio);
     const creditDay = creditDayForSettle();
+    /** @type {object[]} */
+    const settleRecords = [];
     for (const ev of events) {
       if (ev.status !== 'settled' || ev.fundId == null) continue;
       const fund = portfolio.funds.find((f) => f.id === ev.fundId);
       if (!fund) continue;
-      await recordFundSettle({
+      settleRecords.push({
         fundId: fund.id,
         accountId: fund.accountId,
         code: fund.code,
@@ -152,6 +154,10 @@ export async function runSettlement(portfolio, opts = {}) {
     portfolio.meta.lastAutoSettleAt = beijingIsoString();
     portfolio.meta.autoSettleSource = 'fundgz.1234567.com.cn+eastmoney';
     await writePortfolio(portfolio);
+
+    for (const rec of settleRecords) {
+      await recordFundSettle(rec);
+    }
 
     const live = getLiveCache();
     const totals = computePortfolioTotals(portfolio, live.funds ?? []);

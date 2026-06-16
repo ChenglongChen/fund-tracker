@@ -10,6 +10,9 @@ import {
   rebuildDayAggregates,
   scopeDayTotals,
   normalizeProfitLedger,
+  recordFundSettle,
+  readProfitLedger,
+  writeProfitLedger,
 } from './profit-ledger.js';
 
 assert.equal(nextChinaTradingDay('2026-05-15'), '2026-05-18', 'Fri nav -> Mon credit');
@@ -42,5 +45,23 @@ assert.equal(scopeDayTotals('all', day).settledProfit, 160);
 const empty = normalizeProfitLedger(null);
 assert.ok(empty.days);
 assert.equal(empty.meta.schemaVersion, 1);
+
+const ledgerBefore = await readProfitLedger();
+await writeProfitLedger({ days: {}, meta: { schemaVersion: 1 } });
+const entry = {
+  fundId: 99,
+  accountId: 'alipay',
+  code: 'TEST',
+  creditDay: '2026-06-15',
+  navDate: '2026-06-15',
+  settledProfit: 9011.4,
+  settledAssetsAfter: 100000,
+  source: 'settle',
+};
+await recordFundSettle(entry);
+await recordFundSettle(entry);
+const ledgerDay = (await readProfitLedger()).days['2026-06-15'];
+assert.equal(ledgerDay.funds['99'].settledProfit, 9011.4, 'repeat settle must not double ledger');
+await writeProfitLedger(ledgerBefore);
 
 console.log('profit-attribution + profit-ledger tests: passed');

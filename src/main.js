@@ -1398,8 +1398,11 @@ function bindEvents() {
   document.querySelectorAll('[data-profit-period]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const period = btn.getAttribute('data-profit-period');
-      if (!period || period === state.profitCalendar.period) return;
-      state.profitCalendar.period = period;
+      if (!period) return;
+      const pc = state.profitCalendar;
+      if (period === pc.period && pc.data?.period === period) return;
+      pc.period = period;
+      pc.data = null;
       void refreshProfitView();
     });
   });
