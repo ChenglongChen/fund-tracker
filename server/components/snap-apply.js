@@ -162,10 +162,11 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
   if (shouldUseLiveUsIndexStyle(liveRow, now)) {
     return finalizeLiveFundDisplayRow(liveRow, now);
   }
-  // day_open / asia_live 美指 style 读指数条 4:00 收盘
+  // asia_live 美指 style 读指数条 4:00 收盘；day_open/eod 走 snap
   if (
     shouldFreezeUsIndexCloseSnapshot(liveRow, now) &&
-    clockSession.clockPhase !== 'eod_freeze'
+    clockSession.clockPhase !== 'eod_freeze' &&
+    !clockSession.isRt1SnapPhase
   ) {
     const closeFallback = applyRegularSnapshotFallback(fundId, liveRow, now);
     if (closeFallback) {

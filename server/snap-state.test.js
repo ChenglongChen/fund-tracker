@@ -305,6 +305,40 @@ assert(
     dayOpenSnapIgnored.estimateProfit === round2((200000 * 0.46) / 100),
 );
 
+const dayOpenMorning = new Date('2026-05-28T23:30:00.000Z'); // BJ 07:30
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  rt1: 5400,
+  seedPhase: 'day_open',
+  at: '2026-05-28T20:00:00+08:00',
+  funds: { 3: { rt1: 5400, amountAtSnap: 200000, impactPctRegular: 2.7 } },
+});
+setCurrentPhase('day_open', dayOpenMorning);
+const dayOpenIndexSnap = applyFundRt1Snap(3, indexRelayRow, accrualDay, dayOpenMorning);
+assert(
+  'day_open reads day_open snap not regularSnapshot',
+  dayOpenIndexSnap.displaySnap && dayOpenIndexSnap.estimateProfit === 5400,
+);
+
+const dayOpenHoldingsRow = {
+  id: 1,
+  amount: 100000,
+  market: 'us',
+  estimateProfit: 2000,
+  impactSource: 'holdings',
+  shouldRefreshLiveRt1: false,
+};
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  rt1: 9000,
+  seedPhase: 'day_open',
+  at: '2026-05-28T20:00:00+08:00',
+  funds: { 1: { rt1: 9000, amountAtSnap: 100000, impactPctRegular: 9 } },
+});
+const dayOpenHoldingsSnap = applyFundRt1Snap(1, dayOpenHoldingsRow, accrualDay, dayOpenMorning);
+assert(
+  'day_open holdings read snap after restart seed',
+  dayOpenHoldingsSnap.displaySnap && dayOpenHoldingsSnap.estimateProfit === 9000,
+);
+
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
   rt1: 700,
   est: 300700,

@@ -24,8 +24,9 @@ function parseSnapAt(atIso) {
  */
 export function isStalePreEodSnap(snap, now, accrualDay) {
   if (!snap) return true;
-  if (snap.seedPhase === 'day_open') return true;
   const session = resolveDisplaySession(now);
+  // day_open snap 在 eod_freeze 读 snap 时视为 stale；day_open 时段本身应可读
+  if (snap.seedPhase === 'day_open') return session.clockPhase === 'eod_freeze';
   if (session.clockPhase !== 'eod_freeze') return false;
   const at = parseSnapAt(snap.at);
   if (!at) return snap.seedPhase !== 'eod_freeze';
@@ -35,10 +36,12 @@ export function isStalePreEodSnap(snap, now, accrualDay) {
   return snap.seedPhase !== 'eod_freeze';
 }
 
-/** @param {object|null|undefined} snap */
-function isStaleDayOpenSnap(snap) {
+/** @param {object|null|undefined} snap @param {Date} [now] */
+function isStaleDayOpenSnap(snap, now = new Date()) {
   if (!snap?.at) return false;
-  if (snap.seedPhase === 'day_open') return true;
+  if (snap.seedPhase === 'day_open') {
+    return resolveDisplaySession(now).clockPhase !== 'day_open';
+  }
   if (snap.seedPhase) return false;
   const at = new Date(snap.at);
   if (!Number.isFinite(at.getTime())) return false;
@@ -70,7 +73,7 @@ export function getReadyScopeSnap(day, key, scope = 'portfolio', now = new Date(
  */
 export function isScopeSnapReady(snap, now = new Date(), accrualDay = null) {
   if (!snap || snap.provisional) return false;
-  if (isStaleDayOpenSnap(snap)) return false;
+  if (isStaleDayOpenSnap(snap, now)) return false;
   if (isStaleAsiaLiveSnap(snap)) return false;
   if (isStaleUsRegularLiveSnap(snap)) return false;
   const day = accrualDay ?? resolveDisplaySession(now).accrualDay;
