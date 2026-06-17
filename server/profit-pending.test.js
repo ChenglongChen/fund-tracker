@@ -61,6 +61,41 @@ assert.equal(
   'qdii monday pm still ok on friday nav',
 );
 
+const wed2am = new Date('2026-06-16T18:00:00.000Z'); // Wed 02:00 BJ
+assert.equal(
+  isDailyProfitPending(
+    { lastNavDate: '2026-06-16' },
+    'cn',
+    { pdate: '2026-06-17' },
+    '2026-06-17',
+    wed2am,
+  ),
+  false,
+  'cn 00:00-16:00 keeps yesterday profit when eastmoney pdate rolls',
+);
+assert.equal(
+  isDailyProfitPending(
+    { lastNavDate: '2026-06-15' },
+    'us',
+    { pdate: '2026-06-16' },
+    '2026-06-17',
+    wed2am,
+  ),
+  false,
+  'qdii 00:00-16:00 keeps credited profit when official pdate ahead',
+);
+assert.equal(
+  isDailyProfitPending(
+    { lastNavDate: '2026-06-16' },
+    'cn',
+    { pdate: '2026-06-17' },
+    '2026-06-17',
+    new Date('2026-06-17T08:30:00.000Z'),
+  ),
+  true,
+  'cn after 16:00 pending when official ahead and not credited',
+);
+
 const portfolio = {
   funds: [
     { shares: 100, lastNavDate: '2026-05-29', code: '022364', name: '永赢科技' },
