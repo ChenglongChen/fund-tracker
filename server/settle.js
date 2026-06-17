@@ -9,6 +9,7 @@ import { computePortfolioTotals } from './aggregate.js';
 import { getLiveCache } from './live.js';
 import { ensureDayBaseline } from './day-display-state.js';
 import { isScreenshotMode } from './screenshot-bundle.js';
+import { isFundMetricsLive } from './fund-metrics-live.js';
 
 /**
  * 取 fundgz 与东财移动端 API 中较新的净值快照（fundgz 常滞后半天）
@@ -51,6 +52,11 @@ export async function runSettlement(portfolio, opts = {}) {
   let changed = false;
 
   for (const fund of portfolio.funds) {
+    if (!isFundMetricsLive(fund, new Date())) {
+      events.push({ code: fund.code, status: 'skip', reason: 'before_metrics_live_from' });
+      continue;
+    }
+
     const snap = await loadNavSnapshot(fund);
     if (!snap) {
       events.push({ code: fund.code, status: 'skip', reason: '净值不可用' });
@@ -111,6 +117,7 @@ export async function runSettlement(portfolio, opts = {}) {
   }
 
   for (const fund of portfolio.funds) {
+    if (!isFundMetricsLive(fund, new Date())) continue;
     const reconciled = await reconcileFundNav(fund, { dryRun });
     if (reconciled.changed) {
       changed = true;

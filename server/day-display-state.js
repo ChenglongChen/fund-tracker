@@ -172,6 +172,14 @@ export function ensureDayBaseline(portfolio, now = new Date()) {
   if (getBaselineForDay(accrualDay, 'portfolio') == null && accrualDay !== beijingDate) {
     setBaselineForDay(accrualDay, 'portfolio', baseline);
   }
+
+  // 同日新增持仓：baseline 仅上调，保证 snap 阶段 EST 含新 amount
+  for (const day of [beijingDate, accrualDay]) {
+    const prev = getBaselineForDay(day, 'portfolio');
+    if (prev != null && baseline > prev + 0.005) {
+      setBaselineForDay(day, 'portfolio', baseline);
+    }
+  }
 }
 
 export { SCOPES, round2 };

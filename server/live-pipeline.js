@@ -12,6 +12,7 @@ import { getCurrentPhase } from './day-display-state.js';
 import { resolveDisplaySession } from './display-session.js';
 import { finalizeLiveFundDisplayRow } from './components/suppress.js';
 import { buildDisplayFundRow, buildDisplayFundRowFallback } from './fund-display.js';
+import { applyFundMetricsLiveGate } from './fund-metrics-live.js';
 
 /**
  * @param {{ funds: object[] }} portfolio
@@ -39,9 +40,14 @@ export function buildDisplayFundRows(portfolio, impactRawList, navInfos, beijing
 export function applyDisplaySnapAndTotals(portfolio, liveRows, now = new Date(), session = null) {
   const s = session ?? resolveDisplaySession(now, { persistedPhase: getCurrentPhase() });
   const accrualDay = s.accrualDay;
-  const funds = liveRows.map((row) =>
-    finalizeLiveFundDisplayRow(applyFundRt1Snap(row.id, row, accrualDay, now), now),
-  );
+  const fundById = new Map(portfolio.funds.map((f) => [f.id, f]));
+  const funds = liveRows.map((row) => {
+    const snapped = finalizeLiveFundDisplayRow(
+      applyFundRt1Snap(row.id, row, accrualDay, now),
+      now,
+    );
+    return applyFundMetricsLiveGate(snapped, fundById.get(row.id), now);
+  });
   let totals = applyPortfolioTotalsSnap(
     computePortfolioTotals(portfolio, funds, now),
     accrualDay,
