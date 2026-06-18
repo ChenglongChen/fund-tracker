@@ -152,14 +152,55 @@ export function isRt1SnapPhase(now = new Date()) {
   return isRt1SnapPhaseAt(now, cache.currentPhase);
 }
 
+/** @param {{ funds: object[] }} portfolio */
+function portfolioFundIds(portfolio) {
+  return (portfolio?.funds ?? []).map((f) => f.id).sort((a, b) => a - b);
+}
+
+/** @param {string} day @param {string} scope @param {number[]} fundIds */
+function rememberBaselineFundIds(day, scope, fundIds) {
+  if (!cache.days[day]) cache.days[day] = { scopes: {} };
+  if (!cache.days[day].scopes[scope]) cache.days[day].scopes[scope] = {};
+  cache.days[day].scopes[scope].fundIdsAtBaseline = fundIds;
+  scheduleSave();
+}
+
+/**
+ * 同日新增持仓：baseline 仅加上新 fund 的 amount；净值入账不得抬升 B[D]。
+ * @param {string} day
+ * @param {string} scope
+ * @param {{ funds: object[] }} portfolio
+ */
+function bumpBaselineForNewFundsOnly(day, scope, portfolio) {
+  const prev = getBaselineForDay(day, scope);
+  if (prev == null) return;
+  const fundIds = portfolioFundIds(portfolio);
+  const storedIds = cache.days[day]?.scopes?.[scope]?.fundIdsAtBaseline;
+  if (storedIds == null || storedIds.length === 0) {
+    rememberBaselineFundIds(day, scope, fundIds);
+    return;
+  }
+  const prevIds = new Set(storedIds);
+  let addedAmount = 0;
+  for (const f of portfolio.funds) {
+    if (!prevIds.has(f.id)) addedAmount += f.amount ?? 0;
+  }
+  if (addedAmount > 0.005) {
+    setBaselineForDay(day, scope, round2(prev + addedAmount));
+  }
+  rememberBaselineFundIds(day, scope, fundIds);
+}
+
 /** @param {{ funds: object[] }} portfolio @param {Date} [now] */
 export function ensureDayBaseline(portfolio, now = new Date()) {
   const beijingDate = beijingDateString(now);
   const accrualDay = getRt1AccrualDay(now);
   const baseline = portfolio.funds.reduce((s, f) => s + (f.amount ?? 0), 0);
+  const fundIds = portfolioFundIds(portfolio);
 
   if (cache.currentBeijingDate !== beijingDate) {
     setBaselineForDay(beijingDate, 'portfolio', baseline);
+    rememberBaselineFundIds(beijingDate, 'portfolio', fundIds);
     cache.currentBeijingDate = beijingDate;
     cache.rt1AccrualDay = accrualDay;
     scheduleSave();
@@ -167,18 +208,16 @@ export function ensureDayBaseline(portfolio, now = new Date()) {
 
   if (getBaselineForDay(beijingDate, 'portfolio') == null) {
     setBaselineForDay(beijingDate, 'portfolio', baseline);
+    rememberBaselineFundIds(beijingDate, 'portfolio', fundIds);
   }
 
   if (getBaselineForDay(accrualDay, 'portfolio') == null && accrualDay !== beijingDate) {
     setBaselineForDay(accrualDay, 'portfolio', baseline);
+    rememberBaselineFundIds(accrualDay, 'portfolio', fundIds);
   }
 
-  // 同日新增持仓：baseline 仅上调，保证 snap 阶段 EST 含新 amount
   for (const day of [beijingDate, accrualDay]) {
-    const prev = getBaselineForDay(day, 'portfolio');
-    if (prev != null && baseline > prev + 0.005) {
-      setBaselineForDay(day, 'portfolio', baseline);
-    }
+    bumpBaselineForNewFundsOnly(day, 'portfolio', portfolio);
   }
 }
 

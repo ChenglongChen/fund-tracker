@@ -12,7 +12,7 @@ import { fundEstimateProfit } from '../fund-estimate.js';
 import { getFundRegularImpactPct } from '../market-session.js';
 import { beijingDateString } from '../time.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './suppress.js';
-import { getReadyFundRt1Snap, isScopeSnapReady } from './snap-ready.js';
+import { getReadyFundRt1Snap, getReadyScopeSnap, isScopeSnapReady } from './snap-ready.js';
 import {
   shouldFreezeUsIndexCloseSnapshot,
   shouldUseLiveUsIndexStyle,
@@ -215,7 +215,13 @@ export function applyFundRt1Snap(fundId, liveRow, accrualDay, now = new Date()) 
  */
 export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date()) {
   const session = resolveDisplaySession(now);
+  const readySnap = getReadyScopeSnap(accrualDay, 'eodSnap', 'portfolio', now);
+  const snapFrozenBaseline =
+    readySnap?.est != null && readySnap?.rt1 != null
+      ? round2(readySnap.est - readySnap.rt1)
+      : null;
   const baseline =
+    snapFrozenBaseline ??
     getBaselineForDay(accrualDay, 'portfolio') ??
     getBaselineForDay(beijingDateString(now), 'portfolio') ??
     totalsLive.settledAssets;
@@ -229,7 +235,7 @@ export function applyPortfolioTotalsSnap(totalsLive, accrualDay, now = new Date(
   let estFromFunds = resolvePortfolioRealtimeAssets(accLike, baseline);
   const estimateFrozen = session.isRt1SnapPhase;
 
-  // snap 阶段：EST = B[D] + RT1（spec §2.1）；入账后账户资产变、预估不变
+  // snap 阶段：EST = B[D] + RT1（spec §2.1）；B[D] 读 snap 冻结 Σ amountAtSnap
   if (estimateFrozen && baseline != null && Number.isFinite(baseline)) {
     estFromFunds = round2(baseline + rt1Live);
   }

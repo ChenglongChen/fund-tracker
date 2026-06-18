@@ -177,6 +177,14 @@ assert(
     settledDriftTotals.settledAssets > totals.settledAssets,
 );
 
+setBaselineForDay(accrualDay, 'portfolio', 350000);
+const corruptedHeader = applyPortfolioTotalsSnap(settledDriftTotalsLive, accrualDay, eodWindow);
+assert(
+  'header est ignores inflated stored baseline when snap ready',
+  corruptedHeader.realtimeAssets === estBeforeSettle &&
+    corruptedHeader.baseline === 300000,
+);
+
 setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
   ...eodSnapMeta,
   rt1: 52000,
