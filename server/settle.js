@@ -9,7 +9,7 @@ import { computePortfolioTotals } from './aggregate.js';
 import { getLiveCache } from './live.js';
 import { ensureDayBaseline } from './day-display-state.js';
 import { isScreenshotMode } from './screenshot-bundle.js';
-import { isFundMetricsLive } from './fund-metrics-live.js';
+import { isFundMetricsLive, isFundSettleNavEligible } from './fund-metrics-live.js';
 
 /**
  * 取 fundgz 与东财移动端 API 中较新的净值快照（fundgz 常滞后半天）
@@ -65,6 +65,17 @@ export async function runSettlement(portfolio, opts = {}) {
 
     const nav = snap.nav;
     const navDate = snap.navDate;
+
+    if (!isFundSettleNavEligible(fund, navDate)) {
+      events.push({
+        code: fund.code,
+        status: 'skip',
+        reason: 'nav_before_metrics_live_from',
+        navDate,
+      });
+      continue;
+    }
+
     const lastDate = fund.lastNavDate || null;
 
     if (!fund.shares || !Number.isFinite(fund.shares)) {
