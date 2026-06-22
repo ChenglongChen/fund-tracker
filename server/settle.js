@@ -6,7 +6,7 @@ import { recordLiveSnapshot, readAppState } from './app-state.js';
 import { recordFundSettle } from './profit-ledger.js';
 import { creditDayForSettle } from './profit-attribution.js';
 import { computePortfolioTotals } from './aggregate.js';
-import { getLiveCache } from './live.js';
+import { getLiveCache, reapplyLiveCacheFromPortfolio } from './live.js';
 import { ensureDayBaseline } from './day-display-state.js';
 import { isScreenshotMode } from './screenshot-bundle.js';
 import { isFundMetricsLive, isFundSettleNavEligible } from './fund-metrics-live.js';
@@ -172,6 +172,7 @@ export async function runSettlement(portfolio, opts = {}) {
     portfolio.meta.lastAutoSettleAt = beijingIsoString();
     portfolio.meta.autoSettleSource = 'fundgz.1234567.com.cn+eastmoney';
     await writePortfolio(portfolio);
+    await reapplyLiveCacheFromPortfolio(portfolio);
 
     for (const rec of settleRecords) {
       await recordFundSettle(rec);

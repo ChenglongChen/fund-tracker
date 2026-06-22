@@ -13,6 +13,42 @@ import { resolveDisplaySession } from './display-session.js';
 import { finalizeLiveFundDisplayRow } from './components/suppress.js';
 import { buildDisplayFundRow, buildDisplayFundRowFallback } from './fund-display.js';
 import { applyFundMetricsLiveGate } from './fund-metrics-live.js';
+import { beijingDateString } from './time.js';
+
+/** 从 live cache 行还原 market.js 穿透 payload（reapply 不重拉行情） */
+function impactRawFromCachedRow(row) {
+  if (!row) return {};
+  return {
+    impactPct: row.rawImpactPct ?? row.impactPct,
+    impactPctRegular: row.impactPctRegularLive ?? row.impactPctRegular,
+    impactPctExtended: row.impactPctExtendedLive ?? row.impactPctExtended,
+    weightCoverage: row.weightCoverage,
+    quoteCoverage: row.quoteCoverage,
+    reportFundCount: row.reportFundCount,
+    count: row.holdingsCount,
+    impactSource: row.impactSource,
+    valuationConfidence: row.valuationConfidence,
+    ensembleAlpha: row.ensembleAlpha,
+    holdingsImpactPct: row.holdingsImpactPct,
+    fundgzImpactPct: row.fundgzImpactPct,
+    impactBreakdown: row.impactBreakdown,
+    hasRegularHolding: row.hasRegularHolding,
+    shouldRefreshLiveRt1: row.shouldRefreshLiveRt1,
+  };
+}
+
+/** 从 live cache 行还原东财 navInfo（入账后 reapply 须读 portfolio，nav 仅用于 pending 门控） */
+function navInfoFromCachedRow(row) {
+  if (!row?.officialNavDate) return null;
+  return {
+    pdate: row.officialNavDate,
+    navChgRt:
+      row.settledSource === 'eastmoney' && row.settledPct != null && Number.isFinite(row.settledPct)
+        ? row.settledPct
+        : null,
+    displayDate: row.officialDisplayDate ?? row.officialNavDate,
+  };
+}
 
 /**
  * @param {{ funds: object[] }} portfolio
@@ -101,7 +137,12 @@ export async function runLiveDisplayPipeline(portfolio, impactRawList, navInfos,
  * @param {Date} [now]
  */
 export function reapplyDisplayFromCachedFunds(portfolio, cachedFunds, now = new Date()) {
-  const snapped = applyDisplaySnapAndTotals(portfolio, cachedFunds, now);
+  const beijingDate = beijingDateString(now);
+  const byId = new Map(cachedFunds.map((r) => [r.id, r]));
+  const impacts = portfolio.funds.map((f) => impactRawFromCachedRow(byId.get(f.id)));
+  const navInfos = portfolio.funds.map((f) => navInfoFromCachedRow(byId.get(f.id)));
+  const funds = buildDisplayFundRows(portfolio, impacts, navInfos, beijingDate, now);
+  const snapped = applyDisplaySnapAndTotals(portfolio, funds, now);
   const totalsByAccount = computeAccountTotalsMap(
     portfolio,
     snapped.funds,

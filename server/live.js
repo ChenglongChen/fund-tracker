@@ -131,28 +131,47 @@ export function waitForLiveCacheReady(timeoutMs = 45_000) {
   });
 }
 
+async function applyReappliedDisplay(portfolio, now = serverNow()) {
+  const appState = await readAppState();
+  const updatedAt = beijingTimeHms(now);
+  const beijingDate = beijingDateString(now);
+  const { funds, totals, totalsByAccount } = reapplyDisplayFromCachedFunds(
+    portfolio,
+    cache.funds,
+    now,
+  );
+  cache.funds = funds;
+  cache.totals = totals;
+  cache.totalsByAccount = totalsByAccount;
+  cache.updatedAt = updatedAt;
+  cache.beijingDate = beijingDate;
+  cache.display = pickDisplayTotals(appState.assetViewMode, totals);
+  cache.assetViewMode = appState.assetViewMode;
+  cache.portfolioUpdatedAt =
+    portfolio.meta?.lastAutoSettleAt ?? portfolio.meta?.importedAt ?? null;
+  cache.displayContext = buildDisplayContext(
+    beijingDate,
+    updatedAt,
+    cache.funds,
+    portfolio.meta,
+    now,
+    cache.quoteUpdatedAt || updatedAt,
+  );
+  cache.liveRevision = buildLiveRevision(cache);
+  return cache;
+}
+
+/** 净值入账后立刻用 portfolio 重算当日收益（不依赖完整 refreshLive） */
+export async function reapplyLiveCacheFromPortfolio(portfolio) {
+  if (!cache.funds.length) return cache;
+  return applyReappliedDisplay(portfolio);
+}
+
 /** 切换资产口径后重算展示字段（无需重新拉行情） */
 export async function refreshLiveDisplay() {
   if (!cache.funds.length) return cache;
   const portfolio = await readPortfolio();
-  const appState = await readAppState();
-  const now = serverNow();
-  const { funds, totals, totalsByAccount } = reapplyDisplayFromCachedFunds(portfolio, cache.funds, now);
-  cache.funds = funds;
-  cache.totals = totals;
-  cache.totalsByAccount = totalsByAccount;
-  cache.display = pickDisplayTotals(appState.assetViewMode, totals);
-  cache.assetViewMode = appState.assetViewMode;
-  cache.displayContext = buildDisplayContext(
-    cache.beijingDate,
-    cache.updatedAt,
-    cache.funds,
-    portfolio.meta,
-    now,
-    cache.quoteUpdatedAt || cache.updatedAt,
-  );
-  cache.liveRevision = buildLiveRevision(cache);
-  return cache;
+  return applyReappliedDisplay(portfolio);
 }
 
 async function refreshLive() {
