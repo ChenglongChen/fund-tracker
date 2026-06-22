@@ -13,7 +13,6 @@ export function buildAccountSummaries(rows, accounts) {
       let totalSettled = 0;
       let hasDaily = false;
       for (const f of funds) {
-        if (f.dailyPending) continue;
         if (f.settledProfit == null || !Number.isFinite(f.settledProfit)) continue;
         hasDaily = true;
         totalSettled += f.settledProfit;

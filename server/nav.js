@@ -1,5 +1,12 @@
 import { fetchFundNavInfo } from './market.js';
+import { DAILY_NAV_EXPECT_HOUR } from './profit-pending.js';
 import { dayProfitPct } from './store.js';
+import { beijingParts } from './time.js';
+
+/** @param {{ hour: string, minute: string }} parts */
+function minutesOfDay(parts) {
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
 
 /** 东财 NAVCHGRT 为 (新净值 − 旧净值) / 旧净值；amount 已含当日收益 */
 export function profitFromNavChgRt(amount, navChgRt) {
@@ -70,6 +77,38 @@ export function enrichFundSettled(fund, info) {
     settledProfit: fund.yesterdayProfit ?? null,
     settledPct: dayProfitPct(fund.amount, fund.yesterdayProfit),
     settledSource: 'portfolio',
+  };
+}
+
+/**
+ * pending 时：若只是在等更晚预期净值日，仍展示上一已入账日收益；东财超前公布未 settle 则 —。
+ * @param {object} fund
+ * @param {ReturnType<typeof enrichFundSettled>} settled
+ * @param {{ pdate?: string } | null} navInfo
+ * @param {boolean} dailyPending
+ * @param {Date} [now]
+ */
+export function resolveDisplayedSettledFields(fund, settled, navInfo, dailyPending, now = new Date()) {
+  if (!dailyPending) return settled;
+
+  const mins = minutesOfDay(beijingParts(now));
+  if (mins < DAILY_NAV_EXPECT_HOUR * 60) {
+    const profit = fund.yesterdayProfit ?? settled.settledProfit ?? null;
+    if (profit != null && Number.isFinite(profit)) {
+      return {
+        settledNavDate: fund.lastNavDate ?? settled.settledNavDate ?? null,
+        settledProfit: profit,
+        settledPct: dayProfitPct(fund.amount, profit),
+        settledSource: 'portfolio',
+      };
+    }
+  }
+
+  return {
+    settledNavDate: fund.lastNavDate ?? settled.settledNavDate ?? null,
+    settledProfit: null,
+    settledPct: null,
+    settledSource: settled.settledSource ?? 'portfolio',
   };
 }
 

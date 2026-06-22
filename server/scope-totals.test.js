@@ -48,7 +48,7 @@ const liveFunds = [
     id: 2,
     estimateProfit: 5,
     estimateAssets: 2005,
-    settledProfit: null,
+    settledProfit: 80,
     dailyPending: true,
   },
   {
@@ -62,16 +62,16 @@ const liveFunds = [
 
 const alipay = computeAccountTotals(portfolio, liveFunds, 'alipay');
 assert.equal(alipay.settledAssets, 3000);
-assert.equal(alipay.settledProfit, 20);
+assert.equal(alipay.settledProfit, 100);
 assert.equal(alipay.realtimeProfit, -5);
 assert.equal(alipay.realtimeAssets, 990 + 2005);
 
 const map = computeAccountTotalsMap(portfolio, liveFunds, portfolio.accounts);
-assert.equal(map.alipay.settledProfit, 20);
+assert.equal(map.alipay.settledProfit, 100);
 assert.equal(map.other.settledProfit, 10);
 
 const portfolioTotals = computePortfolioTotals(portfolio, liveFunds);
-assert.equal(portfolioTotals.settledProfit, 30);
+assert.equal(portfolioTotals.settledProfit, 110);
 assert.equal(portfolioTotals.realtimeProfit, -3);
 
 assert.equal(

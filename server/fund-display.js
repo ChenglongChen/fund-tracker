@@ -8,7 +8,7 @@ import {
   resolveLiveDisplayImpact,
 } from './market-session.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './components/suppress.js';
-import { enrichFundSettled } from './nav.js';
+import { enrichFundSettled, resolveDisplayedSettledFields } from './nav.js';
 import {
   fundEstimateImpactPct,
   fundEstimateProfit,
@@ -61,14 +61,7 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
   const estimateImpactPct = displayLive ? fundEstimateImpactPct(displayLive, now) : null;
   const estimateProfit = displayLive ? fundEstimateProfit(amount, displayLive, now) : null;
   const dailyPending = isDailyProfitPending(f, windows.market, navInfo, beijingDate, now);
-  const settledFields = dailyPending
-    ? {
-        settledNavDate: settled.settledNavDate ?? f.lastNavDate ?? null,
-        settledProfit: null,
-        settledPct: null,
-        settledSource: settled.settledSource ?? 'portfolio',
-      }
-    : settled;
+  const settledFields = resolveDisplayedSettledFields(f, settled, navInfo, dailyPending, now);
   const estimateAssets = fundEstimatedAssets(
     amount,
     settledFields.settledProfit ?? f.yesterdayProfit ?? null,

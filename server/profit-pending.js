@@ -48,12 +48,16 @@ export function isDailyProfitPending(fund, market, navInfo, beijingDate, now = n
   const mins = minutesOfDay(beijingParts(now));
   const afterNavWindow = mins >= DAILY_NAV_EXPECT_HOUR * 60;
 
-  // 16:00 前仍展示上一已入账日收益；东财 pdate 跨日超前不应提前置 pending（spec §3b）
+  // 16:00 前仍展示上一已入账日收益（spec §3b）；不因未到 expected 置 pending
+  if (mins < DAILY_NAV_EXPECT_HOUR * 60) {
+    return !lastNavDate;
+  }
+
+  // 16:00 起：东财超前公布未入账 → pending
   if (afterNavWindow && officialDate && lastNavDate && officialDate > lastNavDate) return true;
   if (!lastNavDate) return true;
 
   if (market === 'us') {
-    if (mins < DAILY_NAV_EXPECT_HOUR * 60) return false;
     const yesterday = beijingIsoAddDays(beijingDate, -1);
     return lastNavDate < lastChinaTradingDay(yesterday);
   }

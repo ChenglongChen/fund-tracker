@@ -19,7 +19,6 @@ function watchlistRealtimePct(f) {
 }
 
 function watchlistDailyPct(f) {
-  if (f.dailyPending) return null;
   return f.settledPct ?? null;
 }
 

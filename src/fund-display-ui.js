@@ -10,10 +10,11 @@ export function pickFundDisplayMetrics(row, fund) {
   const dailyPending = row?.dailyPending ?? false;
   const settledProfit = dailyPending
     ? null
-    : row?.settledProfit ?? fund.yesterdayProfit ?? null;
+    : (row?.settledProfit ?? fund.yesterdayProfit ?? null);
   const settledPct = dailyPending
     ? null
-    : row?.settledPct ?? dayProfitPct(amount, settledProfit);
+    : (row?.settledPct ??
+      (settledProfit != null ? dayProfitPct(amount, settledProfit) : null));
 
   return {
     impactPct:

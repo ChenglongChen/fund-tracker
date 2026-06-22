@@ -13,10 +13,11 @@ export function enrichFundRow(f, liveRow = null) {
   const dailyPending = liveRow?.dailyPending ?? false;
   const settledProfit = dailyPending
     ? null
-    : liveRow?.settledProfit ?? f.yesterdayProfit ?? null;
+    : (liveRow?.settledProfit ?? f.yesterdayProfit ?? null);
   const settledPct = dailyPending
     ? null
-    : liveRow?.settledPct ?? dayProfitPct(f.amount, f.yesterdayProfit);
+    : (liveRow?.settledPct ??
+      (settledProfit != null ? dayProfitPct(f.amount, settledProfit) : null));
   const settledNavDate = liveRow?.settledNavDate ?? f.lastNavDate ?? null;
   const amount = liveRow?.amount ?? f.amount;
   return {

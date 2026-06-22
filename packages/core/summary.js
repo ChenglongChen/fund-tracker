@@ -12,7 +12,6 @@ function sumSettledProfit(rows) {
   let sum = 0;
   let hasDaily = false;
   for (const f of rows) {
-    if (f.dailyPending) continue;
     if (f.settledProfit == null || !Number.isFinite(f.settledProfit)) continue;
     hasDaily = true;
     sum += f.settledProfit;

@@ -191,13 +191,16 @@ export function fundMetricCells(f, key) {
         amountCls: rtCls,
       });
     case 'daily': {
-      const pending = f.dailyPending;
-      const stCls = pctClass(pending ? null : f.settledProfit);
+      const dailyVal =
+        f.settledProfit != null && Number.isFinite(f.settledProfit) ? f.settledProfit : null;
+      const dailyPct =
+        f.settledPct != null && Number.isFinite(f.settledPct) ? f.settledPct : null;
+      const stCls = pctClass(dailyVal);
       return renderHoldingStackedMetricCol({
         colClass: 'holding-col--settled',
         dataCol: 'daily',
-        amount: pending ? null : f.settledProfit,
-        pct: pending ? null : f.settledPct,
+        amount: dailyVal,
+        pct: dailyPct,
         amountCls: stCls,
       });
     }
@@ -395,13 +398,16 @@ export function patchListDom() {
       if (col.key === 'realtime') {
         if (!patchRealtimeMetricCell(cell, f)) return false;
       } else if (col.key === 'daily') {
-        const pending = f.dailyPending;
-        const cls = pctClass(pending ? null : f.settledProfit);
+        const dailyVal =
+          f.settledProfit != null && Number.isFinite(f.settledProfit) ? f.settledProfit : null;
+        const dailyPct =
+          f.settledPct != null && Number.isFinite(f.settledPct) ? f.settledPct : null;
+        const cls = pctClass(dailyVal);
         if (valEl) {
-          valEl.textContent = fmtMoney(pending ? null : f.settledProfit, true);
+          valEl.textContent = fmtMoney(dailyVal, true);
           setTextClass(valEl, cls);
         }
-        if (subEl) setPctSubEl(subEl, pending ? null : f.settledPct);
+        if (subEl) setPctSubEl(subEl, dailyPct);
       } else if (col.key === 'holding') {
         const cls = pctClass(f.totalProfit);
         if (valEl) {

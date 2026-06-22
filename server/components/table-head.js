@@ -1,7 +1,11 @@
 /**
- * 列表表头日期：按市场汇总已入账净值日。
+ * 列表表头日期：按市场汇总已入账 / 预期净值日（spec §3b 16:00 分界）。
  */
 import { fmtMd } from './market-hours.js';
+import { expectedNavDateForDailyDisplay } from '../profit-pending.js';
+import { beijingMinutesOfDay } from '../time.js';
+
+const BJ_NAV_WINDOW_MIN = 16 * 60;
 
 function maxIsoDate(set) {
   const arr = [...set].sort();
@@ -39,10 +43,25 @@ function buildNavBucketHeadLabel(liveFunds, pickDate) {
   if (usD && usD !== cnD && usD !== goldD) parts.push(usD);
   else if (usD && !cnD && !goldD) parts.push(usD);
 
-  const unique = [...new Set(parts)];
+  const unique = [...new Set(parts)].sort();
   if (unique.length === 1) return unique[0];
   if (unique.length > 1) return unique.join('/');
   return '—';
+}
+
+/** 16:00 前：表头跟上一已入账净值日；16:00 后：跟 expectedNavDateForDailyDisplay。 */
+function buildDailyHeadLabel(liveFunds, beijingDate, now = new Date()) {
+  const afterNavWindow = beijingMinutesOfDay(now) >= BJ_NAV_WINDOW_MIN;
+  if (afterNavWindow) {
+    return buildNavBucketHeadLabel(liveFunds, (f) => {
+      const market = f.market === 'us' ? 'us' : f.market === 'gold_cn' ? 'gold_cn' : 'cn';
+      return expectedNavDateForDailyDisplay(beijingDate, market, now);
+    });
+  }
+  return buildNavBucketHeadLabel(
+    liveFunds,
+    (f) => f.settledNavDate || f.dailyAsOfDate || f.lastNavDate,
+  );
 }
 
 /**
@@ -50,11 +69,12 @@ function buildNavBucketHeadLabel(liveFunds, pickDate) {
  * @param {object} [meta]
  * @param {string} beijingDate
  * @param {string} updatedAt
+ * @param {Date} [now]
  */
-export function buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt) {
+export function buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt, now = new Date()) {
   const realtime = beijingDate ? fmtMd(beijingDate) : '—';
 
-  const daily = buildNavBucketHeadLabel(liveFunds, (f) => f.settledNavDate || f.dailyAsOfDate);
+  const daily = buildDailyHeadLabel(liveFunds, beijingDate, now);
   let holding = buildNavBucketHeadLabel(liveFunds, (f) => f.settledNavDate || f.lastNavDate);
   const dailyLabel = daily === '—' && meta?.snapshotDate ? fmtMd(meta.snapshotDate) : daily;
   if (holding === '—' && meta?.snapshotDate) {

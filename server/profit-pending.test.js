@@ -96,6 +96,18 @@ assert.equal(
   'cn after 16:00 pending when official ahead and not credited',
 );
 
+assert.equal(
+  isDailyProfitPending(
+    { lastNavDate: '2026-06-17' },
+    'cn',
+    { pdate: '2026-06-17' },
+    '2026-06-22',
+    new Date('2026-06-22T06:00:00.000Z'),
+  ),
+  false,
+  'cn before 16:00 not pending for last credited nav',
+);
+
 const portfolio = {
   funds: [
     { shares: 100, lastNavDate: '2026-05-29', code: '022364', name: '永赢科技' },

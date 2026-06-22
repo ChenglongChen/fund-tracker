@@ -23,10 +23,8 @@ function accumulateScopeTotals(portfolioFunds, liveById) {
     settledAssets += amount;
     holdingProfit += f.totalProfit ?? 0;
 
-    if (!live?.dailyPending) {
-      const sp = live?.settledProfit;
-      if (sp != null && Number.isFinite(sp)) settledProfit += sp;
-    }
+    const sp = live?.settledProfit;
+    if (sp != null && Number.isFinite(sp)) settledProfit += sp;
 
     const ep =
       live?.estimateProfit != null && Number.isFinite(live.estimateProfit)
@@ -206,6 +204,6 @@ export function buildDisplayContext(
     realtimeNote: `实时收益=盘中最新估值 · 收市沿用最近收盘 · 盘中标记仅交易时段点亮 · 当前 ${liveText}`,
     dailyNote: '当日收益=净值公布后入账更新（通常晚间）· A股/黄金=当天 · QDII=最新公布净值日',
     holdingNote: '持有收益=累计盈亏，截至各基金已入账净值日',
-    tableHead: buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt),
+    tableHead: buildTableHeadLabels(liveFunds, meta, beijingDate, updatedAt, now),
   };
 }

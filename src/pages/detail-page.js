@@ -206,7 +206,7 @@ export function renderDetailStats(metrics, profile) {
     return `
     <section class="detail-stats detail-stats--pct-only">
       ${renderDetailPctMetric('实时收益', metrics.realTimePct)}
-      ${renderDetailPctMetric('当日收益', metrics.dailyPending ? null : metrics.settledPct)}
+      ${renderDetailPctMetric('当日收益', metrics.settledPct)}
     </section>`;
   }
   return `
@@ -329,7 +329,7 @@ export function patchDetailMetricsDom() {
       setTextClass(vals[0], pctClass(metrics.realTimePct));
     }
     if (vals[1]) {
-      const daily = metrics.dailyPending ? null : metrics.settledPct;
+      const daily = metrics.settledPct;
       vals[1].textContent = daily != null ? fmtPct(daily) : '—';
       setTextClass(vals[1], pctClass(daily));
     }

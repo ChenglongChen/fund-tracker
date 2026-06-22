@@ -21,10 +21,18 @@ export function weekdayFromIso(iso) {
   return new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
 }
 
-/** 中国 A 股日历：周一至周五为交易日（节假日暂无历表，无入账周末一律 off）。 */
+/** 沪深休市日（YYYY-MM-DD）；周末由 weekday 判定。 */
+const CN_MARKET_HOLIDAYS = new Set([
+  '2026-06-19',
+  '2026-06-20',
+  '2026-06-21',
+]);
+
+/** 中国 A 股日历：周一至周五且非法定休市日。 */
 export function isChinaTradingDay(iso) {
   const wd = weekdayFromIso(iso);
-  return wd >= 1 && wd <= 5;
+  if (wd < 1 || wd > 5) return false;
+  return !CN_MARKET_HOLIDAYS.has(iso);
 }
 
 /**

@@ -69,8 +69,9 @@ export function fundRealtimePct(row) {
 
 /** @param {object|null} row */
 export function fundDailyPct(row) {
-  if (!row || row.dailyPending) return null;
-  return row.settledPct ?? null;
+  if (!row) return null;
+  if (row.settledPct != null && Number.isFinite(row.settledPct)) return row.settledPct;
+  return null;
 }
 
 /**
