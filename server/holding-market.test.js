@@ -7,6 +7,7 @@ import {
   isJpMarketOpen,
   isKrMarketOpen,
   isUsQuoteLive,
+  hasMarketOpenedToday,
 } from './holding-market.js';
 import { applySessionQuotes } from './session-quotes.js';
 
@@ -140,6 +141,46 @@ assert('jp midday frozen close mode', jpMid[0].quoteMode === 'close');
 const hkPostClose = new Date('2026-05-27T08:00:21.000Z');
 assert('16:00:21 hk closed', !isHkMarketOpen(hkPostClose));
 assert('16:00:21 us closed not quote live', !isHoldingQuoteLive('us', hkPostClose));
+
+// 盘前（今日尚未开盘）：亚太/港/A股不展示 stale 昨收、不计入 RT1（changePct=null）；美股 / other 例外
+const preOpenAsia = new Date('2026-05-26T00:30:00.000Z'); // 08:30 BJ Tue：A股/港股未开，日开、韩刚开
+assert('cn not opened pre-0930', !hasMarketOpenedToday('cn', preOpenAsia));
+assert('hk not opened pre-0930', !hasMarketOpenedToday('hk', preOpenAsia));
+assert('kr opened by 0830', hasMarketOpenedToday('kr', preOpenAsia));
+assert('us always opened-flag', hasMarketOpenedToday('us', preOpenAsia));
+assert('weekend never opened', !hasMarketOpenedToday('cn', new Date('2026-05-30T02:00:00.000Z')));
+
+const cnPre = applySessionQuotes(
+  [{ code: '600519', name: '贵州茅台' }],
+  { '600519\0贵州茅台': { changePct: 1.2, price: 100, quoteSource: 'sina' } },
+  preOpenAsia,
+);
+assert('cn preopen no stale close', cnPre[0].quoteMode === 'preopen' && cnPre[0].changePct === null);
+
+const hkPre = applySessionQuotes(
+  [{ code: '0700', name: '腾讯控股', marketId: 116 }],
+  { '0700\0腾讯控股': { changePct: -0.5, price: 100, quoteSource: 'sina' } },
+  preOpenAsia,
+);
+assert('hk preopen no stale close', hkPre[0].quoteMode === 'preopen' && hkPre[0].changePct === null);
+
+// 美股隔夜昨收仍保留（§7b）：盘前亚太时段 US 持仓仍是 close，非 preopen
+const usPreAsia = applySessionQuotes(
+  [{ code: 'NVDA', name: '英伟达', marketId: 105 }],
+  { 'NVDA\0英伟达': { changePct: -4.1, price: 100, quoteSource: 'sina' } },
+  preOpenAsia,
+);
+assert('us overnight keeps close not preopen', usPreAsia[0].quoteMode !== 'preopen' && usPreAsia[0].changePct != null);
+
+// 当日已收盘（午后）：保留收盘涨跌幅，不被盘前守卫拦截
+const cnAfterClose = new Date('2026-05-26T07:30:00.000Z'); // 15:30 BJ Tue
+assert('cn opened by 1530', hasMarketOpenedToday('cn', cnAfterClose));
+const cnPost = applySessionQuotes(
+  [{ code: '600519', name: '贵州茅台' }],
+  { '600519\0贵州茅台': { changePct: 1.2, price: 100, quoteSource: 'sina' } },
+  cnAfterClose,
+);
+assert('cn after-close keeps close', cnPost[0].quoteMode === 'close' && Math.abs(cnPost[0].changePct - 1.2) < 0.01);
 
 console.log(`holding-market tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {

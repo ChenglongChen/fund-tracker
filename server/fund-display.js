@@ -8,6 +8,7 @@ import {
   resolveLiveDisplayImpact,
 } from './market-session.js';
 import { finalizeLiveFundDisplayRow, shouldSuppressDomesticRealtimeDisplay } from './components/suppress.js';
+import { valuationBasisLabel } from './components/market-hours.js';
 import { enrichFundSettled, resolveDisplayedSettledFields } from './nav.js';
 import {
   fundEstimateImpactPct,
@@ -112,6 +113,7 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
     shouldRefreshLiveRt1: impactRaw.shouldRefreshLiveRt1 ?? false,
     officialNavDate: navInfo?.pdate ?? null,
     officialDisplayDate: navInfo?.displayDate ?? null,
+    valuationBasis: valuationBasisLabel(windows.market, impactRaw.impactSource ?? null, now),
   };
   return finalizeLiveFundDisplayRow(row, now);
 }

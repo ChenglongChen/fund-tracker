@@ -4,6 +4,7 @@
 import { isValidHoldingQuote, quoteForHolding } from './quotes.js';
 import {
   classifyHoldingMarket,
+  hasMarketOpenedToday,
   holdingCacheKey,
   getHoldingSessionPhase,
   getUsSessionPhase,
@@ -142,6 +143,20 @@ export function applySessionQuotes(holdings, byHoldingKey, now = new Date()) {
         holdingMarket: market,
         quoteMode: 'missing',
         quoteSession,
+        changePct: null,
+        changePctRegular: null,
+        changePctPremarket: null,
+      };
+    }
+
+    // 今日尚未开盘（盘前 / 周末）的亚太/港/A股等：只有上一交易日 stale 昨收。
+    // 不展示昨收、不计入今日 RT1（changePct=null）；美股 / other 隔夜昨收除外（§7b）。
+    if (market !== 'us' && market !== 'other' && !hasMarketOpenedToday(market, now)) {
+      return {
+        ...h,
+        holdingMarket: market,
+        quoteMode: 'preopen',
+        quoteSession: closeSession,
         changePct: null,
         changePctRegular: null,
         changePctPremarket: null,

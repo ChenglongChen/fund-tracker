@@ -133,6 +133,27 @@ export function marketChipLabel(now = new Date()) {
   return segments.join(' / ');
 }
 
+/**
+ * 穿透型 QDII 的估值口径标注：美股休市、亚太盘中时，row1 = 美股昨收快照（冻结）+ 亚太盘中 live。
+ * 仅当 (1) 基金归类 us QDII (2) impactSource 为穿透/融合 (3) 美股非正盘 (4) 至少一个亚太市场盘中。
+ * 其余情形（美股正盘 live、全市场休市 snap）返回 null，不加标注。
+ * @param {MarketType} market
+ * @param {string|null|undefined} impactSource
+ * @param {Date} [now]
+ * @returns {string|null}
+ */
+export function valuationBasisLabel(market, impactSource, now = new Date()) {
+  if (market !== 'us') return null;
+  if (impactSource !== 'holdings' && impactSource !== 'ensemble') return null;
+  if (getUsSessionPhase(now) === 'regular') return null;
+  const asia = [];
+  if (isCnMarketOpen(now) || isCnMiddayBreak(now)) asia.push('A股');
+  if (isHkMarketOpen(now)) asia.push('港股');
+  if (isJpMarketOpen(now) || isKrMarketOpen(now)) asia.push('亚太');
+  if (!asia.length) return null;
+  return `美股昨收 · ${asia.join('/')}盘中`;
+}
+
 /** @param {Date} [now] */
 export function openMarketLabels(now = new Date()) {
   /** @type {string[]} */

@@ -17,6 +17,7 @@ import {
   isUsMarketOpen,
   marketChipLabel,
   openMarketLabels,
+  valuationBasisLabel,
 } from './components/market-hours.js';
 import { isHkMarketOpen, isJpMarketOpen, getUsSessionPhase } from './holding-market.js';
 
@@ -374,6 +375,25 @@ const hkPostClose = new Date('2026-05-27T08:00:21.000Z');
 assert('16:00:21 hk closed', !isHkMarketOpen(hkPostClose));
 assert('16:00:21 no hk label', !openMarketLabels(hkPostClose).includes('港股'));
 assert('16:00:21 us closed chip', marketChipLabel(hkPostClose) === '休市');
+
+// valuationBasisLabel: 穿透型 QDII × 美股休市 × 亚太盘中 → 标注；其余 → null
+const asiaLive = new Date('2026-06-24T03:00:00.000Z'); // 11:00 BJ Wed：A股/港股/亚太盘中、美股休市
+const usRegular = new Date('2026-06-24T01:00:00.000Z'); // 09:00 BJ... 实际 US 正盘见下
+const usNight = new Date('2026-06-23T14:00:00.000Z'); // 22:00 BJ Tue：美股正盘
+const eodFreeze = new Date('2026-06-24T10:00:00.000Z'); // 18:00 BJ Wed：全休市
+assert(
+  'qdii holdings asia-live shows basis',
+  valuationBasisLabel('us', 'holdings', asiaLive) === '美股昨收 · A股/港股/亚太盘中',
+);
+assert(
+  'qdii ensemble asia-live shows basis',
+  typeof valuationBasisLabel('us', 'ensemble', asiaLive) === 'string',
+);
+assert('us regular night no basis', valuationBasisLabel('us', 'holdings', usNight) === null);
+assert('eod freeze no basis (no asia open)', valuationBasisLabel('us', 'holdings', eodFreeze) === null);
+assert('index qdii no basis', valuationBasisLabel('us', 'index', asiaLive) === null);
+assert('cn fund no basis', valuationBasisLabel('cn', 'fundgz', asiaLive) === null);
+void usRegular;
 
 console.log(`market-session tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {

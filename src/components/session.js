@@ -17,6 +17,7 @@ export function shouldShowExtendedMetric(_f) {
 }
 
 export function holdingStatusLabel(h) {
+  if (h?.quoteMode === 'preopen') return '待行情';
   if (h?.liveRt1Excluded) return '—';
   const session = h?.quoteSession;
   if (session === 'regular' && h?.quoteMode === 'live') return '盘中';
@@ -33,6 +34,7 @@ export function holdingStatusLabel(h) {
 }
 
 export function holdingStatusClass(h) {
+  if (h?.quoteMode === 'preopen') return 'is-flat';
   if (h?.liveRt1Excluded) return 'is-flat';
   const session = h?.quoteSession;
   if (session === 'regular' && h?.quoteMode === 'live') return 'is-live';

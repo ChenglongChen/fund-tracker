@@ -2185,6 +2185,17 @@ html[data-theme='dark'] .index-drawer {
   font-variant-numeric: tabular-nums;
 }
 
+.detail-hero-basis {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 2px 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  background: var(--surface-muted, rgba(125, 125, 125, 0.12));
+  border-radius: 999px;
+}
+
 .detail-stats {
   flex-shrink: 0;
   display: grid;

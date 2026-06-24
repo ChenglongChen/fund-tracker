@@ -186,17 +186,27 @@ function renderDetailPctMetric(label, pct) {
     </div>`;
 }
 
+function detailValuationBasis() {
+  const { row } = detailBundle();
+  return app().state.detail?.valuationBasis ?? row?.valuationBasis ?? null;
+}
+
 export function renderDetailHero(fund, metrics, profile) {
   const cls = pctClass(metrics.impactPct);
   const pctBlock = `<p class="detail-hero-pct ${cls}">${fmtPct(metrics.impactPct)}</p>`;
   const amountLine = profile.showAmount
     ? `<p class="detail-hero-amount">持仓 ${fmtHoldAmount(fund.amount)}</p>`
     : '';
+  const basis = detailValuationBasis();
+  const basisChip = basis
+    ? `<p class="detail-hero-basis" id="detail-hero-basis">${escapeHtml(basis)}</p>`
+    : '';
   return `
     <section class="detail-hero ${cls}">
       <p class="detail-hero-code">${escapeHtml(fund.code)}</p>
       <p class="detail-hero-label">估值涨跌</p>
       ${pctBlock}
+      ${basisChip}
       ${amountLine}
     </section>`;
 }
@@ -315,6 +325,12 @@ export function patchDetailMetricsDom() {
     const amountEl = hero.querySelector('.detail-hero-amount');
     if (amountEl && profile.showAmount) {
       amountEl.textContent = `持仓 ${fmtHoldAmount(fund.amount)}`;
+    }
+    const basis = detailValuationBasis();
+    const basisEl = hero.querySelector('#detail-hero-basis');
+    if (basisEl) {
+      basisEl.textContent = basis ?? '';
+      basisEl.style.display = basis ? '' : 'none';
     }
   }
 

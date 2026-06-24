@@ -133,6 +133,35 @@ export function isHoldingQuoteLive(market, date = new Date()) {
   return getHoldingSessionPhase(market, date) === 'regular';
 }
 
+/**
+ * 该市场「今日（北京日历日）是否已开过盘」。
+ * 用于区分两类休市持仓：
+ * - 今日尚未开盘（盘前 / 周末）→ 仅有上一交易日 stale 昨收 → 应显示「待行情」且**不计入今日 RT1**
+ * - 今日已开过盘（盘中或当日已收盘）→ 收盘快照为当日真实涨跌 → 保留展示与计入
+ * 美股 / other 恒返回 true：隔夜美股「昨收」为未入账浮动，仍计入 RT1（realtime-spec §7b）。
+ * @param {HoldingMarket} market @param {Date} [date]
+ */
+export function hasMarketOpenedToday(market, date = new Date()) {
+  if (!isWeekday(date)) return false;
+  const mins = minutesOfDay(beijingParts(date));
+  switch (market) {
+    case 'jp':
+      return mins >= 8 * 60;
+    case 'kr':
+      return mins >= 8 * 60 + 30;
+    case 'hk':
+    case 'cn':
+    case 'tw':
+      return mins >= 9 * 60 + 30;
+    case 'gold_cn':
+      return mins >= 9 * 60;
+    case 'eu':
+      return mins >= 15 * 60;
+    default:
+      return true;
+  }
+}
+
 /** @param {Date} [date] */
 export function usSessionPhaseLabel(phase) {
   if (phase === 'premarket') return '盘前';

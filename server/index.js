@@ -8,7 +8,7 @@ import { getLiveCache, refreshLiveDisplay, buildLiveRevision, getLiveStatus } fr
 import { runSettlement } from './settle.js';
 import { readPortfolio, writePortfolio } from './store.js';
 import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, resolveFxStripFromMarket } from './market.js';
-import { classifyFundMarket } from './components/market-hours.js';
+import { classifyFundMarket, valuationBasisLabel } from './components/market-hours.js';
 import { resolveLiveDisplayImpact } from './market-session.js';
 import { readAppState, setAssetViewMode, listDailyRecords } from './app-state.js';
 import {
@@ -506,6 +506,7 @@ async function handler(req, res, port) {
         fundgzImpactPct: r.fundgzImpactPct ?? null,
         impactBreakdown: r.impactBreakdown ?? null,
         quoteCoverage: r.quoteCoverage ?? null,
+        valuationBasis: valuationBasisLabel(market, r.impactSource ?? null),
       });
     } catch (e) {
       return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
