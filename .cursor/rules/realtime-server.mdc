@@ -33,7 +33,7 @@ alwaysApply: false
 2. **时钟/session** **`display-session.js`**
 3. **display impact** `market-session.js` + **`components/market-hours.js`**
 4. **suppress** **`components/suppress.js`**
-5. **per-fund** `fund-display.js`（含 row2 extended 金额，与 row1 分离）
+5. **per-fund** `fund-display.js`（仅 row1 正盘口径；无盘前/盘后 row2）
 6. **编排** `live-pipeline.js`
 7. **求和** `aggregate.js` + **`components/table-head.js`**
 8. **Snap** **`components/snap-*.js`** + `day-display-state.js`
@@ -44,7 +44,6 @@ alwaysApply: false
 resolveDisplaySession (一次)
 → buildDisplayFundRows
 → reconcileDisplayState (snap-seed)
-→ tryBackfillSnapFromTicks
 → applyDisplaySnapAndTotals (snap-apply + suppress)
 ```
 

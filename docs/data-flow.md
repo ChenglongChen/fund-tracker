@@ -43,7 +43,6 @@ flowchart TB
 |------|------|
 | `impactPct` / `impactPctRegular` | `resolveLiveDisplayImpact()` |
 | `estimateProfit` | 由 display `impactPct` 推导（非 raw 穿透） |
-| `realTimeProfitExtended` | `impactPctExtendedLive × amount` |
 | `settledProfit` | `nav.js` enrich + portfolio |
 | `realtimeActive` | `getFundProfitWindows`；美股正盘时 A 股可为 false |
 
@@ -54,7 +53,6 @@ flowchart TB
 | `amount` | 账户资产（已入账净值口径） | NAV 入账、手动编辑 |
 | `settledProfit` / `yesterdayProfit` | 当日官方收益 | NAV 入账 |
 | `estimateProfit` | 实时收益 row1 | 穿透 / snap |
-| `realTimeProfitExtended` | 盘前/盘后 row2 | 仅 extended 时段 live |
 | `realtimeAssets` | 预估资产 | `Σ estimateAssets` 或 snap 阶段 `baseline+RT1` |
 | `baseline` | 入账资产\_{D−1} | 日切 / ensureDayBaseline |
 
@@ -126,7 +124,7 @@ stateDiagram-v2
 | `data/portfolio.json` | 持仓 amount、份额、净值日 |
 | `data/day-display-state.json` | `baseline`、`eodSnap`、`currentPhase`、`rt1AccrualDay` |
 | `data/impact-snapshots.json` | 穿透 `impactPctRegular`（按 fundId） |
-| `data/app-state.json` | `intradayTicks`（backfill 用）、`dailyRecords` |
+| `data/app-state.json` | `intradayTicks`（调试留存）、`dailyRecords` |
 | `data/valuation-profiles.json` | 估值策略（本地生成，见 example） |
 
 ### day-display-state 结构（简化）
@@ -198,6 +196,8 @@ stateDiagram-v2
 
 `openMarketLabels()` 输出：`A股`、`港股`、`亚太`、`美股`。**不**单独输出「黄金」。
 
-## 8. 晚启动 backfill
+## 8. 晚启动 snap seed
 
-服务在 16:00 之后首次启动时，`tryBackfillSnapFromTicks()` 从 `app-state.json` 的 `intradayTicks` 找 `updatedAt ≤ 16:00` 的最后一条，避免用 21:00 live 值当初始 snap。
+服务在 `eod_freeze`（16:00–21:30）或 `day_open`（04:00–08:00）首次启动且无 ready snap 时，`reconcileDisplayState` 直接用当前 live 行 seed `eodSnap`（`seedEodSnap`）。
+
+> 历史 `tryBackfillSnapFromTicks()`（从 `intradayTicks` 回填 16:00 前快照）已废弃为 no-op，不在管线中调用；`intradayTicks` 现仅作调试留存。

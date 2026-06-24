@@ -30,8 +30,10 @@ npm run build             # 动 src/ 时加跑
 | 命令 | 说明 |
 |------|------|
 | `npm run test:regression` | **全量回归**（见 package.json 串联列表） |
-| `npm run test:fund-estimate` | RT1/EST 公式、盘前 snap |
+| `npm run test:fund-estimate` | RT1/EST 公式、snap |
 | `npm run test:realtime-profit` | 组合 RT1 与 baseline 一致 |
+| `npm run test:api-contract` | API 鉴权 + 响应结构契约 |
+| `npm run test:qdii-valuation` | QDII 穿透/融合/FX/覆盖率 |
 | `npm run test:display-session` | phase / snapKey 会话 |
 | `npm run test:display-state` | snap 状态（`snap-state.test.js`） |
 | `npm run test:live-pipeline` | 展示流水线 |
@@ -63,7 +65,7 @@ npm run backfill:profit-ledger   # 历史 ledger 回填
 
 ### 动到实时展示
 
-- [ ] `resolveLiveDisplayImpact` 与 `fundEstimateImpactPct` 盘前/盘后口径一致
+- [ ] `resolveLiveDisplayImpact` 与 `fundEstimateImpactPct` 正盘口径一致
 - [ ] `buildDisplayFundRow` 的 `estimateProfit` 来自 **display impact**，非 raw `r`
 - [ ] `fundEstimatedAssets` / `estimatedAssetsForRow` 为 **`amount+ep`**（非 `amount−settled+ep`）
 - [ ] `buildSummary` 读 API `live.totals` / `totalsByAccount`；无 totals 时用 `Σ estimateAssets` / `Σ estimateProfit`

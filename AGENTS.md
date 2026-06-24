@@ -100,7 +100,7 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 
 `resolveDisplaySession(now, { persistedPhase: getCurrentPhase() })` — 每 tick 解析一次，传入 pipeline。
 
-返回 `usPhase`、`clockPhase`、`snapKey`、`rt1Source`、`row2Source`、`phaseToPersist`、`canBackfill*` 等。**禁止**在其他模块重复 `getUsSessionPhase` + 分钟窗口分支。
+返回 `usPhase`、`clockPhase`、`effectivePhase`、`snapKey`、`rt1Source`、`phaseToPersist`、`accrualDay`、`isRt1SnapPhase`。**禁止**在其他模块重复 `getUsSessionPhase` + 分钟窗口分支推导 display phase。
 
 ## 前端分层（ViewModel → Components）
 
@@ -147,9 +147,9 @@ A 股 **15:00–21:30 同日** 仍可展示最后一次收盘 snapshot；**21:30
 
 ## 产品规则（易错）
 
-1. **盘前 16:00–21:30**：RT1/EST/row1 **snap**；row2 extended **live**
-2. **盘后 04:00–08:00**：与盘前对称；RT1 以正盘收市 snap 为准
-3. **21:30 正盘**：discard premarket snap，RT1 live（regular+extended）
+1. **EOD 冻结 16:00–21:30**：RT1/EST/row1 **snap**（读 eodSnap，无盘前/盘后 row2）
+2. **day_open 04:00–08:00**：与 EOD 对称冻结；RT1 以美股正盘收市 snap 为准
+3. **21:30 正盘**：丢弃上一轮，RT1 live（仅 regular）
 4. **A 股/黄金联接 21:30–09:30 + 周末**：row1 为 `—`（`shouldSuppressDomesticRealtimeDisplay`）；**snap 不能写回数值**
 5. **黄金联接**（如 000216）归类为 `cn`，顶栏 **不** 显示「黄金」市场
 6. **estimateProfit** 必须来自 **display impact**，不能直接用 raw 穿透 `r`

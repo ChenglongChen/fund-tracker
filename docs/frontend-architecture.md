@@ -39,35 +39,26 @@ Vite SPA，面向 iPhone 全屏 PWA。原则：**展示只读 API canonical 字�
 | Hero RT1/EST（全账户） | API `live.totals` | 本地 `Σ amount+ep` 或 `amount−settled+ep` 替代 totals |
 | Hero RT1/EST（账户 scope） | API `totalsByAccount[id]` | 穿透 pct 重算 |
 | 列表行 EST fallback | API `estimateAssets` 或 `amount+ep` | `amount−settled+ep` |
-| row2 extended | API `realTimeProfitExtended` | 前端不算 extended |
-| 盘前/盘后 session | API `displayState.extendedSession` 或 fund `impactSession` | 本地时钟推断 |
-| 时段 chip | API `displayContext.marketChip` | — |
+| 持仓穿透估值口径 | fund row `valuationBasis`（如「美股昨收 · 亚太盘中」） | 前端不推断 |
+| 时段 chip | `displayContext`（顶栏） / fund `marketLabel` | 本地时钟推断 |
+
+> **无盘前/盘后**：全市场仅正盘口径，row1 单行。历史「模式 B / row2 extended / `extendedSessionLabel` / `hasExtendedRealtimeLayout`」已移除（`session.js` 中相关函数恒返回 `''`/`false`，待清理）。
 
 ## 组件约定（iOS 风格）
 
-### 模式 A — 竖排指标
+### 模式 A — 竖排指标（唯一模式）
 
-无 extended 时：金额 + 收益率 pill/sub（Hero、账户卡、列表单列）。
-
-### 模式 B — 双行 split
-
-盘前/盘后：`renderRealtimeSplitRow` / `renderMetricDualLine`  
-- row1 = RT1（regular，与 header 一致）  
-- row2 = extended + 「盘前/盘后」tag  
-
-**同一组件**用于：Hero `renderSummaryRealtimeBody`、账户卡 `renderAccountRealtimeBody`、列表 `fundMetricCells`。
+金额 + 收益率 pill/sub（Hero、账户卡、列表单列）。
 
 ### 复用入口
 
 | 组件 | 文件 | 用途 |
 |------|------|------|
 | `renderPctPill` / `renderPctSub` | `components/metrics.js` | 收益率 |
-| `renderRealtimeSplitRow` | `components/metrics.js` | 模式 B 单行 |
-| `renderMetricDualLine` | `components/metrics.js` | 详情 Hero / 列表紧凑 |
-| `extendedSessionLabel` | `components/session.js` | 盘前/盘后文案 |
-| `hasExtendedRealtimeLayout` | `components/session.js` | 是否模式 B |
+| `renderHoldingStackedMetricCol` | `components/metrics.js` | 列表收益列 |
+| `holdingStatusLabel` / `holdingStatusClass` | `components/session.js` | 持仓状态（盘中/已收盘/待行情/—） |
 
-## 数据流（1s）
+## 数据流（500ms）
 
 ```
 GET /api/live
@@ -84,8 +75,8 @@ GET /api/live
 src/
 ├── main.js                 路由、state、刷新、事件绑定
 ├── app/context.js          bindApp / app() 共享上下文
-├── live-view-model.js      API → fundRows（唯一 merge）
-├── summary.js              scope 顶栏合计
+├── live-view-model.js      → @fund-tracker/core（re-export；真逻辑在 packages/core/）
+├── summary.js              → @fund-tracker/core（scope 顶栏合计）
 ├── fund-display-ui.js      详情 metrics 选取
 ├── format.js               纯格式化
 ├── display-format.js       金额 + hideAssets
@@ -103,7 +94,7 @@ src/
 │   ├── privacy-ui.js       资产隐私 toggle
 │   ├── status.js           刷新/行情时间条
 │   ├── metrics.js          指标 UI 组件
-│   └── session.js          时段 / extended 规则
+│   └── session.js          持仓状态标签（盘中/已收盘/待行情）
 ├── accounts.js             账户 scope
 ├── column-layout.js        列表列配置
 ├── client-api.js           HTTP
@@ -130,4 +121,4 @@ src/
 - [ ] 详情 closed 持仓（`liveRt1Excluded`）涨跌幅/状态是否为 **`—`**
 - [ ] extended 是否用 `components/metrics` 而非内联 HTML
 - [ ] 金额是否走 `display-format.fmtMoney`（隐私一致）
-- [ ] 1s 刷新是否优先 `patch*Dom` 而非全量 `paint`
+- [ ] 500ms 刷新是否优先 `patch*Dom` 而非全量 `paint`

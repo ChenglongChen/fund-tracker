@@ -35,8 +35,7 @@ state.fundRows = mergeLiveIntoFunds(FUNDS, live);
 
 ## 组件（模式 A / B）
 
-- **模式 A**：`renderPctSub` + `fmtMoney` — 无 extended
-- **模式 B**：`renderRealtimeSplitRow` / `renderMetricDualLine` — 盘前/盘后双行
+- **模式 A（唯一）**：`renderPctSub` + `fmtMoney` — 单行正盘口径，无盘前/盘后双行
 
 Hero、账户卡、列表 **必须** 共用 `components/metrics.js`，禁止复制 HTML 结构。
 

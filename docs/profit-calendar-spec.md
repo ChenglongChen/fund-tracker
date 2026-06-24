@@ -8,7 +8,7 @@
 
 | 目标 | 说明 |
 |------|------|
-| 收益 Tab | 底部导航新增 **「收益」**，与「持仓 / 自选 / 行情 / 我的」并列 |
+| 收益 Tab | 底部导航 **「收益」**，与「持仓 / 自选 / 我的」并列（无「行情」Tab） |
 | Scope 一致 | 顶部 **账户 Tab 栏** 与持仓页相同：`账户概况` · `全部持仓` · 各账户 |
 | 月历视图 | 默认 **月视图** 网格（日格显示 ¥ 或 %），红涨绿跌、零/未更新灰显 |
 | 支付宝对标 | 支付宝账户 scope 逐日误差 **≤ ±500 元**（近两周合计 **≤ 0.5%**） |
@@ -80,7 +80,7 @@ dayProfit(all, D) = Σ dayProfit(accountId, D)
 │  └──┴──┴──┴──┴──┴──┴──┘            │
 │  选中：5/29  +16,395.06  +0.99%     │  ← 底部解读条
 └─────────────────────────────────────┘
-│ 持仓 │ 收益 │ 自选 │ 行情 │ 我的    │  ← bottom-tabs 新增「收益」
+│ 持仓 │ 收益 │ 自选 │ 我的         │  ← bottom-tabs（含「收益」）
 └─────────────────────────────────────┘
 ```
 
@@ -179,8 +179,8 @@ settledProfitPct = profit / (settledAssets - profit) × 100
 | 字段 | 唯一写入 | 说明 |
 |------|----------|------|
 | `profitLedger.days[D].funds[id].settledProfit` | **`profit-ledger.recordFundSettle()`** | settle 事件 per-fund |
-| `profitLedger.days[D].accounts[aid]` | **`profit-ledger.rebuildDayAccounts()`** | Σ funds by accountId |
-| `profitLedger.days[D].portfolio` | **`profit-ledger.rebuildDayPortfolio()`** | Σ accounts |
+| `profitLedger.days[D].accounts[aid]` | **`profit-ledger.rebuildDayAggregates()`** | Σ funds by accountId |
+| `profitLedger.days[D].portfolio` | **`profit-ledger.rebuildDayAggregates()`** | Σ accounts |
 | 历史回填 | **`scripts/backfill-profit-ledger.js`** | 只写 `source: backfill` 的日 |
 
 **禁止**前端或 aggregate 从 lsjz 重算日历；读 API 已聚合好的 scope 视图。
@@ -207,7 +207,10 @@ server/
 ├── profit-ledger.js       # 读写 profitLedger；recordFundSettle；scope 聚合
 ├── profit-calendar.js     # 月视图 DTO；pending/zero 状态
 ├── profit-attribution.js  # creditDay 规则（cn / qdii）；回填用
-└── profit-ledger.test.js
+├── profit-backfill.js      # 历史净值回填 ledger
+├── profit-attribution.test.js
+├── profit-calendar.test.js
+└── profit-pending.test.js
 ```
 
 ### 5.2 settle 挂钩
@@ -275,6 +278,14 @@ for (const ev of events.filter(e => e.status === 'settled')) {
 
 Body: `{ "from": "2026-05-01", "to": "2026-05-29", "accountId": "alipay" | null }`  
 触发 lsjz 回填，返回 diff report。
+
+#### 其他已实现端点（Phase 2）
+
+| 端点 | 用途 |
+|------|------|
+| `GET /api/profit/day/:date` | 某日各 fund 明细（bottom sheet） |
+| `GET /api/profit/range-detail` | 周/年/区间聚合明细 |
+| `GET /api/profit/export` | 导出 CSV |
 
 ### 5.4 Scope 聚合（读路径）
 
@@ -357,20 +368,20 @@ profitCalendar: {
 
 ## 8. 实施分期
 
-### Phase 1 — MVP（对标验收）
+### Phase 1 — MVP（已上线）
 
-- [ ] `profit-ledger.js` + settle 挂钩
-- [ ] `GET /api/profit/calendar` + `summary`
-- [ ] 回填脚本 + alipay 2026-05 验收
-- [ ] 底部 Tab + 收益页 + scope Tab + 月历 ¥
-- [ ] `npm run verify:profit-calendar`
+- [x] `profit-ledger.js` + settle 挂钩
+- [x] `GET /api/profit/calendar` + `summary`
+- [x] 回填脚本 + alipay 2026-05 验收
+- [x] 底部 Tab + 收益页 + scope Tab + 月历 ¥
+- [x] `npm run verify:profit-calendar`
 
 ### Phase 2 — 体验
 
-- [ ] `%` 单位切换
+- [x] `%` 单位切换
 - [ ] 账户概况卡片 + sparkline
-- [ ] 周 / 年视图 + 简易折线图
-- [ ] 点击某日 → 当日各 fund 明细 bottom sheet
+- [x] 周 / 年视图 + 简易折线图
+- [x] 点击某日 → 当日各 fund 明细 bottom sheet
 
 ### Phase 3 — 完整性
 
@@ -386,9 +397,9 @@ profitCalendar: {
 
 | 文件 | 覆盖 |
 |------|------|
-| `profit-attribution.test.js` | creditDay：cn 同日、qdii 下一交易日、周一合并 |
-| `profit-ledger.test.js` | recordFundSettle、scope 聚合、与 dailyRecords 一致 |
+| `profit-attribution.test.js` | creditDay：cn 同日、qdii 下一交易日、周一合并；recordFundSettle、scope 聚合 |
 | `profit-calendar.test.js` | 月边界、pending/future、空月 |
+| `profit-pending.test.js` | 当日收益 16:00 pending 门控 |
 
 ### 9.2 验收脚本 `npm run verify:profit-calendar`
 

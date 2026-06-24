@@ -6,7 +6,7 @@
                     ┌──────────────────────────────────────────┐
                     │  Vite SPA (src/)                          │
                     │  ViewModel → Components → Format          │
-                    │  main.js 编排 · 1s poll /api/live         │
+                    │  main.js 编排 · 500ms poll /api/live      │
                     └────────────────────┬─────────────────────┘
                                          │ JSON
                     ┌────────────────────▼─────────────────────┐
@@ -42,20 +42,19 @@
 resolveDisplaySession (一次/tick)
 → buildDisplayFundRows
 → reconcileDisplayState(session)
-→ tryBackfillSnapFromTicks
 → applyDisplaySnapAndTotals(session)
 ```
 
 ### 估算公式库
 
-`fund-estimate.js` — **仅**被 `fund-display.js` 调用；禁止 aggregate / 前端重算。
+`fund-estimate.js` — 公式库（`fundEstimateProfit` / `fundEstimatedAssets`）；live 由 `fund-display.js` 计算，snap 由 `aggregate.js` / `components/snap-apply.js` 复用同一公式。**禁止前端重算**。
 
 ## 3. 前端分层
 
 | 层 | 模块 |
 |----|------|
 | Pages | `main.js` |
-| ViewModel | `live-view-model.js`, `summary.js`, `accounts.js` |
+| ViewModel | `live-view-model.js`, `summary.js`, `accounts.js`（真逻辑在 `packages/core/`，`src/*` 为 re-export） |
 | Components | `components/metrics.js`, `components/session.js` |
 | Format | `format.js`, `display-format.js` |
 

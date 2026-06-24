@@ -35,7 +35,6 @@ Node API（`:8788`）。原则：**每层单一 writer**，可复用组件只做
 resolveDisplaySession (一次/tick)
 → buildDisplayFundRows          fund-display.js
 → reconcileDisplayState         components/snap-seed.js
-→ tryBackfillSnapFromTicks
 → applyDisplaySnapAndTotals     snap-apply + suppress 收口
 ```
 
