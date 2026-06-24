@@ -21,7 +21,7 @@ PORT=8788 npm start  # 静态 + API 同端口
 ### 回归（推荐）
 
 ```bash
-npm run test:regression   # 大改 RT1/EST/snap/穿透 后必跑，14 组串联
+npm run test:regression   # 大改 RT1/EST/snap/穿透 后必跑，26 组串联
 npm run build             # 动 src/ 时加跑
 ```
 

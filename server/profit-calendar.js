@@ -449,55 +449,6 @@ export async function buildRangeFundDetail(opts) {
 }
 
 /**
- * 周视图：以 anchor 日所在自然周（周一至周日）。
- * @deprecated 使用 buildProfitWeeksInMonth
- */
-export async function buildProfitWeek(opts) {
-  const { scope, anchor, accounts = [], now = new Date() } = opts;
-  const ledger = await readProfitLedger();
-  const today = beijingDateString(now);
-  const parts = anchor.split('-').map(Number);
-  const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12));
-  const wd = dt.getUTCDay();
-  const monOffset = wd === 0 ? -6 : 1 - wd;
-  /** @type {string[]} */
-  const weekDays = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(dt);
-    d.setUTCDate(d.getUTCDate() + monOffset + i);
-    weekDays.push(d.toISOString().slice(0, 10));
-  }
-
-  let weekProfit = 0;
-  let hasAny = false;
-  const days = weekDays.map((date) => {
-    const row = ledger.days?.[date];
-    const totals = scopeDayTotals(scope, row);
-    const profit = totals?.settledProfit ?? null;
-    if (profit != null && Number.isFinite(profit)) {
-      weekProfit += profit;
-      hasAny = true;
-    }
-    const status = dayStatus(date, today, totals);
-    return {
-      date,
-      profit: status === 'future' ? null : profit ?? (status === 'zero' ? 0 : null),
-      profitPct: totals?.settledProfitPct ?? (status === 'zero' ? 0 : null),
-      status,
-    };
-  });
-
-  return {
-    scope,
-    scopeLabel: scopeLabel(scope, accounts),
-    period: 'week',
-    anchor,
-    weekTotal: { profit: hasAny ? Math.round(weekProfit * 100) / 100 : null },
-    days,
-  };
-}
-
-/**
  * 年视图：12 个月合计（period=month 对标支付宝「月」）。
  * @param {{ scope: string, year: string, accounts?: object[], now?: Date }} opts
  */

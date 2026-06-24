@@ -1,19 +1,7 @@
-/** 交易时段标签（全市场仅正盘） */
-
-export function extendedSessionLabel(_session) {
-  return '';
-}
+/** 持仓状态标签（全市场仅正盘；无盘前/盘后） */
 
 export function hasRealtimeProfit(f) {
   return f.realTimeProfit != null && Number.isFinite(f.realTimeProfit);
-}
-
-export function hasExtendedRealtimeLayout(_f) {
-  return false;
-}
-
-export function shouldShowExtendedMetric(_f) {
-  return false;
 }
 
 export function holdingStatusLabel(h) {
@@ -49,6 +37,3 @@ export function holdingStatusClass(h) {
   return 'is-flat';
 }
 
-export function holdingShowsDualChange(_h) {
-  return false;
-}

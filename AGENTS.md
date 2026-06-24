@@ -36,7 +36,7 @@ npm run test:regression
 npm run build   # 若动 src/
 ```
 
-`test:regression` 串联：fund-estimate、realtime-profit、display-session、display-state、live-pipeline、realtime-display-pipeline、phase-transition、**timeline-audit**、**fund-holding-fields**、fund-regular-eligibility、holdings-rt1、scope-totals、holding-market、market-session。
+`test:regression` 串联 26 组（见 `package.json`）：核心 RT1/EST/snap/穿透（fund-estimate、realtime-profit、display-session、display-state、live-pipeline、realtime-display-pipeline、**timeline-audit**、**fund-holding-fields**、fund-regular-eligibility、holdings-rt1、scope-totals、holding-market、market-session）+ 展示/估值/日历（nav-display、table-head、day-display-baseline、fund-metrics-live、impact-snapshots、weight-model、market-indices、gb-quote-parse、live-view-model、profit-calendar、qdii-valuation、api-contract）。
 
 | 改动范围 | 额外必跑 |
 |----------|----------|

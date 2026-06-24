@@ -170,22 +170,6 @@ export function usSessionPhaseLabel(phase) {
   return '已收盘';
 }
 
-/** 任一海外市场（美/日/韩/港）有可刷新行情 */
-export function isOverseasSessionOpen(date = new Date()) {
-  return (
-    isUsQuoteLive(date) ||
-    isJpMarketOpen(date) ||
-    isKrMarketOpen(date) ||
-    isHkMarketOpen(date) ||
-    isEuMarketOpen(date)
-  );
-}
-
-/** 亚太正盘（日/韩/港），不含 A 股 */
-export function isAsiaPacificSessionOpen(date = new Date()) {
-  return isJpMarketOpen(date) || isKrMarketOpen(date) || isHkMarketOpen(date);
-}
-
 /** 国内黄金：日盘 9:00–15:30；夜盘 20:00–次日 02:30 */
 export function isGoldCnHoldingMarketOpen(date = new Date()) {
   if (!isWeekday(date)) return false;

@@ -146,7 +146,7 @@ function metrics(truth, pred) {
   };
 }
 
-/** 联接/同类 proxy：见 server/valuation-profile.js FEEDER_MAP */
+/** 联接/同类 proxy：见 server/valuation-profile.js getProxyCandidates */
 
 /** @param {string} name */
 function indexKeyForFund(name) {

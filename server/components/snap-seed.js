@@ -172,8 +172,3 @@ export function reconcileDisplayState(
     activeSnap: snapKey ? getReadyScopeSnap(accrualDay, snapKey, 'portfolio') : null,
   };
 }
-
-/** @deprecated 无盘前/盘后 snap，恒为 false */
-export async function tryBackfillSnapFromTicks(_accrualDay, _snapKey, _now = new Date()) {
-  return false;
-}

@@ -104,16 +104,6 @@ export function isRt1SnapPhaseAt(now = new Date(), persistedPhase = null) {
   return resolveDisplaySession(now, { persistedPhase }).isRt1SnapPhase;
 }
 
-/** @deprecated 无盘前/盘后，恒为 false */
-export function isUsExtendedEstimateWindow(_now = new Date()) {
-  return false;
-}
-
-/** @deprecated 无盘前，恒为 false */
-export function isUsPremarketEstimateWindow(_now = new Date()) {
-  return false;
-}
-
 /** @param {ReturnType<typeof resolveDisplaySession>} session */
 export function toDisplayStatePayload(session) {
   return {

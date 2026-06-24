@@ -60,13 +60,7 @@ export async function writePortfolio(data) {
   return payload;
 }
 
-/** @param {number} amount @param {number} profit */
-export function dayProfitPct(amount, profit) {
-  if (profit == null || !Number.isFinite(profit) || amount <= profit) return null;
-  const base = amount - profit;
-  if (base <= 0) return null;
-  return (profit / base) * 100;
-}
+export { dayProfitPct } from '@fund-tracker/core/portfolio';
 
 /** @param {object} fund */
 export function holdingProfitPct(fund) {

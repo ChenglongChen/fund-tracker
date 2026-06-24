@@ -29,15 +29,6 @@ export function shouldSuppressDomesticRealtimeDisplay(market, now = new Date()) 
   return false;
 }
 
-/** @deprecated 同 {@link shouldSuppressDomesticRealtimeDisplay} */
-export function shouldSuppressDomesticRealtimeDuringUsRegular(market, now = new Date()) {
-  return shouldSuppressDomesticRealtimeDisplay(market, now);
-}
-
-/** @deprecated use shouldSuppressDomesticRealtimeDisplay */
-export function shouldHideDomesticCloseSnapshotDuringUsRegular(market, now = new Date()) {
-  return shouldSuppressDomesticRealtimeDisplay(market, now);
-}
 
 /**
  * 展示层收口：suppress 窗口内强制清空 row1（snap / live 均须经过此函数）。

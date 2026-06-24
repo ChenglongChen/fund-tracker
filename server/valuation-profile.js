@@ -217,15 +217,4 @@ export function getProxyCandidates(code, fundName = '') {
   return discovered;
 }
 
-/** @deprecated use getProxyCandidates */
-export const FEEDER_MAP = new Proxy(
-  {},
-  {
-    get(_t, code) {
-      if (typeof code !== 'string') return undefined;
-      return discoverProxyCandidates('', code);
-    },
-  },
-);
-
 export { mergeWeightParams, DEFAULT_WEIGHT_PARAMS } from './weight-model.js';

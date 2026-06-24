@@ -300,4 +300,3 @@ export function startSchedulers(settleFn) {
 }
 
 export { LIVE_REFRESH_MS, LIVE_REFRESH_SLOW_MS, LIVE_FULL_REFRESH_MS, SETTLE_CHECK_MS };
-export { buildDisplayFundRow as buildLiveFundRow } from './fund-display.js';

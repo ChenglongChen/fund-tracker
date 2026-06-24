@@ -1,8 +1,4 @@
-import {
-  getRt1AccrualDay,
-  isUsExtendedEstimateWindow,
-  isUsPremarketEstimateWindow,
-} from './display-session.js';
+import { getRt1AccrualDay } from './display-session.js';
 import {
   getActiveScopeSnap,
   getBaselineForDay,
@@ -10,8 +6,6 @@ import {
   round2,
 } from './day-display-state.js';
 import { beijingDateString } from './time.js';
-
-export { isUsExtendedEstimateWindow, isUsPremarketEstimateWindow };
 
 /** @deprecated use day-display-state; kept for tests */
 export function clearPremarketPortfolioEstimateSnap() {
