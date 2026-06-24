@@ -1,5 +1,5 @@
 import { fetchFundNavInfo, fetchMarketStrip, resolvePortfolioImpacts, resolveFxStripFromMarket } from './market.js';
-import { readPortfolio } from './store.js';
+import { readPortfolio, getPortfolioRevision } from './store.js';
 import { beijingDateString, beijingTimeHms, serverNow } from './time.js';
 import {
   isScreenshotMode,
@@ -186,6 +186,7 @@ async function refreshLive() {
     const beijingDate = beijingDateString(now);
 
     const [portfolio, appState] = await Promise.all([readPortfolio(), readAppState()]);
+    const startRev = getPortfolioRevision();
     const strip = isScreenshotMode()
       ? buildScreenshotMarketStrip(now)
       : await fetchMarketStrip(now);
@@ -225,6 +226,13 @@ async function refreshLive() {
       now,
       quoteUpdatedAt,
     );
+
+    // settle 在本轮 fetch/pipeline 期间改写了 portfolio（含 reapplyLiveCacheFromPortfolio）：
+    // 丢弃这份基于旧 portfolio 的结果，置 pending 触发下一轮用新 portfolio 重算，避免覆盖入账。
+    if (getPortfolioRevision() !== startRev) {
+      livePending = true;
+      return;
+    }
 
     if (!useSourceCache) {
       await recordLiveSnapshot(

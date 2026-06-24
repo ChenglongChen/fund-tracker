@@ -3,6 +3,7 @@ import path from 'node:path';
 import { getRt1AccrualDay, isRt1SnapPhaseAt, resolveDisplaySession } from './display-session.js';
 import { beijingDateString, beijingIsoString } from './time.js';
 import { DATA_DIR } from './store.js';
+import { writeJsonAtomic } from './data-dir.js';
 
 export { getRt1AccrualDay } from './display-session.js';
 
@@ -60,8 +61,7 @@ function scheduleSave() {
   saveTimer = setTimeout(async () => {
     saveTimer = null;
     try {
-      await fs.mkdir(DATA_DIR, { recursive: true });
-      await fs.writeFile(PATH, JSON.stringify(cache, null, 2), 'utf8');
+      await writeJsonAtomic(PATH, cache);
     } catch {
       /* ignore */
     }

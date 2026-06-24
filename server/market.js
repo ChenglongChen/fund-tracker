@@ -165,8 +165,10 @@ export function shouldPreferHoldingsImpact(r, fundName = '', profile = null) {
   return false;
 }
 
+const FETCH_TIMEOUT_MS = 12_000;
+
 async function fetchText(url, headers = {}) {
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (/sinajs\.cn/i.test(url)) return new TextDecoder('gbk').decode(buf);
@@ -201,10 +203,19 @@ export async function fetchSinaQuotes(fetchCodes) {
   return parseSinaList(text, unique);
 }
 
+/** @type {object[] | null} 上一次成功的指数 strip（行情源故障时回退，避免整轮 refresh 失败） */
+let lastGoodMarketStrip = null;
+
 export async function fetchMarketStrip(now = new Date()) {
   const keys = [...MARKET_STRIP_INDICES.map((i) => i.key), 'fx_susdcny', 'fx_hkdcny', 'gb_qqq'];
   const url = `${SINA_ORIGIN}/list=${keys.join(',')}`;
-  const text = await fetchText(url, SINA_HEADERS);
+  let text;
+  try {
+    text = await fetchText(url, SINA_HEADERS);
+  } catch (e) {
+    if (lastGoodMarketStrip) return applySessionMarketStrip(lastGoodMarketStrip, now);
+    throw e;
+  }
 
   const qqqRaw = extractQuotedVar(text, 'hq_str_gb_qqq');
   parseGbSinaQuote('gb_qqq', qqqRaw);
@@ -226,7 +237,8 @@ export async function fetchMarketStrip(now = new Date()) {
     hkd: hkdPct != null ? hkdPct : usdPct != null ? usdPct * 0.85 : null,
     market: 'fx',
   };
-  return applySessionMarketStrip([...indices, fx], now);
+  lastGoodMarketStrip = [...indices, fx];
+  return applySessionMarketStrip(lastGoodMarketStrip, now);
 }
 
 function emptyHoldingsImpact(pack) {
@@ -770,7 +782,12 @@ export {
 
 export async function fetchFundGz(code) {
   const url = `${FUNDGZ_ORIGIN}/js/${String(code).trim()}.js?rt=${Date.now()}`;
-  const text = await fetchText(url, { Referer: 'https://fund.eastmoney.com/' });
+  let text;
+  try {
+    text = await fetchText(url, { Referer: 'https://fund.eastmoney.com/' });
+  } catch {
+    return null;
+  }
   const m = text.match(/jsonpgz\((\{[\s\S]*\})\)/);
   if (!m) return null;
   try {

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DATA_DIR } from './store.js';
+import { writeJsonAtomic } from './data-dir.js';
 import { beijingDateString, beijingIsoString } from './time.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,7 +62,7 @@ function normalizeAppState(data) {
 export async function writeAppState(patch) {
   const current = await readAppState();
   const next = normalizeAppState({ ...current, ...patch });
-  await fs.writeFile(APP_STATE_PATH, JSON.stringify(next, null, 2), 'utf8');
+  await writeJsonAtomic(APP_STATE_PATH, next);
   try {
     const stat = await fs.stat(APP_STATE_PATH);
     appStateCache = { mtimeMs: stat.mtimeMs, data: next };

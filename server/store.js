@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migratePortfolio } from './accounts.js';
-import { DATA_DIR } from './data-dir.js';
+import { DATA_DIR, writeJsonAtomic } from './data-dir.js';
 import { isScreenshotMode } from './screenshot-bundle.js';
 import { beijingIsoString } from './time.js';
 
@@ -15,6 +15,12 @@ const SEED_PATH = path.join(ROOT, 'src', 'portfolio.json');
 
 /** @type {{ mtimeMs: number, data: { meta: object, funds: object[], accounts: object[] } | null }} */
 let portfolioCache = { mtimeMs: 0, data: null };
+
+/** 单调递增的 portfolio 写入版本号；refreshLive 用它检测提交期间是否被 settle 改写。 */
+let portfolioRevision = 0;
+export function getPortfolioRevision() {
+  return portfolioRevision;
+}
 
 /** @returns {Promise<{ meta: object, funds: object[] }>} */
 export async function ensurePortfolio() {
@@ -54,9 +60,10 @@ export async function writePortfolio(data) {
       lastWrittenAt: beijingIsoString(),
     },
   });
-  await fs.writeFile(PORTFOLIO_PATH, JSON.stringify(payload, null, 2), 'utf8');
+  await writeJsonAtomic(PORTFOLIO_PATH, payload);
   const stat = await fs.stat(PORTFOLIO_PATH);
   portfolioCache = { mtimeMs: stat.mtimeMs, data: payload };
+  portfolioRevision += 1;
   return payload;
 }
 

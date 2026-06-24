@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DATA_DIR } from './data-dir.js';
+import { DATA_DIR, writeJsonAtomic } from './data-dir.js';
 import { isValidHoldingQuote } from './quotes.js';
 
 const PATH = path.join(DATA_DIR, 'impact-snapshots.json');
@@ -38,8 +38,7 @@ function scheduleSave() {
   saveTimer = setTimeout(async () => {
     saveTimer = null;
     try {
-      await fs.mkdir(DATA_DIR, { recursive: true });
-      await fs.writeFile(PATH, JSON.stringify(cache, null, 2), 'utf8');
+      await writeJsonAtomic(PATH, cache);
     } catch {
       /* ignore persist errors */
     }

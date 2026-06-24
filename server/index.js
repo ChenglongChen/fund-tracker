@@ -4,7 +4,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { getLiveCache, refreshLiveDisplay, buildLiveRevision, getLiveStatus } from './live.js';
+import { getLiveCache, refreshLiveDisplay, buildLiveRevision, getLiveStatus, requestLiveRefresh } from './live.js';
 import { runSettlement } from './settle.js';
 import { readPortfolio, writePortfolio } from './store.js';
 import { resolveFundImpact, fetchFundNavInfo, getCachedFundImpactDetail, refreshFundHoldingsDisplay, resolveFxStripFromMarket } from './market.js';
@@ -115,7 +115,19 @@ async function handler(req, res, port) {
   if (req.method === 'PUT' && pathname === '/api/portfolio') {
     try {
       const body = JSON.parse(await readBody(req));
-      if (!body?.funds?.length) return json(res, 400, { error: '需要 funds 数组' });
+      if (!Array.isArray(body?.funds) || !body.funds.length) {
+        return json(res, 400, { error: '需要 funds 数组' });
+      }
+      const badFund = body.funds.find(
+        (f) =>
+          !f ||
+          typeof f.code !== 'string' ||
+          !f.code.trim() ||
+          (f.amount != null && !Number.isFinite(Number(f.amount))),
+      );
+      if (badFund) {
+        return json(res, 400, { error: 'funds 含非法项：需 code 字符串、amount 数值' });
+      }
       const current = await readPortfolio();
       if (
         current.funds.length > 1 &&
@@ -397,6 +409,14 @@ async function handler(req, res, port) {
       const portfolio = await readPortfolio();
       const from = body.from || '2026-05-01';
       const to = body.to || beijingDateString();
+      const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+      if (!isoRe.test(from) || !isoRe.test(to)) {
+        return json(res, 400, { error: 'from/to 需为 YYYY-MM-DD' });
+      }
+      const spanDays = (Date.parse(to) - Date.parse(from)) / 86_400_000;
+      if (!(spanDays >= 0) || spanDays > 400) {
+        return json(res, 400, { error: 'from/to 区间非法或超过 400 天' });
+      }
       const result = await backfillProfitLedger(portfolio, {
         from,
         to,
@@ -414,6 +434,7 @@ async function handler(req, res, port) {
       const result = await runSettlement(portfolio, {
         dryRun: searchParams.has('dryRun'),
       });
+      if (result.changed) requestLiveRefresh();
       return json(res, 200, result);
     } catch (e) {
       return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
@@ -553,6 +574,11 @@ export async function startFundTrackerServer(options = {}) {
   });
   console.log(`[${beijingDateTimeString()}] fund-tracker server http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
   console.log(`[${beijingDateTimeString()}]   API: /api/portfolio /api/live /api/watchlist /api/settings /api/history/daily /api/profit/*`);
+  if (!process.env.FUND_TRACKER_API_TOKEN?.trim()) {
+    console.warn(
+      `[${beijingDateTimeString()}]   ⚠ 未设置 FUND_TRACKER_API_TOKEN：/api/* 无鉴权，可被同网络读写持仓/触发入账。生产/公网部署请设置该环境变量。`,
+    );
+  }
   return { server, port, host };
 }
 

@@ -310,8 +310,12 @@ export async function fetchHoldingQuotes(holdings, now = new Date(), opts = {}) 
   }
   const parsedBatches = await runWithConcurrency(batches, SINA_BATCH_CONCURRENCY, async (batch) => {
     const url = `${SINA_ORIGIN}/list=${batch.join(',')}`;
-    const text = await fetchText(url, SINA_HEADERS);
-    return parseSinaList(text, batch);
+    try {
+      const text = await fetchText(url, SINA_HEADERS);
+      return parseSinaList(text, batch);
+    } catch {
+      return {}; // 单批失败降级：其余批次仍可用，缺报价的持仓走 missing/快照
+    }
   });
   for (const parsed of parsedBatches) Object.assign(quotes, parsed);
 
