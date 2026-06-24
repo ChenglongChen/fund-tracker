@@ -50,8 +50,9 @@ const HOLDING_DISPLAY_ALIASES = {
   'Meta Platforms Inc-C': 'Meta Platforms Inc-A',
 };
 
+// 持仓报告（尤其全量年报 topline=10000）单只可达 ~17s，给足超时余量避免误杀大基金（如 270023）
 async function fetchText(url, headers = {}) {
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(35_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   return Buffer.from(await res.arrayBuffer()).toString('utf8');
 }
@@ -411,10 +412,21 @@ export async function fetchFundHoldings(code, fundName = '') {
     return hit.pack;
   }
 
-  const pack = await fetchFundHoldingsRaw(code);
+  let pack;
+  try {
+    pack = await fetchFundHoldingsRaw(code);
+  } catch (e) {
+    // serve-stale：抓取失败（超时/网络）时复用上一次成功的持仓，避免回退到 0 只 fundgz
+    if (hit) return hit.pack;
+    throw e;
+  }
   const weightParams = getWeightParams(code, fundName);
   const syntheticHoldings = getSyntheticHoldings(code, fundName);
   const holdings = assembleHoldings(pack, weightParams, syntheticHoldings);
+  // 解析出 0 只但曾有持仓 → 视为本次抓取异常，保留旧 pack（报告端点偶发空响应）
+  if (!holdings.length && hit?.pack?.holdings?.length) {
+    return hit.pack;
+  }
   const result = {
     reportDate: pack.reportDate,
     recentReportDate: pack.recentReportDate,
