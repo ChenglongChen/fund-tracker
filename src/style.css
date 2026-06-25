@@ -2196,6 +2196,14 @@ html[data-theme='dark'] .index-drawer {
   border-radius: 999px;
 }
 
+.detail-hero-basis + .detail-hero-basis {
+  margin-left: 6px;
+}
+
+.detail-hero-basis--parts {
+  color: var(--text-secondary);
+}
+
 .detail-stats {
   flex-shrink: 0;
   display: grid;

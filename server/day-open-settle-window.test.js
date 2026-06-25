@@ -55,6 +55,12 @@ const s3 = reconcileAt(t0500, 0.9);
 assert.ok(Math.abs(s3.funds[1].rt1 - 900) < 1, `05:00 regular 漂移应 drift-heal 到 ≈900，got ${s3.funds[1].rt1}`);
 assert.equal(getBaselineForDay(accrualDay, 'portfolio'), baseline0, 'drift-heal 须保留 B[D]');
 
+// 旧版本可能已写入 impactPctRegular=0.90，但 rt1 仍是旧公式/旧值（例如缺 FX 的 750）。
+// 即使 pct 无漂移，也要用 pct 校验 rt1 并修复。
+s3.funds[1].rt1 = 750;
+const s3b = reconcileAt(t0500, 0.9);
+assert.ok(Math.abs(s3b.funds[1].rt1 - 900) < 1, `rt1/pct 不一致应自动修复到 ≈900，got ${s3b.funds[1].rt1}`);
+
 // 05:30 同 0.90（无漂移）但 amount 变化（模拟 settle 入账）：impactPctRegular 不变 → 不 re-seed
 portfolio.funds[0].amount = 105000;
 const s4 = reconcileAt(t0500, 0.9);

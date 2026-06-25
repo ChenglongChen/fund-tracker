@@ -78,6 +78,11 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
     : (liveRow.amount ?? amountAtSnap);
   const pct =
     amountForEst > 0 ? round2((rt1 / amountForEst) * 10000) / 100 : null;
+  const keepValuationParts =
+    pct != null &&
+    fundSnap.impactPctRegular != null &&
+    Number.isFinite(fundSnap.impactPctRegular) &&
+    Math.abs(fundSnap.impactPctRegular - pct) <= 0.02;
   return finalizeLiveFundDisplayRow(
     {
       ...liveRow,
@@ -85,6 +90,7 @@ function applyFundSnapEntry(fundId, liveRow, fundSnap, now = new Date()) {
       estimateImpactPct: pct ?? liveRow.estimateImpactPct,
       impactPct: pct ?? liveRow.impactPct,
       impactPctRegular: fundSnap.impactPctRegular ?? liveRow.impactPctRegular,
+      valuationParts: keepValuationParts ? (liveRow.valuationParts ?? null) : null,
       estimateAssets: round2(amountForEst + rt1),
       displaySnap: true,
     },

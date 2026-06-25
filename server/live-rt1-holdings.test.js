@@ -16,7 +16,7 @@ assert.equal(countsTowardLiveRt1(mixed[0]), true);
 assert.equal(countsTowardLiveRt1(mixed[1]), false);
 
 const liveOnly = estimateFromHoldingsWithFx(mixed, 0, { liveRt1Only: true });
-assert.equal(liveOnly, -0.1);
+assert.ok(Math.abs(liveOnly - -0.1) < 1e-9);
 
 const all = estimateFromHoldingsWithFx(mixed, 0);
 assert.ok(all < -0.1);

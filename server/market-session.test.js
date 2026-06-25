@@ -185,7 +185,7 @@ clearFundImpactSnapshots();
 
 const usClosedEarly = new Date('2026-05-26T21:45:00.000Z');
 resolveFundImpactPct(1, 'us', 2.75, usOpen);
-assert('us closed early keeps close snapshot', resolveFundImpactPct(1, 'us', 3.1, usClosedEarly) === 2.75);
+assert('us closed early uses raw for day_open snap healing', resolveFundImpactPct(1, 'us', 3.1, usClosedEarly) === 3.1);
 assert(
   'us closed early no live badge',
   !getFundProfitWindows({ name: '示例 全球精选' }, '2026-05-26', usClosedEarly).realtimeActive,

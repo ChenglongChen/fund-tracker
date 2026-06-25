@@ -31,6 +31,10 @@ export function shouldFreezeUsIndexCloseSnapshot(liveRow, now = new Date()) {
  * @param {(id: number) => number|null|undefined} [fundRegularPct]
  */
 export function resolveUsIndexCloseImpactPct(liveRow, fundRegularPct = () => null) {
+  // fund row 已经按人民币净值口径叠加 FX；优先使用它，避免休市 snap 回退到纯指数条（无 FX）。
+  if (liveRow?.impactPctRegular != null && Number.isFinite(liveRow.impactPctRegular)) {
+    return liveRow.impactPctRegular;
+  }
   const label = indexStripLabelForProxyFund(liveRow?.name ?? '');
   if (label) {
     const idx = getIndexSessionRegular(label);

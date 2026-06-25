@@ -90,6 +90,7 @@ export function mapLiveRowToDisplay(f, liveRow) {
     realtimeActive: liveRow?.realtimeActive ?? false,
     marketLabel: liveRow?.marketLabel ?? '',
     valuationBasis: liveRow?.valuationBasis ?? null,
+    valuationParts: liveRow?.valuationParts ?? null,
     dailyAsOfLabel: liveRow?.dailyAsOfLabel ?? '',
     dailyHint: liveRow?.dailyHint ?? '',
     market: liveRow?.market ?? '',

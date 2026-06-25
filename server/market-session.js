@@ -76,9 +76,12 @@ export function resolveFundImpactPct(fundId, market, rawImpactPct, now = new Dat
     return rawImpactPct;
   }
 
-  // 亚太收盘后 ~ 美股正盘前：穿透 composite 已就绪，不得读正盘/旧 close 快照
+  // 美股正盘外但 raw composite 已就绪：不得读旧 close 快照。
+  // 特别是 day_open 冷启动时，指数/FX 可能晚于 04:00 才就绪；snap seed 必须用最新 raw。
   if (
-    (session.clockPhase === 'asia_live' || session.clockPhase === 'eod_freeze') &&
+    (session.clockPhase === 'day_open' ||
+      session.clockPhase === 'asia_live' ||
+      session.clockPhase === 'eod_freeze') &&
     market === 'us' &&
     hasRaw
   ) {

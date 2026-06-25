@@ -39,7 +39,7 @@ Vite SPA，面向 iPhone 全屏 PWA。原则：**展示只读 API canonical 字�
 | Hero RT1/EST（全账户） | API `live.totals` | 本地 `Σ amount+ep` 或 `amount−settled+ep` 替代 totals |
 | Hero RT1/EST（账户 scope） | API `totalsByAccount[id]` | 穿透 pct 重算 |
 | 列表行 EST fallback | API `estimateAssets` 或 `amount+ep` | `amount−settled+ep` |
-| 持仓穿透估值口径 | fund row `valuationBasis`（如「美股昨收 · 亚太盘中」） | 前端不推断 |
+| 持仓穿透估值口径 | fund row / detail API `valuationBasis`（如「美股昨收 · 亚太盘中」）与 `valuationParts`（如「标的 +0.75% · 汇率 +0.21%」） | 前端不推断 |
 | 时段 chip | `displayContext`（顶栏） / fund `marketLabel` | 本地时钟推断 |
 
 > **无盘前/盘后**：全市场仅正盘口径，row1 单行。历史「模式 B / row2 extended / `extendedSessionLabel` / `hasExtendedRealtimeLayout`」已移除（`session.js` 中相关函数恒返回 `''`/`false`，待清理）。

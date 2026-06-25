@@ -17,6 +17,7 @@ import {
   estimateFromHoldings,
   estimateFromHoldingsWithFx,
   estimateWithFx,
+  combineLocalAndFxPct,
   summarizeHoldingsCoverage,
   usdExposedWeight,
   maskHoldingsForLiveRt1Display,
@@ -136,6 +137,7 @@ export {
   estimateFromHoldings,
   estimateFromHoldingsWithFx,
   estimateWithFx,
+  combineLocalAndFxPct,
   computeHoldingsImpactBreakdown,
   fetchFundHoldings,
 };
@@ -302,6 +304,12 @@ function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
     usdWeight: cov.usdWeight,
     hkdWeight: impactBreakdown?.hkdWeight ?? 0,
     quotedCount: cov.quotedCount,
+    valuationParts: impactBreakdown
+      ? {
+          basePct: impactBreakdown.holdingsPct,
+          fxPct: impactBreakdown.fxContribution,
+        }
+      : null,
   };
 }
 
@@ -632,7 +640,30 @@ export function resolveProxyIndexImpact(fundName, strip) {
       : item.changePct;
   const impactPct = estimateWithFx(item.changePct, fxUsd, 100);
   const impactPctRegular = estimateWithFx(rawRegular, fxUsd, 100);
-  return { impactPct, impactSource: 'index', impactPctRegular, impactPctExtended: null, impactSession };
+  const fxContribution =
+    impactPct != null && Number.isFinite(impactPct) ? impactPct - item.changePct : 0;
+  return {
+    impactPct,
+    impactSource: 'index',
+    impactPctRegular,
+    impactPctExtended: null,
+    impactSession,
+    impactBreakdown: {
+      holdingsPct: item.changePct,
+      fxUsdPct: fxUsd,
+      fxHkdPct: null,
+      fxUsdContribution: fxContribution,
+      fxHkdContribution: 0,
+      fxContribution,
+      usdWeight: item.market === 'us' ? 100 : 0,
+      hkdWeight: 0,
+      totalPct: impactPct,
+    },
+    valuationParts: {
+      basePct: item.changePct,
+      fxPct: fxContribution,
+    },
+  };
 }
 
 async function resolveProxyFundImpact(code, fundName, strip) {

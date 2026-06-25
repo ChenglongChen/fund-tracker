@@ -195,9 +195,9 @@ snap 阶段见 §2.1 表格（header **`B[D] + RT1`**，per-fund **`amountAtSnap
 
 | 项 | 规则 |
 |----|------|
-| FX | `computeHoldingsImpactBreakdown`：持仓加权 + **USD 暴露 × USDCNY** + **HKD 暴露 × HKDCNY**（缺 HKD 时 ≈ 0.85×USD） |
+| FX | **人民币净值口径**：`(1+标的涨跌)×(1+本币兑人民币涨跌)-1`。`computeHoldingsImpactBreakdown` 按持仓币种逐项乘法叠加：美股/ADR → **USD/CNY**，港股 → **HKD/CNY**（缺 HKD 时 ≈ 0.85×USD），A股不加 FX；指数型 QDII（纳指/标普 proxy）按 100% USD 暴露叠加 USD/CNY。 |
 | 融合 | 持仓策略且 fundgz 新鲜（≤3h）时：`blendEnsembleImpact(holdings, fundgz, α)`；α 由 `quoteCoverage`、报告龄、fundgz 新鲜度决定 |
-| 输出 | `impactSource`: `holdings` / `ensemble` / `fundgz`；详情 API 附带 `valuationConfidence`、`holdingsImpactPct`、`fundgzImpactPct` |
+| 输出 | `impactSource`: `holdings` / `ensemble` / `fundgz`；详情 API 附带 `valuationConfidence`、`holdingsImpactPct`、`fundgzImpactPct`、`valuationParts`（如 `标的 +0.75% · 汇率 +0.21%`） |
 | 唯一 writer | `applyHoldingsEnsemble`（`qdii-valuation.js`），由 `market.js` 穿透路径调用 |
 
 回测：`node scripts/backtest-valuation.js --code=270023`；单测：`npm run test:qdii-valuation`。

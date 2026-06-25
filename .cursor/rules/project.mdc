@@ -42,7 +42,7 @@ npm run test:regression
 npm run build   # 动 src/
 ```
 
-`test:regression` = 27 组单元测试串联（见 `package.json`）。小改可只跑相关子集，但交付前仍建议全量 regression。
+`test:regression` = 28 组单元测试串联（见 `package.json`）。小改可只跑相关子集，但交付前仍建议全量 regression。
 
 ## 临时文件
 

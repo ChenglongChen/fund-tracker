@@ -191,6 +191,18 @@ function detailValuationBasis() {
   return app().state.detail?.valuationBasis ?? row?.valuationBasis ?? null;
 }
 
+function detailValuationPartsText() {
+  const { row } = detailBundle();
+  const parts = app().state.detail?.valuationParts ?? row?.valuationParts ?? null;
+  const base = parts?.basePct;
+  const fx = parts?.fxPct;
+  if (base == null || fx == null || !Number.isFinite(Number(base)) || !Number.isFinite(Number(fx))) {
+    return '';
+  }
+  if (Math.abs(Number(fx)) < 0.005) return '';
+  return `标的 ${fmtPct(base)} · 汇率 ${fmtPct(fx)}`;
+}
+
 export function renderDetailHero(fund, metrics, profile) {
   const cls = pctClass(metrics.impactPct);
   const pctBlock = `<p class="detail-hero-pct ${cls}">${fmtPct(metrics.impactPct)}</p>`;
@@ -201,12 +213,17 @@ export function renderDetailHero(fund, metrics, profile) {
   const basisChip = basis
     ? `<p class="detail-hero-basis" id="detail-hero-basis">${escapeHtml(basis)}</p>`
     : '';
+  const partsText = detailValuationPartsText();
+  const partsChip = partsText
+    ? `<p class="detail-hero-basis detail-hero-basis--parts" id="detail-hero-parts">${escapeHtml(partsText)}</p>`
+    : '';
   return `
     <section class="detail-hero ${cls}">
       <p class="detail-hero-code">${escapeHtml(fund.code)}</p>
       <p class="detail-hero-label">估值涨跌</p>
       ${pctBlock}
       ${basisChip}
+      ${partsChip}
       ${amountLine}
     </section>`;
 }
@@ -331,6 +348,12 @@ export function patchDetailMetricsDom() {
     if (basisEl) {
       basisEl.textContent = basis ?? '';
       basisEl.style.display = basis ? '' : 'none';
+    }
+    const partsText = detailValuationPartsText();
+    const partsEl = hero.querySelector('#detail-hero-parts');
+    if (partsEl) {
+      partsEl.textContent = partsText;
+      partsEl.style.display = partsText ? '' : 'none';
     }
   }
 

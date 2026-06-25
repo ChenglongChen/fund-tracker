@@ -526,6 +526,7 @@ async function handler(req, res, port) {
         holdingsImpactPct: r.holdingsImpactPct ?? null,
         fundgzImpactPct: r.fundgzImpactPct ?? null,
         impactBreakdown: r.impactBreakdown ?? null,
+        valuationParts: r.valuationParts ?? null,
         quoteCoverage: r.quoteCoverage ?? null,
         valuationBasis: valuationBasisLabel(market, r.impactSource ?? null),
       });

@@ -44,6 +44,15 @@ function dayOpenSnapRegularDrifted(existing, liveFunds) {
     if (snapPct == null || livePct == null) continue;
     if (!Number.isFinite(snapPct) || !Number.isFinite(livePct)) continue;
     if (Math.abs(snapPct - livePct) > 0.02) return true;
+    if (
+      snapEntry.rt1 != null &&
+      snapEntry.amountAtSnap != null &&
+      Number.isFinite(snapEntry.rt1) &&
+      Number.isFinite(snapEntry.amountAtSnap)
+    ) {
+      const expectedRt1 = round2((snapEntry.amountAtSnap * snapPct) / 100);
+      if (Math.abs(expectedRt1 - snapEntry.rt1) > 1) return true;
+    }
   }
   return false;
 }

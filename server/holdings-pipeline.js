@@ -464,6 +464,15 @@ function pickFxStripPct(fxStrip, kind = 'usd') {
   return (Number.isFinite(usd) ? usd : 0) * 0.85;
 }
 
+/** 精确人民币口径：本币资产涨跌 × 本币兑人民币涨跌。返回百分比。 */
+export function combineLocalAndFxPct(localPct, fxPct, fxWeightPct = 100) {
+  if (localPct == null || !Number.isFinite(localPct)) return null;
+  const fx = fxPct != null && Number.isFinite(fxPct) ? fxPct : 0;
+  const weight = Number.isFinite(fxWeightPct) ? Math.max(0, Math.min(100, fxWeightPct)) / 100 : 1;
+  const fullFxPct = ((1 + localPct / 100) * (1 + fx / 100) - 1) * 100;
+  return localPct + (fullFxPct - localPct) * weight;
+}
+
 /** @param {object[]} holdings @param {{ liveRt1Only?: boolean }} [opts] */
 export function summarizeFxExposure(holdings, opts = {}) {
   const counts = opts.liveRt1Only ? countsTowardLiveRt1 : countsTowardValuation;
@@ -479,14 +488,42 @@ export function summarizeFxExposure(holdings, opts = {}) {
 
 /** @param {object[]} holdings @param {number|null|object} fxStrip @param {{ liveRt1Only?: boolean }} [opts] */
 export function computeHoldingsImpactBreakdown(holdings, fxStrip, opts = {}) {
-  const holdingsPct = estimateFromHoldings(holdings, opts);
-  if (holdingsPct == null) return null;
+  let holdingsSumWC = 0;
+  let totalSumWC = 0;
+  let fxUsdContribution = 0;
+  let fxHkdContribution = 0;
+  let used = 0;
+  const counts = opts.liveRt1Only ? countsTowardLiveRt1 : countsTowardValuation;
   const { usdWeight, hkdWeight } = summarizeFxExposure(holdings, opts);
   const fxUsdPct = pickFxStripPct(fxStrip, 'usd');
   const fxHkdPct = pickFxStripPct(fxStrip, 'hkd');
-  const fxUsdContribution = (usdWeight / 100) * fxUsdPct;
-  const fxHkdContribution = (hkdWeight / 100) * fxHkdPct;
+  for (const h of holdings) {
+    if (!counts(h)) continue;
+    if (h.changePct == null || !Number.isFinite(h.changePct)) continue;
+    const weight = h.weight ?? 0;
+    const localPct = h.changePct;
+    used += weight;
+    const localContribution = weight * localPct;
+    let fxPct = 0;
+    let bucket = null;
+    if (h.holdingMarket === 'hk') {
+      fxPct = fxHkdPct;
+      bucket = 'hkd';
+    } else if (usdExposedWeight(h) > 0) {
+      fxPct = fxUsdPct;
+      bucket = 'usd';
+    }
+    const cnyPct = combineLocalAndFxPct(localPct, fxPct) ?? localPct;
+    const fxContribution = (weight * (cnyPct - localPct)) / 100;
+    if (bucket === 'hkd') fxHkdContribution += fxContribution;
+    else if (bucket === 'usd') fxUsdContribution += fxContribution;
+    holdingsSumWC += localContribution;
+    totalSumWC += weight * cnyPct;
+  }
+  if (used <= 0) return null;
+  const holdingsPct = holdingsSumWC / 100;
   const fxContribution = fxUsdContribution + fxHkdContribution;
+  const totalPct = totalSumWC / 100;
   return {
     holdingsPct,
     fxUsdPct,
@@ -496,7 +533,7 @@ export function computeHoldingsImpactBreakdown(holdings, fxStrip, opts = {}) {
     fxContribution,
     usdWeight,
     hkdWeight,
-    totalPct: holdingsPct + fxContribution,
+    totalPct,
   };
 }
 
@@ -540,8 +577,5 @@ export function estimateFromHoldingsWithFx(holdings, fxStrip, opts = {}) {
 
 /** @deprecated 整包加 FX；新代码请用 estimateFromHoldingsWithFx */
 export function estimateWithFx(holdingsPct, fxPct, usdWeightPct = 100) {
-  if (holdingsPct == null || !Number.isFinite(holdingsPct)) return null;
-  const fx = fxPct != null && Number.isFinite(fxPct) ? fxPct : 0;
-  const ratio = Number.isFinite(usdWeightPct) ? usdWeightPct / 100 : 1;
-  return holdingsPct + fx * ratio;
+  return combineLocalAndFxPct(holdingsPct, fxPct, usdWeightPct);
 }

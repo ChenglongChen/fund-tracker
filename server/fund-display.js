@@ -109,6 +109,7 @@ export function buildDisplayFundRow(f, impactRaw, navInfo, beijingDate, now) {
     holdingsImpactPct: impactRaw.holdingsImpactPct ?? null,
     fundgzImpactPct: impactRaw.fundgzImpactPct ?? null,
     impactBreakdown: impactRaw.impactBreakdown ?? null,
+    valuationParts: impactRaw.valuationParts ?? null,
     hasRegularHolding: impactRaw.hasRegularHolding ?? false,
     shouldRefreshLiveRt1: impactRaw.shouldRefreshLiveRt1 ?? false,
     officialNavDate: navInfo?.pdate ?? null,
