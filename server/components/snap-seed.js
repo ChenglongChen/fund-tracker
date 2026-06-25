@@ -28,6 +28,26 @@ function healBaselineFromReadySnap(accrualDay, now) {
   }
 }
 
+/**
+ * day_open snap 的 per-fund 正盘涨跌幅是否已偏离 live（用于修复冷启动 seed 时
+ * 行情/汇率未就绪而冻结的 stale 值，如指数型 NDX 0.75 缺汇率 → live 已 0.96）。
+ * settle 只改 amount 不改 impactPctRegular，故不会触发，避免入账期 re-seed 抖动。
+ */
+function dayOpenSnapRegularDrifted(existing, liveFunds) {
+  const fundsSnap = existing?.funds;
+  if (!fundsSnap) return false;
+  for (const row of liveFunds) {
+    const snapEntry = fundsSnap[row.id];
+    if (!snapEntry) continue;
+    const snapPct = snapEntry.impactPctRegular;
+    const livePct = row.impactPctRegular;
+    if (snapPct == null || livePct == null) continue;
+    if (!Number.isFinite(snapPct) || !Number.isFinite(livePct)) continue;
+    if (Math.abs(snapPct - livePct) > 0.02) return true;
+  }
+  return false;
+}
+
 /** 16:00 eod_freeze snap 已就绪（非 day_open / 非 provisional）。 */
 function hasReadyEodFreezeSnap(existing, now, accrualDay) {
   return (
@@ -114,7 +134,8 @@ export function reconcileDisplayState(
       !existing ||
       existing.seedPhase === 'us_regular_live' ||
       (existing.seedPhase !== 'day_open' && !isScopeSnapReady(existing)) ||
-      (existing.seedPhase === 'day_open' && inUsCloseSettleWindow);
+      (existing.seedPhase === 'day_open' &&
+        (inUsCloseSettleWindow || dayOpenSnapRegularDrifted(existing, liveFunds)));
     if (needsDayOpenSnap) {
       const keepBaseline =
         existing?.seedPhase === 'day_open' ? getBaselineForDay(accrualDay, 'portfolio') : null;

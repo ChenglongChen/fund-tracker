@@ -50,8 +50,15 @@ const s2 = reconcileAt(t0420, 0.75);
 assert.ok(Math.abs(s2.funds[1].rt1 - 750) < 1, `04:20 rt1 应收敛到 ≈750, got ${s2.funds[1].rt1}`);
 assert.equal(getBaselineForDay(accrualDay, 'portfolio'), baseline0, '结算窗口 re-seed 须保留 B[D]');
 
-// 05:00 窗口外：即便指数再变（0.90），snap 冻结不跟
+// 05:00 窗口外但正盘涨跌幅漂移（如冷启动缺汇率 0.75 → 汇率到位 0.90）：drift-heal 应 re-seed 跟进
 const s3 = reconcileAt(t0500, 0.9);
-assert.ok(Math.abs(s3.funds[1].rt1 - 750) < 1, `05:00 应冻结在 750，got ${s3.funds[1].rt1}`);
+assert.ok(Math.abs(s3.funds[1].rt1 - 900) < 1, `05:00 regular 漂移应 drift-heal 到 ≈900，got ${s3.funds[1].rt1}`);
+assert.equal(getBaselineForDay(accrualDay, 'portfolio'), baseline0, 'drift-heal 须保留 B[D]');
+
+// 05:30 同 0.90（无漂移）但 amount 变化（模拟 settle 入账）：impactPctRegular 不变 → 不 re-seed
+portfolio.funds[0].amount = 105000;
+const s4 = reconcileAt(t0500, 0.9);
+assert.ok(Math.abs(s4.funds[1].rt1 - 900) < 1, `settle(仅 amount 变) 不应触发 re-seed，rt1 仍 ≈900，got ${s4.funds[1].rt1}`);
+assert.equal(getBaselineForDay(accrualDay, 'portfolio'), baseline0, 'settle 不得改 B[D]');
 
 console.log('day-open-settle-window tests: passed');
