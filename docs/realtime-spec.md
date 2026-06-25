@@ -120,6 +120,8 @@ snap 阶段见 §2.1 表格（header **`B[D] + RT1`**，per-fund **`amountAtSnap
 
 美股正盘收市后至亚太开盘前：与 EOD 对称，读 **`eodSnap`**（04:00 边界 seed 或沿用），header RT1/EST 同为 **snap 口径**（§2.1）。
 
+**美股收盘结算窗口（04:00–04:45）**：美股 04:00 收市后，指数/个股最终收盘价（含收盘集合竞价）通常 ~04:15–04:30 才结算到位，Sina 行情在 04:00 一刻仍是未结算值（如 NDX 0.61 而非最终 0.75）。因此 day_open snap 在 **04:00–04:45 结算窗口内每 tick re-seed**，让 per-fund `rt1` 收敛到最终收盘；**04:45 后冻结**。re-seed 传 `baselineOverride` 保留首次冻结的 `B[D]`，避免窗口内 settle 误抬 baseline。实现：`reconcileDisplayState` day_open 分支（`components/snap-seed.js`，`BJ_US_CLOSE_SETTLE_END_MIN`）；测试 `server/day-open-settle-window.test.js`。
+
 ### 规则 7 — 逐基金正盘门控（row1 / 穿透）
 
 **适用**：`asia_live` / `eod_freeze` / `day_open`（**不含** `us_regular_live`——正盘时 `applyFundRt1Snap` 一律 live）。

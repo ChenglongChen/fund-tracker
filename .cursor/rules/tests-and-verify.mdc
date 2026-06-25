@@ -13,7 +13,7 @@ npm run test:regression
 npm run build   # 动 src/
 ```
 
-串联 26 组（见 `package.json`）：核心 RT1/EST/snap/穿透（`test:fund-estimate`、`test:realtime-profit`、`test:display-session`、`test:display-state`、`test:live-pipeline`、`test:realtime-display-pipeline`、`test:phase-transition`、`test:timeline-audit`、`test:fund-holding-fields`、`test:fund-regular-eligibility`、`test:holdings-rt1`、`test:scope-totals`、`test:holding-market`、`test:market-session`）+ 展示/估值/日历（`test:nav-display`、`test:table-head`、`test:day-display-baseline`、`test:fund-metrics-live`、`test:impact-snapshots`、`test:weight-model`、`test:market-indices`、`test:gb-quote-parse`、`test:live-view-model`、`test:profit-calendar`、`test:qdii-valuation`、`test:api-contract`）。网络型测试（`quotes`/`asia-quotes`/`kabutan-quotes`）不入回归。
+串联 27 组（见 `package.json`）：核心 RT1/EST/snap/穿透（`test:fund-estimate`、`test:realtime-profit`、`test:display-session`、`test:display-state`、`test:live-pipeline`、`test:realtime-display-pipeline`、`test:phase-transition`、`test:timeline-audit`、`test:fund-holding-fields`、`test:fund-regular-eligibility`、`test:holdings-rt1`、`test:scope-totals`、`test:holding-market`、`test:market-session`）+ 展示/估值/日历（`test:nav-display`、`test:table-head`、`test:day-display-baseline`、`test:fund-metrics-live`、`test:impact-snapshots`、`test:weight-model`、`test:market-indices`、`test:gb-quote-parse`、`test:live-view-model`、`test:profit-calendar`、`test:qdii-valuation`、`test:api-contract`）。网络型测试（`quotes`/`asia-quotes`/`kabutan-quotes`）不入回归。
 
 **Agent 完成 RT1/EST/snap/穿透相关任务前必须执行 `test:regression` 并确认全绿。**
 

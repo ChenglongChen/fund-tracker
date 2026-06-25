@@ -1,5 +1,8 @@
-import { beijingIsoString } from '../time.js';
+import { beijingIsoString, beijingMinutesOfDay } from '../time.js';
 import { resolveDisplaySession, toDisplayStatePayload } from '../display-session.js';
+
+/** 美股收盘结算窗口结束（北京 04:45）：04:00–04:45 内 day_open snap 持续 re-seed 以收敛最终收盘，之后冻结 */
+const BJ_US_CLOSE_SETTLE_END_MIN = 4 * 60 + 45;
 import {
   ensureDayBaseline,
   getBaselineForDay,
@@ -52,6 +55,7 @@ function seedEodSnap(
   impactRawList,
   now,
   seedPhase,
+  baselineOverride = null,
 ) {
   /** @type {Record<string, object>} */
   const fundsSnap = {};
@@ -63,16 +67,18 @@ function seedEodSnap(
     fundsSnap[f.id] = buildFundSnapEntry(f, liveRow, raw, market, now);
   }
   const rt1 = round2(Object.values(fundsSnap).reduce((s, entry) => s + (entry.rt1 ?? 0), 0));
-  const frozenBaseline = round2(
-    Object.values(fundsSnap).reduce((s, entry) => s + (entry.amountAtSnap ?? 0), 0),
-  );
-  // snap seed 冻结 B[D]=Σ amountAtSnap；入账后 baseline 不得再随 NAV 漂移
-  setBaselineForDay(accrualDay, 'portfolio', frozenBaseline);
+  // snap seed 冻结 B[D]=Σ amountAtSnap；入账后 baseline 不得再随 NAV 漂移。
+  // 美股收盘结算窗口内 re-seed 时传入 baselineOverride 以保留首次冻结的 B[D]（仅 rt1 收敛到最终收盘）。
+  const baseline =
+    baselineOverride != null && Number.isFinite(baselineOverride)
+      ? baselineOverride
+      : round2(Object.values(fundsSnap).reduce((s, entry) => s + (entry.amountAtSnap ?? 0), 0));
+  setBaselineForDay(accrualDay, 'portfolio', baseline);
   setScopeSnap(accrualDay, snapKey, 'portfolio', {
     at: beijingIsoString(now),
     seedPhase,
     rt1,
-    est: round2(frozenBaseline + rt1),
+    est: round2(baseline + rt1),
     funds: fundsSnap,
   });
 }
@@ -98,12 +104,20 @@ export function reconcileDisplayState(
 
   if (targetPhase === 'day_open') {
     const existing = getScopeSnap(accrualDay, 'eodSnap', 'portfolio');
-    // 04:00 首次写入；已有 day_open snap 不重复 seed（isScopeSnapReady 对 day_open 恒 false）
+    // 美股 04:00 收盘后，指数/个股最终收盘价（含收盘集合竞价）通常 ~04:15–04:30 才结算到位，
+    // Sina 行情 04:00 时仍是未结算值。仅在 04:00 一刻 seed 会冻结 pre-final（如 NDX 0.61 而非 0.75）。
+    // 结算窗口（04:00–BJ_US_CLOSE_SETTLE_END_MIN）内每 tick re-seed，让 rt1 收敛到最终收盘；
+    // 窗口外冻结。re-seed 保留首次 B[D]（baselineOverride），避免期间 settle 误抬 baseline。
+    const mins = beijingMinutesOfDay(now);
+    const inUsCloseSettleWindow = mins >= 4 * 60 && mins < BJ_US_CLOSE_SETTLE_END_MIN;
     const needsDayOpenSnap =
       !existing ||
       existing.seedPhase === 'us_regular_live' ||
-      (existing.seedPhase !== 'day_open' && !isScopeSnapReady(existing));
+      (existing.seedPhase !== 'day_open' && !isScopeSnapReady(existing)) ||
+      (existing.seedPhase === 'day_open' && inUsCloseSettleWindow);
     if (needsDayOpenSnap) {
+      const keepBaseline =
+        existing?.seedPhase === 'day_open' ? getBaselineForDay(accrualDay, 'portfolio') : null;
       if (existing) clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
       seedEodSnap(
         accrualDay,
@@ -114,6 +128,7 @@ export function reconcileDisplayState(
         impactRawList,
         now,
         targetPhase,
+        keepBaseline,
       );
     }
   } else if (snapKey === 'eodSnap' && targetPhase === 'eod_freeze') {
