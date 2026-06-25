@@ -101,10 +101,19 @@ export function parseIndexChangePct(raw, parse) {
   return parseIndexQuote(raw, parse).changePct;
 }
 
-/** @param {string} fxRaw */
+/**
+ * Sina 人民币外汇（fx_susdcny / fx_hkdcny，"在岸人民币"）行情无现成涨跌幅字段（旧版读 parts[11] 恒为 0），
+ * 由 现价 vs 昨收 计算：parts[1]=昨收，parts[3]=最新价（fallback parts[8]）。
+ * @param {string} fxRaw
+ */
 export function parseFxChangePct(fxRaw) {
   if (!fxRaw) return null;
   const parts = fxRaw.split(',');
-  const changePct = parseFloat(parts[11]);
-  return Number.isFinite(changePct) ? changePct : null;
+  const prevClose = parseFloat(parts[1]);
+  const current = Number.isFinite(parseFloat(parts[3])) ? parseFloat(parts[3]) : parseFloat(parts[8]);
+  if (Number.isFinite(prevClose) && prevClose > 0 && Number.isFinite(current)) {
+    const pct = ((current - prevClose) / prevClose) * 100;
+    if (Math.abs(pct) <= 5) return Math.round(pct * 10000) / 10000;
+  }
+  return null;
 }

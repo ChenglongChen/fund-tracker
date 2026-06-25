@@ -1,4 +1,4 @@
-import { parseIndexChangePct, parseIndexQuote } from './market-indices.js';
+import { parseIndexChangePct, parseIndexQuote, parseFxChangePct } from './market-indices.js';
 
 const ok = [];
 const fail = [];
@@ -25,6 +25,13 @@ assert('cn quote change', Math.abs(cnQuote.change + 0.7036) < 0.01);
 const hkQuote = parseIndexQuote(hkRaw, 'hk');
 assert('hk quote price', hkQuote.price === 25595.9);
 assert('hk quote change', hkQuote.change === -3.55);
+
+// Sina 在岸人民币：无现成涨跌幅字段，由 现价(parts[3]) vs 昨收(parts[1]) 计算
+const fxRaw =
+  '02:52:26,6.7892000000,6.8177000000,6.8034000000,277.0000000000,6.8101000000,6.8122000000,6.7845000000,6.8034000000,在岸人民币,0.0000,0.0000,0.0277,此行情由新浪财经计算得出,0.0000,0.0000,,2026-06-26';
+assert('fx parse non-zero', Math.abs(parseFxChangePct(fxRaw) - 0.2092) < 0.01);
+assert('fx empty -> null', parseFxChangePct('') === null);
+assert('fx insane -> null', parseFxChangePct('t,1.0,x,9.9,...') === null);
 
 console.log(`market-indices tests: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length) {
