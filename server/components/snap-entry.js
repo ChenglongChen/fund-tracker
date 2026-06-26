@@ -65,7 +65,13 @@ export function buildFundSnapEntry(fund, liveRow, impactRaw, market, now) {
     rt1: rt1Live != null ? round2(rt1Live) : null,
     rt2: rt2 != null ? round2(rt2) : null,
     amountAtSnap,
-    impactPctRegular: liveRow?.impactPctRegular ?? impactRaw?.impactPctRegular ?? null,
+    impactPctRegular:
+      liveRow?.impactPctRegular ??
+      liveRow?.impactPctRegularLive ??
+      liveRow?.rawImpactPct ??
+      impactRaw?.impactPctRegular ??
+      impactRaw?.impactPct ??
+      null,
     market,
   };
 }

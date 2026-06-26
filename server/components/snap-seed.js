@@ -40,17 +40,17 @@ function dayOpenSnapRegularDrifted(existing, liveFunds) {
     const snapEntry = fundsSnap[row.id];
     if (!snapEntry) continue;
     const snapPct = snapEntry.impactPctRegular;
-    const livePct = row.impactPctRegular;
-    if (snapPct == null || livePct == null) continue;
-    if (!Number.isFinite(snapPct) || !Number.isFinite(livePct)) continue;
-    if (Math.abs(snapPct - livePct) > 0.02) return true;
+    const livePct =
+      row.impactPctRegular ?? row.impactPctRegularLive ?? row.rawImpactPct ?? row.estimateImpactPct;
+    if (livePct == null || !Number.isFinite(livePct)) continue;
+    if (snapPct != null && Number.isFinite(snapPct) && Math.abs(snapPct - livePct) > 0.02) return true;
     if (
       snapEntry.rt1 != null &&
       snapEntry.amountAtSnap != null &&
       Number.isFinite(snapEntry.rt1) &&
       Number.isFinite(snapEntry.amountAtSnap)
     ) {
-      const expectedRt1 = round2((snapEntry.amountAtSnap * snapPct) / 100);
+      const expectedRt1 = round2((snapEntry.amountAtSnap * livePct) / 100);
       if (Math.abs(expectedRt1 - snapEntry.rt1) > 1) return true;
     }
   }
