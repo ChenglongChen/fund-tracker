@@ -21,11 +21,6 @@ const INDEX_DOCK_CAROUSEL = [
   { market: 'cn', label: '创业板' },
   { market: 'hk', label: '恒生' },
   { market: 'us', label: '纳斯达克100' },
-  { market: 'fx', label: '美元' },
-  { market: 'fx', label: '港币' },
-  { market: 'fx', label: '日元' },
-  { market: 'fx', label: '新币' },
-  { market: 'fx', label: '英镑' },
 ];
 
 export function showIndexTicker() {

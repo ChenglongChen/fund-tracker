@@ -643,7 +643,7 @@ export function resolveProxyIndexImpact(fundName, strip) {
   if (item?.changePct == null || !Number.isFinite(item.changePct)) return null;
   const impactSession = item?.quoteSession ?? 'closed';
   // 人民币 QDII 指数型：净值口径 = 指数涨跌 + 美元兑人民币汇率（美股指数 100% USD 暴露），与穿透型口径一致
-  const fxUsd = item.market === 'us' ? (strip.find((x) => x.label === '汇率')?.usd ?? 0) : 0;
+  const fxUsd = item.market === 'us' ? (resolveFxStripFromMarket(strip)?.usd ?? 0) : 0;
   const rawRegular =
     item?.changePctRegular != null && Number.isFinite(item.changePctRegular)
       ? item.changePctRegular

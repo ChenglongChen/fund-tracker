@@ -65,6 +65,13 @@ function hasReadyEodFreezeSnap(existing, now, accrualDay) {
   );
 }
 
+function isInvalidEarlyEodFreezeSnapForDayOpen(existing) {
+  if (existing?.seedPhase !== 'eod_freeze' || !existing.at) return false;
+  const mins = beijingMinutesOfDay(new Date(existing.at));
+  // eod_freeze snap 只能由 16:00-21:30 冻结窗口写入；00:00 美股仍在正盘，不应产生 snap。
+  return mins < 16 * 60 || mins >= 21 * 60 + 30;
+}
+
 /**
  * @param {string} accrualDay
  * @param {'eodSnap'} snapKey
@@ -142,12 +149,12 @@ export function reconcileDisplayState(
     const needsDayOpenSnap =
       !existing ||
       existing.seedPhase === 'us_regular_live' ||
+      isInvalidEarlyEodFreezeSnapForDayOpen(existing) ||
       (existing.seedPhase !== 'day_open' && !isScopeSnapReady(existing)) ||
-      (existing.seedPhase === 'day_open' &&
+      ((existing.seedPhase === 'day_open' || existing.seedPhase === 'eod_freeze') &&
         (inUsCloseSettleWindow || dayOpenSnapRegularDrifted(existing, liveFunds)));
     if (needsDayOpenSnap) {
-      const keepBaseline =
-        existing?.seedPhase === 'day_open' ? getBaselineForDay(accrualDay, 'portfolio') : null;
+      const keepBaseline = existing ? getBaselineForDay(accrualDay, 'portfolio') : null;
       if (existing) clearScopeSnap(accrualDay, 'eodSnap', 'portfolio');
       seedEodSnap(
         accrualDay,

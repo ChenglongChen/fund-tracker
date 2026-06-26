@@ -12,6 +12,7 @@ import {
   loadDayDisplayState,
   setBaselineForDay,
   setCurrentPhase,
+  setScopeSnap,
 } from './day-display-state.js';
 import { reconcileDisplayState } from './components/snap-seed.js';
 
@@ -62,7 +63,63 @@ s3.funds[1].rt1 = 750;
 const s3b = reconcileAt(t0500, 0.9);
 assert.ok(Math.abs(s3b.funds[1].rt1 - 900) < 1, `旧 holdings snap(rt1/pct 不一致) 应自动修复到 ≈900，got ${s3b.funds[1].rt1}`);
 
+// 旧 eod_freeze ready snap 进入 day_open 后也可能与最终美股收盘漂移（如 00:00 冻结 -0.41，06:00 live 已 -1.09）。
+// day_open 读取 eodSnap 时必须 drift-heal，否则 INDEX 型 row1 会停在旧 snap。
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  at: '2026-06-26T00:00:01+08:00',
+  seedPhase: 'eod_freeze',
+  rt1: -410,
+  est: 99590,
+  funds: {
+    1: {
+      rt1: -410,
+      rt2: null,
+      amountAtSnap: 100000,
+      impactPctRegular: -0.41,
+      market: 'us',
+    },
+  },
+});
+const s3c = reconcileAt(t0500, -1.09);
+assert.ok(Math.abs(s3c.funds[1].rt1 + 1090) < 1, `day_open 旧 eod_freeze snap 应 drift-heal 到 ≈-1090，got ${s3c.funds[1].rt1}`);
+assert.equal(getBaselineForDay(accrualDay, 'portfolio'), baseline0, '旧 eod_freeze drift-heal 须保留 B[D]');
+
+// 00:00 仍是美股正盘，不应产生 eod_freeze snap；即使数值暂时一致，也要在 day_open 清掉重种。
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  at: '2026-06-26T00:00:01+08:00',
+  seedPhase: 'eod_freeze',
+  rt1: 900,
+  est: 100900,
+  funds: {
+    1: {
+      rt1: 900,
+      rt2: null,
+      amountAtSnap: 100000,
+      impactPctRegular: 0.9,
+      market: 'us',
+    },
+  },
+});
+const s3d = reconcileAt(t0500, 0.9);
+assert.equal(s3d.seedPhase, 'day_open', '00:00 eod_freeze snap 非法，day_open 应重种为 day_open snap');
+
 // 05:30 同 0.90（无漂移）但 amount 变化（模拟 settle 入账）：impactPctRegular 不变 → 不 re-seed
+portfolio.funds[0].amount = 100000;
+setScopeSnap(accrualDay, 'eodSnap', 'portfolio', {
+  at: '2026-06-26T05:00:00+08:00',
+  seedPhase: 'day_open',
+  rt1: 900,
+  est: 100900,
+  funds: {
+    1: {
+      rt1: 900,
+      rt2: null,
+      amountAtSnap: 100000,
+      impactPctRegular: 0.9,
+      market: 'us',
+    },
+  },
+});
 portfolio.funds[0].amount = 105000;
 const s4 = reconcileAt(t0500, 0.9);
 assert.ok(Math.abs(s4.funds[1].rt1 - 900) < 1, `settle(仅 amount 变) 不应触发 re-seed，rt1 仍 ≈900，got ${s4.funds[1].rt1}`);
