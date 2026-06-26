@@ -21,6 +21,11 @@ const INDEX_DOCK_CAROUSEL = [
   { market: 'cn', label: '创业板' },
   { market: 'hk', label: '恒生' },
   { market: 'us', label: '纳斯达克100' },
+  { market: 'fx', label: '美元' },
+  { market: 'fx', label: '港币' },
+  { market: 'fx', label: '日元' },
+  { market: 'fx', label: '新币' },
+  { market: 'fx', label: '英镑' },
 ];
 
 export function showIndexTicker() {
@@ -36,6 +41,12 @@ function dockCarouselIndices() {
 }
 
 function dockIndexShortLabel(label) {
+  if (label === '美元') return '美元/CNY';
+  if (label === '港币') return '港币/CNY';
+  if (label === '日元') return '日元/CNY';
+  if (label === '欧元') return '欧元/CNY';
+  if (label === '新币') return '新币/CNY';
+  if (label === '英镑') return '英镑/CNY';
   if (label === '纳斯达克100') return '纳指100';
   if (label === '纳斯达克') return '纳指';
   if (label === '沪深300') return '沪深300';

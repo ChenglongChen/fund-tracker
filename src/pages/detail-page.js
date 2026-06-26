@@ -193,7 +193,11 @@ function detailValuationBasis() {
 
 function detailValuationPartsText() {
   const { row } = detailBundle();
-  const parts = app().state.detail?.valuationParts ?? row?.valuationParts ?? null;
+  const source = row?.impactSource ?? app().state.detail?.impactSource ?? null;
+  if (source === 'holdings' || source === 'ensemble') {
+    return '人民币口径 · 含汇率';
+  }
+  const parts = row?.valuationParts ?? app().state.detail?.valuationParts ?? null;
   const base = parts?.basePct;
   const fx = parts?.fxPct;
   if (base == null || fx == null || !Number.isFinite(Number(base)) || !Number.isFinite(Number(fx))) {

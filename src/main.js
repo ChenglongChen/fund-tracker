@@ -165,8 +165,8 @@ const state = {
   metricColumnVisible: loadMetricColumnVisible(),
   nameSubline: loadNameSubline(),
   hideAssets: loadHideAssets(),
-  sortKey: 'name',
-  sortDir: 'asc',
+  sortKey: 'share',
+  sortDir: 'desc',
   holdingsSortKey: 'weight',
   holdingsSortDir: 'desc',
   indexDrawerOpen: false,
@@ -1768,6 +1768,8 @@ async function loadDetailPenetration(code) {
     note: detail.note ?? '',
     quoteCoverage: detail.quoteCoverage ?? null,
     valuationConfidence: detail.valuationConfidence ?? null,
+    valuationBasis: detail.valuationBasis ?? row?.valuationBasis ?? null,
+    valuationParts: detail.valuationParts ?? row?.valuationParts ?? null,
     impactSource: detail.impactSource ?? null,
   };
 }

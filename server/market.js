@@ -144,10 +144,11 @@ export {
 
 /** @param {object[]} strip */
 export function resolveFxStripFromMarket(strip) {
-  const fxRow = strip?.find?.((x) => x.label === '汇率' || x.market === 'fx');
+  const fxRow = strip?.find?.((x) => x.label === '汇率') ?? strip?.find?.((x) => x.label === '美元');
+  const hkdRow = strip?.find?.((x) => x.label === '港币');
   if (!fxRow) return null;
   const usd = fxRow.usd ?? fxRow.changePct ?? null;
-  const hkd = fxRow.hkd ?? null;
+  const hkd = fxRow.hkd ?? hkdRow?.changePct ?? null;
   return {
     usd,
     hkd,
@@ -209,7 +210,15 @@ export async function fetchSinaQuotes(fetchCodes) {
 let lastGoodMarketStrip = null;
 
 export async function fetchMarketStrip(now = new Date()) {
-  const keys = [...MARKET_STRIP_INDICES.map((i) => i.key), 'fx_susdcny', 'fx_hkdcny', 'gb_qqq'];
+  const fxDefs = [
+    { key: 'fx_susdcny', label: '美元' },
+    { key: 'fx_shkdcny', label: '港币' },
+    { key: 'fx_sjpycny', label: '日元' },
+    { key: 'fx_seurcny', label: '欧元' },
+    { key: 'fx_ssgdcny', label: '新币' },
+    { key: 'fx_sgbpcny', label: '英镑' },
+  ];
+  const keys = [...MARKET_STRIP_INDICES.map((i) => i.key), ...fxDefs.map((i) => i.key), 'gb_qqq'];
   const url = `${SINA_ORIGIN}/list=${keys.join(',')}`;
   let text;
   try {
@@ -228,18 +237,12 @@ export async function fetchMarketStrip(now = new Date()) {
     return { label, market, ...quote };
   });
 
-  const fxUsdRaw = extractQuotedVar(text, 'hq_str_fx_susdcny');
-  const fxHkdRaw = extractQuotedVar(text, 'hq_str_fx_hkdcny');
-  const usdPct = parseFxChangePct(fxUsdRaw);
-  const hkdPct = parseFxChangePct(fxHkdRaw);
-  const fx = {
-    label: '汇率',
-    changePct: usdPct,
-    usd: usdPct,
-    hkd: hkdPct != null ? hkdPct : usdPct != null ? usdPct * 0.85 : null,
-    market: 'fx',
-  };
-  lastGoodMarketStrip = [...indices, fx];
+  const fxRows = fxDefs.map(({ key, label }) => {
+    const raw = extractQuotedVar(text, `hq_str_${key}`);
+    return { label, changePct: parseFxChangePct(raw), market: 'fx' };
+  });
+  // UI 只展示具体币种；内部 fxPct 由 resolveFxStripFromMarket 从“美元/港币”等 rows 解析。
+  lastGoodMarketStrip = [...indices, ...fxRows];
   return applySessionMarketStrip(lastGoodMarketStrip, now);
 }
 
@@ -487,6 +490,11 @@ async function resolveFundImpactWithQuotes(
     return attachFundEligibility(fund, merged, pack, cachedSource, now);
   }
   if (cachedSource === 'fundgz') {
+    if (shouldPreferHoldingsImpact(r, fundName, profile) || (strategy === 'holdings' && isHoldingsUsable(r))) {
+      const gz = await fetchFundGz(code);
+      const merged = applyHoldingsEnsemble({ ...r, impactSource: 'holdings' }, gz, pack, now);
+      return attachFundEligibility(fund, merged, pack, cachedSource, now);
+    }
     const gz = await fetchFundGz(code);
     if (gz?.gszzl != null && Number.isFinite(gz.gszzl)) {
       return attachFundEligibility(

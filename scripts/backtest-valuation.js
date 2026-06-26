@@ -19,7 +19,7 @@ import {
 } from '../server/market.js';
 import { getProxyCandidates } from '../server/valuation-profile.js';
 import { blendEnsembleImpact, ensembleAlpha, reportAgeDays } from '../server/qdii-valuation.js';
-import { computeHoldingsImpactBreakdown } from '../server/holdings-pipeline.js';
+import { combineLocalAndFxPct, computeHoldingsImpactBreakdown } from '../server/holdings-pipeline.js';
 import { beijingDateString } from '../server/time.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -177,7 +177,7 @@ function alignIndex(history, indexMap, fxMap, withFx) {
     let pred = idx;
     if (withFx && fxMap) {
       const fx = lookupIndex(fxMap, row.date) ?? 0;
-      pred = idx + fx;
+      pred = combineLocalAndFxPct(idx, fx) ?? idx;
     }
     out.push({ date: row.date, truth: row.pct, pred });
   }
