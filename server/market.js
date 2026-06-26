@@ -256,6 +256,7 @@ function emptyHoldingsImpact(pack) {
     holdings: [],
     weightCoverage: 0,
     quoteCoverage: 0,
+    displayQuoteCoverage: 0,
     usdWeight: 0,
     quotedCount: 0,
     hasRegularHolding: false,
@@ -295,6 +296,7 @@ function computeFundImpactFromPack(pack, fxStrip, byHoldingKey, now) {
     impactBreakdown,
     holdingsImpactPct,
     penetrationQuoteCoverage: penetrationCov.quoteCoverage,
+    displayQuoteCoverage: penetrationCov.displayQuoteCoverage,
     reportDate: pack.reportDate,
     recentReportDate: pack.recentReportDate,
     annualReportDate: pack.annualReportDate,
@@ -809,9 +811,14 @@ export async function refreshFundHoldingsDisplay(result, now = new Date()) {
 
   const quoted = sortHoldingsByWeight(applySessionQuotes(holdings, byHoldingKey, now));
   const hasRegularHolding = fundHasRegularHolding(quoted, now);
+  const cov = summarizeHoldingsCoverage(quoted, {});
   return {
     ...result,
     holdings: maskHoldingsForLiveRt1Display(quoted, hasRegularHolding, now),
+    weightCoverage: cov.weightCoverage,
+    quoteCoverage: cov.quoteCoverage,
+    displayQuoteCoverage: cov.displayQuoteCoverage,
+    quotedCount: cov.quotedCount,
   };
 }
 

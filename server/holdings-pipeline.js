@@ -540,10 +540,14 @@ export function computeHoldingsImpactBreakdown(holdings, fxStrip, opts = {}) {
 export function summarizeHoldingsCoverage(holdings, { liveRt1Only = false } = {}) {
   let weightCoverage = 0;
   let quoteCoverage = 0;
+  /** UI「穿透覆盖」：已解析且非 missing（含 preopen/close/live，不含仅缺行情） */
+  let displayQuoteCoverage = 0;
   let usdWeight = 0;
   let quotedCount = 0;
   const counts = liveRt1Only ? countsTowardLiveRt1 : countsTowardValuation;
   for (const h of holdings) {
+    if (!countsTowardValuation(h)) continue;
+    if (h.quoteMode !== 'missing') displayQuoteCoverage += h.weight;
     if (!counts(h)) continue;
     weightCoverage += h.weight;
     usdWeight += usdExposedWeight(h);
@@ -552,7 +556,7 @@ export function summarizeHoldingsCoverage(holdings, { liveRt1Only = false } = {}
       quotedCount += 1;
     }
   }
-  return { weightCoverage, quoteCoverage, usdWeight, quotedCount };
+  return { weightCoverage, quoteCoverage, displayQuoteCoverage, usdWeight, quotedCount };
 }
 
 export function estimateFromHoldings(holdings, { liveRt1Only = false } = {}) {

@@ -499,9 +499,10 @@ async function handler(req, res, port) {
       const recentQ = recent?.match(/-(\d{2})-/);
       const qNum = recentQ ? Math.ceil(parseInt(recentQ[1], 10) / 3) : null;
       const annualY = annual ? annual.slice(0, 4) : '';
+      const displayCov = r.displayQuoteCoverage ?? r.quoteCoverage;
       const cov =
-        r.quoteCoverage != null && Number.isFinite(r.quoteCoverage)
-          ? `，行情覆盖约 ${r.quoteCoverage.toFixed(0)}%`
+        displayCov != null && Number.isFinite(displayCov) && displayCov > 0
+          ? `，行情覆盖约 ${displayCov.toFixed(0)}%`
           : r.weightCoverage != null && Number.isFinite(r.weightCoverage)
             ? `，披露权重约 ${r.weightCoverage.toFixed(0)}%`
             : '';
@@ -527,7 +528,8 @@ async function handler(req, res, port) {
         fundgzImpactPct: r.fundgzImpactPct ?? null,
         impactBreakdown: r.impactBreakdown ?? null,
         valuationParts: r.valuationParts ?? null,
-        quoteCoverage: r.quoteCoverage ?? null,
+        quoteCoverage: r.displayQuoteCoverage ?? r.quoteCoverage ?? null,
+        rt1QuoteCoverage: r.quoteCoverage ?? null,
         valuationBasis: valuationBasisLabel(market, r.impactSource ?? null),
       });
     } catch (e) {
